@@ -690,6 +690,13 @@
     let purpleEnteredAtMs = -Infinity;
     let purpleFlickEligibleUntilMs = 0;
     let shakeIntensity = 0;
+    // Red (赫): the field hovers just above the pointing fingertip, damped follow like the orb.
+    const redAnchor = { x: 0, y: 0, valid: false };
+    const redFollow = { x: 0, y: 0, t: 0, init: false };
+    // After any technique fires, new triggers are locked out for a few seconds so the return
+    // swing of a fling can't chain straight into the next technique (Red -> Blue double fire).
+    const TECH_COOLDOWN_MS = 8000;
+    let techCooldownUntilMs = 0;
     // Gojo Blue (苍) detector: per-hand open -> fist -> open cycles.
     // Completing the cycle on either hand (one or both) arms a charge: a blue orb shrinks into a
     // spinning point in that hand instead of blooming immediately. The blast releases on a forward
@@ -1121,6 +1128,22 @@
             const shape = handShape(lm);
             handShapes.push(shape);
             const handScores = computeHandScores(lm, shape);
+
+            // Red hovers ~7cm past the pointing fingertip, along the index's own direction.
+            if (handScores.red >= 1) {
+                const tip = handPointToWorld(lm[8].x, lm[8].y);
+                const mcp = handPointToWorld(lm[5].x, lm[5].y);
+                const dx = tip.x - mcp.x;
+                const dy = tip.y - mcp.y;
+                const len = Math.hypot(dx, dy);
+                if (len > 0.001) {
+                    const gap = Math.min(9, Math.max(3, len * 0.9)); // index length ≈ 7cm
+                    redAnchor.x = tip.x + (dx / len) * gap;
+                    redAnchor.y = tip.y + (dy / len) * gap;
+                    redAnchor.valid = true;
+                }
+            }
+
             ACTIVE_GESTURES.forEach((tech) => {
                 if (!Object.prototype.hasOwnProperty.call(handScores, tech)) return;
                 frameScores[tech] = Math.max(frameScores[tech], handScores[tech]);
@@ -1191,9 +1214,11 @@
             // completing hand) and the charge itself decides when to release; Red is the
             // plain index-up rule from computeHandScores(), gated off while Blue is active.
             const gojoLocked = nowMs < gestureLockUntilMs;
+            const techCoolingDown = nowMs < techCooldownUntilMs;
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
-            } else if (gojoLocked) {
+            } else if (gojoLocked || techCoolingDown) {
+                // Fling-return swing must not arm the next technique; stages stay wiped.
                 resetBlueHandStates();
             } else {
                 const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
@@ -1206,8 +1231,9 @@
             // Blue is sequence-only in Gojo mode; the plain four-finger-spread rule is disabled.
             frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
             // Red must not hijack an armed charge or the release lock, so the two never fight:
-            // the charge owns the interaction until it releases.
-            if (blueCharge || gojoLocked) frameScores.red = 0;
+            // the charge owns the interaction until it releases. An ACTIVE Red is exempt
+            // (otherwise its own trigger cooldown would cut the field off mid-hold).
+            if (currentTech !== 'red' && (blueCharge || gojoLocked || techCoolingDown)) frameScores.red = 0;
         } else if (results.multiHandLandmarks.length === 2) {
             const a = results.multiHandLandmarks[0];
             const b = results.multiHandLandmarks[1];
@@ -1284,11 +1310,12 @@
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
         { foot: '构筑中大量粒子环绕光团，跟手移动、随手旋转' },
         { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放' },
-        { foot: '释放后演出约 2.5 秒，随后 2.5 秒内不触发任何术式' },
+        { foot: '释放后演出约 2.5 秒，随后 8 秒内不触发任何术式' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '单手食指向上指，其余三指收拢', tech: '赫' },
-        { foot: '食指伸出即持续展开红色斥力；收回或换姿势即退场' },
+        { foot: '红点悬在指尖上方约 5~10cm，跟手移动；收回或换姿势即退场' },
         { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
+        { foot: '任何术式触发后 8 秒冷却，防甩手回来时连锁误触' },
         { foot: '目前启用苍与赫；其余术式暂停触发，T 可手动预览' }
     ];
     const GUIDE_ALL = [
@@ -1438,6 +1465,7 @@
             `blueStages: ${Object.entries(blueHandStates).map(([k, s]) => k + ':' + s.stage).join(' ') || '-'}`,
             `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
             `gestureLock: ${Math.max(0, gestureLockUntilMs - nowMs).toFixed(0)}ms`,
+            `cooldown: ${Math.max(0, techCooldownUntilMs - nowMs).toFixed(0)}ms`,
             `charge: ${blueCharge ? `ON spd:${(blueCharge.lastSpeed || 0).toFixed(2)} gro:${(blueCharge.lastGrowth || 0).toFixed(2)}` : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
@@ -1474,6 +1502,10 @@
 
     function commitTransition(nextGesture, nowMs) {
         resetChallenger();
+        // Entering any real technique starts the anti-chain cooldown (manual previews bypass this).
+        if (nextGesture !== 'neutral' && nextGesture !== 'flick') {
+            techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + TECH_COOLDOWN_MS);
+        }
         return nextGesture;
     }
 
@@ -1913,6 +1945,33 @@
         } else {
             particles.rotation.y += 0.005;
         }
+
+        // Red (赫): the field rides above the pointing fingertip; ease back to center once Red ends.
+        if (currentTech === 'red' && redAnchor.valid) {
+            if (!redFollow.init) {
+                redFollow.x = redAnchor.x;
+                redFollow.y = redAnchor.y;
+                redFollow.init = true;
+            } else {
+                const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - redFollow.t) / 1000));
+                const k = 1 - Math.exp(-dtSec / 0.11);
+                redFollow.x += (redAnchor.x - redFollow.x) * k;
+                redFollow.y += (redAnchor.y - redFollow.y) * k;
+            }
+            redFollow.t = nowMs;
+        } else if (redFollow.init) {
+            const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - redFollow.t) / 1000));
+            const k = 1 - Math.exp(-dtSec / 0.11);
+            redFollow.x -= redFollow.x * k;
+            redFollow.y -= redFollow.y * k;
+            redFollow.t = nowMs;
+            if (Math.hypot(redFollow.x, redFollow.y) < 0.05) {
+                redFollow.x = 0;
+                redFollow.y = 0;
+                redFollow.init = false;
+            }
+        }
+        particles.position.set(redFollow.x, redFollow.y, 0);
 
         composer.render();
     }

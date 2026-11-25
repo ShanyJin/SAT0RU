@@ -87,8 +87,17 @@
             // --- 赫: index finger pointing up ---
             step(red1(0.5), 25); mark('red pointing shows', 'red');
             step([], 20); mark('red releases on drop', 'neutral');
-            step(RED2, 20); mark('red two hands', 'red');
-            step([], 30);
+            // The anti-chain cooldown blocks an immediate re-trigger.
+            step(red1(0.5), 20); mark('red cooldown blocks retrigger', 'neutral');
+            // The reported bug: the return swing after a Red fling must not arm Blue either.
+            step(open1(0.5), 8);
+            step(fist1(0.5), 6);
+            step(open1(0.5), 6);
+            markState('blue blocked by red cooldown', 'idle', blueCharge ? 'charge' : 'idle');
+            step([], 180); // drain the rest of the cooldown
+            // Red works again once the cooldown expires (two pointing hands also reach Red).
+            step(RED2, 25); mark('red after cooldown', 'red');
+            step([], 260); // drain again before the Blue suite
 
             // --- 苍1: single hand cycle arms a charge instead of blooming ---
             step(open1(0.5), 8);
@@ -118,7 +127,7 @@
 
             step(RED2, 40); mark('anim: other gestures ignored', 'blue');
             step(RED2, 60); mark('cooldown: red ignored', 'neutral');
-            step([], 60);
+            step([], 190); // drain the post-release cooldown
 
             // --- 苍2: two hands arm one charge; losing tracking releases ---
             step(OPEN2, 8);
@@ -127,7 +136,7 @@
             markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
             step([], 24);
             mark('tracking loss releases', 'blue');
-            step([], 160);
+            step([], 250); // drain the post-release cooldown
 
             // --- 合掌: bringing the palms together releases ---
             step(OPEN2, 8);
@@ -136,7 +145,7 @@
             markState('palms charge armed', 'charge', blueCharge ? 'charge' : 'idle');
             step([mkHand(0.44, 0.75, OPEN_PTS), mkHand(0.56, 0.75, OPEN_PTS)], 6);
             mark('palms together releases', 'blue');
-            step([], 160);
+            step([], 250); // drain the post-release cooldown
 
             // --- no false triggers ---
             step(OPEN2, 20); mark('open only no trigger', 'neutral');
