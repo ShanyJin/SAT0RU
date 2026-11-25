@@ -4,116 +4,59 @@
     <meta charset="UTF-8">
     <title>JJK: Cursed Technique</title>
     <style>
-        body { margin: 0; overflow: hidden; background-color: #000; font-family: 'Courier New', sans-serif; }
-    
-        #ui {
-            position: absolute;
-            top: 10%;
-            width: 100%;
-            text-align: center;
-            color: #fff;
-            pointer-events: none;
-            z-index: 10;
+        :root{
+            --bg-base:#202020; --bg-acrylic:rgba(30,30,32,.55);
+            --bg-surface:rgba(255,255,255,.04); --bg-surface-hover:rgba(255,255,255,.08);
+            --accent:#D8A657; --accent-hover:#E4B76B; --accent-active:#C99646; --accent-soft:rgba(216,166,87,.16);
+            --text-primary:#fff; --text-secondary:rgba(255,255,255,.7); --text-tertiary:rgba(255,255,255,.5);
+            --stroke:rgba(255,255,255,.08); --stroke-light:rgba(255,255,255,.12);
+            --radius-sm:4px; --radius-md:8px; --radius-lg:12px; --radius-pill:999px;
+            --blur:20px; --shadow-sm:0 2px 8px rgba(0,0,0,.15); --shadow-md:0 8px 24px rgba(0,0,0,.2);
+            --font:"Segoe UI Variable Text","Segoe UI",-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Noto Sans CJK SC",sans-serif;
+            --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
         }
-        
-        h1 { 
-            font-size: 3rem; margin: 0; letter-spacing: 10px; 
-            font-weight: 900; 
-            text-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
-            background: linear-gradient(to bottom, #fff, #888);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
-        
-        #technique-name { 
-            font-size: 1.2rem; color: #00ffff; margin-top: 15px; 
-            font-weight: bold; letter-spacing: 4px;
-            text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
-        }
+        html[data-accent="cyan"]{ --accent:#66CCFF; --accent-hover:#80D6FF; --accent-active:#4DB8EB; --accent-soft:rgba(102,204,255,.16); }
 
-        /* Large Centered Camera Hub - Taller for Reel Context */
-        #video-container {
-            position: absolute;
-            bottom: 2%;
-            left: 18%;
-            transform: translateX(-50%) scaleX(-1);
-            width: 85vw;
-            max-width: 450px;
-            height: 42vh; 
-            border: 2px solid rgba(255, 255, 255, 0.2);
-            z-index: 20;
-            background-color: #000; 
-            border-radius: 25px;
-            overflow: hidden;
-            box-shadow: 0 0 40px rgba(0,0,0,0.9);
-        }
+        body { margin: 0; overflow: hidden; height: 100vh; background: var(--bg-base); color: var(--text-primary); font-family: var(--font); }
 
-        video { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
-        #output_canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
-
+        /* Camera stage: feed and particles share one full-bleed layer. */
+        .input_video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: .92; z-index: 0; background: var(--bg-base); }
+        .stage-shade { position: fixed; inset: 0; z-index: 1; pointer-events: none;
+            background: linear-gradient(to bottom, rgba(18,18,20,.55), rgba(18,18,20,.12) 140px, rgba(18,18,20,0) 320px),
+                        radial-gradient(ellipse at center, rgba(18,18,20,0) 55%, rgba(18,18,20,.42) 100%); }
+        #output_canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 2; pointer-events: none; }
+        #three-canvas { position: fixed; inset: 0; z-index: 3; mix-blend-mode: screen; pointer-events: none; }
         #grain {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 5;
+            position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: .05;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
         }
 
-        #debug-panel {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            z-index: 50;
-            display: none;
-            min-width: 280px;
-            padding: 10px 12px;
-            border: 1px solid rgba(0, 255, 255, 0.35);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.75);
-            color: #b9ffff;
-            font: 12px/1.35 "Courier New", monospace;
-            white-space: pre;
-            pointer-events: none;
-        }
+        /* Top bar */
+        #ui { position: fixed; top: 0; left: 0; right: 0; height: 56px; box-sizing: border-box; z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 16px; background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border-bottom: 1px solid var(--stroke); box-shadow: var(--shadow-sm); pointer-events: none; }
+        #ui h1 { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .02em; color: var(--text-primary); }
+        #ui h1 .sub { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
+        #technique-name { font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(216,166,87,.28); border-radius: var(--radius-pill); padding: 6px 12px; white-space: nowrap; }
 
-        #bg-audio {
-            display: none;
-        }
+        /* Left rail: keybinds + gesture guide */
+        #left-rail { position: fixed; top: 68px; left: 16px; z-index: 90; display: flex; flex-direction: column; gap: 12px; width: 300px; max-height: calc(100vh - 84px); pointer-events: none; }
+        #keybind-menu, #gesture-guide, #debug-panel { background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border: 1px solid var(--stroke); border-top-color: var(--stroke-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+        #keybind-menu { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; }
+        #gesture-guide { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; overflow: hidden; }
+        #debug-panel { position: fixed; top: 68px; right: 16px; z-index: 90; display: none; box-sizing: border-box; width: 300px; max-height: calc(100vh - 84px); padding: 12px 14px; color: var(--text-secondary); font: 12px/1.45 var(--mono); white-space: pre; overflow: hidden; pointer-events: none; }
 
-        #keybind-menu {
-            position: absolute;
-            top: 12px;
-            left: 12px;
-            z-index: 50;
-            min-width: 240px;
-            padding: 10px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.62);
-            color: #f0f7ff;
-            font: 12px/1.35 "Courier New", monospace;
-            white-space: pre;
-            pointer-events: none;
-        }
-
-        #gesture-guide {
-            position: absolute;
-            top: 168px;
-            left: 12px;
-            z-index: 50;
-            min-width: 300px;
-            padding: 10px 12px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 8px;
-            background: rgba(0, 0, 0, 0.62);
-            color: #e8f4ff;
-            font: 12px/1.35 "Courier New", monospace;
-            white-space: pre;
-            pointer-events: none;
-        }
+        .panel-title { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 8px; }
+        .kb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
+        .kb-key { font: 500 11px/1 var(--mono); color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: var(--radius-sm); padding: 3px 6px; min-width: 14px; text-align: center; }
+        .kb-label { flex: 1; color: var(--text-secondary); }
+        .kb-value { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+        .guide-sep { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin: 8px 0 2px; }
+        .guide-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
+        .guide-gesture { font-size: 12px; color: var(--text-secondary); }
+        .guide-tech { font-size: 12px; font-weight: 500; color: var(--text-primary); text-align: right; }
+        .guide-foot { margin-top: 8px; font-size: 11px; line-height: 1.5; color: var(--text-tertiary); }
 
         #idle-flash {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            pointer-events: none; z-index: 4;
+            position: fixed; inset: 0; pointer-events: none; z-index: 5;
             opacity: 0;
             background: radial-gradient(ellipse at center, rgba(80,0,120,0.3) 0%, transparent 70%);
             transition: opacity 0.5s ease;
@@ -127,19 +70,24 @@
         }
 
         #trigger-word-text {
-            font-size: 1.2rem;
-            color: #ff0000;
-            margin-top: 8px;
-            font-weight: bold;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+            position: fixed; left: 50%; top: 42%; transform: translateX(-50%); z-index: 120;
+            font-size: 44px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
+            color: var(--text-primary); text-shadow: 0 2px 24px rgba(0,0,0,.55);
+            pointer-events: none;
         }
         @keyframes flicker {
             0% { opacity: 1; } 50% { opacity: 1; } 75% { opacity: 1; }
             80% { opacity: 0; } 82% { opacity: 1; } 84% { opacity: 0; }
             88% { opacity: 1; } 90% { opacity: 0; } 92% { opacity: 1; }
             95% { opacity: 0; } 97% { opacity: 1; } 100% { opacity: 0; }
+        }
+
+        body.clean-mode #ui, body.clean-mode #left-rail, body.clean-mode #debug-panel, body.clean-mode #trigger-word-text { display: none !important; }
+
+        @media (max-width: 900px) {
+            #ui h1 .sub { display: none; }
+            #left-rail { width: min(300px, 48vw); }
+            #debug-panel { width: min(300px, 48vw); }
         }
     </style>
     
@@ -158,21 +106,22 @@
 <body>
     <audio id="bg-audio" src="ost.mp3" preload="auto" loop></audio>
 
+    <video class="input_video"></video>
+    <div class="stage-shade"></div>
+    <canvas id="output_canvas"></canvas>
     <div id="grain"></div>
     <div id="idle-flash"></div>
 
-    <div id="ui">
-        <h1>呪術廻戦</h1>
-        <div id="technique-name">CURSED ENERGY</div>
-        <div id="trigger-word-text"></div>
-    </div>
+    <header id="ui">
+        <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
+        <div id="technique-name">NEUTRAL STATE</div>
+    </header>
+    <div id="trigger-word-text"></div>
 
-    <div id="video-container">
-        <video class="input_video"></video>
-        <canvas id="output_canvas"></canvas>
+    <div id="left-rail">
+        <div id="keybind-menu"></div>
+        <div id="gesture-guide"></div>
     </div>
-    <div id="keybind-menu"></div>
-    <div id="gesture-guide"></div>
     <div id="debug-panel"></div>
 
 <script type="module">
@@ -187,6 +136,7 @@
     camera.position.z = 55;
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    renderer.domElement.id = 'three-canvas';
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.domElement.style.position = 'fixed';
@@ -671,7 +621,8 @@
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
     let musicEnabled = false;
     let keybindMenuVisible = true;
-    const KEYBINDS = { debug: 'D', music: 'M', menu: 'K', guide: 'H', cycle: 'T', voice: 'V', auto: 'N', opening: 'O' };
+    const KEYBINDS = { debug: 'D', music: 'M', menu: 'K', guide: 'H', cycle: 'T', voice: 'V', auto: 'N', opening: 'O', clean: 'C' };
+    let cleanMode = false;
     const gestureGuide = document.getElementById('gesture-guide');
     const triggerWordEl = document.getElementById('trigger-word-text');
     const idleFlash = document.getElementById('idle-flash');
@@ -805,8 +756,10 @@
 
         const handShapes = [];
         results.multiHandLandmarks.forEach((lm, handIdx) => {
-            drawConnectors(canvasCtx, lm, HAND_CONNECTIONS, { color: glowColor, lineWidth: 5 });
-            drawLandmarks(canvasCtx, lm, { color: '#fff', lineWidth: 1, radius: 2 });
+            if (debugEnabled) {
+                drawConnectors(canvasCtx, lm, HAND_CONNECTIONS, { color: glowColor, lineWidth: 5 });
+                drawLandmarks(canvasCtx, lm, { color: '#fff', lineWidth: 1, radius: 2 });
+            }
 
             const shape = handShape(lm);
             handShapes.push(shape);
@@ -877,12 +830,13 @@
         lastHandShapes = handShapes;
 
         if (MODE === 'gojo') {
-            // Gojo mode: two-hand domain sign + the Blue open>fist>open sequence.
-            // Sukuna-era two-hand gestures (shrine/divine/palace/...) stay in ?mode=all.
-            if (handShapes.length === 2 && handShapes.every((s) => s.indexUp === 1 && s.middleUp === 1 && s.ringUp === 0 && s.pinkyUp === 0)) {
-                // Ring/pinky must be folded, otherwise an open palm would read as the domain sign.
-                frameScores.void = Math.max(frameScores.void, 1);
-            }
+            // Gojo mode gesture set.
+            // Void needs BOTH hands in the crossed sign (ring/pinky folded);
+            // a single hand's index+middle is Red's second form (the "gun" pose).
+            const domainSign = (s) => s.indexUp === 1 && s.middleUp === 1 && s.ringUp === 0 && s.pinkyUp === 0;
+            const domainHands = handShapes.filter(domainSign).length;
+            frameScores.void = domainHands >= 2 ? 1 : 0;
+            if (domainHands === 1) frameScores.red = Math.max(frameScores.red, 1);
             if (updateBlueSequence(handShapes, nowMs)) {
                 bluePulseUntilMs = nowMs + BLUE_SEQ.pulseMs;
             }
@@ -944,55 +898,66 @@
 
     function updateKeybindMenu() {
         if (!keybindMenuVisible) return;
-        keybindMenu.textContent = [
-            `Keybinds (mode: ${MODE === 'gojo' ? 'GOJO' : 'ALL'})`,
-            `[${KEYBINDS.music}] Soundtrack: ${musicEnabled ? 'ON' : 'OFF'}`,
-            `[${KEYBINDS.debug}] Debug Panel: ${debugEnabled ? 'ON' : 'OFF'}`,
-            `[${KEYBINDS.guide}] Gesture Guide: ${guideVisible ? 'ON' : 'OFF'}`,
-            `[${KEYBINDS.voice}] Voice Cast: ${voiceStatus}`,
-            `[${KEYBINDS.cycle}] Cycle Technique (15s)`,
-            `[${KEYBINDS.auto}] Back to Gesture Mode`,
-            `[${KEYBINDS.opening}] Void Opening Cutscene`,
-            `[${KEYBINDS.menu}] This Menu: ON`
-        ].join('\n');
+        const rows = [
+            [KEYBINDS.music, 'Soundtrack', musicEnabled ? 'ON' : 'OFF'],
+            [KEYBINDS.debug, 'Debug Panel', debugEnabled ? 'ON' : 'OFF'],
+            [KEYBINDS.guide, 'Gesture Guide', guideVisible ? 'ON' : 'OFF'],
+            [KEYBINDS.voice, 'Voice Cast', voiceStatus],
+            [KEYBINDS.cycle, 'Cycle Technique', '15s'],
+            [KEYBINDS.auto, 'Back to Gesture Mode', ''],
+            [KEYBINDS.opening, 'Void Opening Cutscene', ''],
+            [KEYBINDS.clean, 'Clean Mode', cleanMode ? 'ON' : 'OFF'],
+            [KEYBINDS.menu, 'This Menu', 'ON']
+        ];
+        keybindMenu.innerHTML = `<div class="panel-title">Keybinds · ${MODE === 'gojo' ? 'GOJO' : 'ALL'}</div>`
+            + rows.map(([key, label, value]) => `<div class="kb-row"><span class="kb-key">${key}</span><span class="kb-label">${label}</span>${value ? `<span class="kb-value">${value}</span>` : ''}</div>`).join('');
     }
 
-    const GUIDE_TEXT = MODE === 'gojo' ? [
-        'GESTURE GUIDE - GOJO (H to hide)',
-        'index up               Reversal: Red',
-        'both hands open>fist>open  Lapse: Blue',
-        'pinch thumb+index      Hollow Purple',
-        'index+middle           Infinite Void',
-        'Purple held 1s + flick = Release',
-        '',
-        'T cycle | N auto | O cutscene',
-        '?mode=all = full gesture set (backup)'
-    ].join('\n') : [
-        'GESTURE GUIDE - ALL (H to hide)',
-        '--- one hand ---',
-        'pinch thumb+index   Hollow Purple',
-        'index only          Red',
-        'index+middle        Infinite Void',
-        '4 fingers together  Malevolent Shrine',
-        '4 fingers spread    Blue',
-        'closed fist         Black Flash',
-        'ILY index+pinky     Authentic Mutual Love',
-        'open hand + thumb   Self Embodiment',
-        'flat, mid finger gap Ratio',
-        '--- two hands ---',
-        'thumbs touching     Idle Transfiguration',
-        'wrists 0.08-0.15    Shadow Garden',
-        'both fists          Mahoraga',
-        'pinch + flat hand   Idle Death Gamble',
-        'both ILY            Time Cell Moon Palace',
-        'both index+middle   Malevolent Shrine',
-        '--- voice (V) ---',
-        "\"don't move\"        Deadly Sentencing",
-        '"run away"          camera zoom out',
-        '',
-        'T cycle technique | N back to auto'
-    ].join('\n');
-    gestureGuide.textContent = GUIDE_TEXT;
+    const GUIDE_GOJO = [
+        { sep: '单手 · one hand' },
+        { gesture: '食指伸出', tech: '術式反転「赫」' },
+        { gesture: '食指+中指并拢 + 拇指（枪形）', tech: '術式反転「赫」' },
+        { gesture: '拇指+食指捏合', tech: '虚式「茈」' },
+        { sep: '双手 · two hands' },
+        { gesture: '张开 → 握拳 → 再张开', tech: '術式順転「蒼」' },
+        { gesture: '双手食指+中指交叉', tech: '領域展開・無量空処' },
+        { foot: '茈 保持 1 秒后甩指释放 · T 轮换 / N 自动 / C 纯净模式' },
+        { foot: '?mode=all 恢复全套手势（备选）' }
+    ];
+    const GUIDE_ALL = [
+        { sep: '单手 · one hand' },
+        { gesture: '拇指+食指捏合', tech: 'Hollow Purple' },
+        { gesture: '食指伸出', tech: 'Red' },
+        { gesture: '食指+中指', tech: 'Infinite Void' },
+        { gesture: '四指并拢', tech: 'Malevolent Shrine' },
+        { gesture: '四指张开', tech: 'Blue' },
+        { gesture: '握拳', tech: 'Black Flash' },
+        { gesture: '食指+小指（ILY）', tech: 'Authentic Mutual Love' },
+        { gesture: '张开手掌+拇指伸出', tech: 'Self Embodiment' },
+        { gesture: '平掌、中指无名指留缝', tech: 'Ratio' },
+        { sep: '双手 · two hands' },
+        { gesture: '拇指相触', tech: 'Idle Transfiguration' },
+        { gesture: '双腕距 0.08~0.15', tech: 'Shadow Garden' },
+        { gesture: '双拳', tech: 'Mahoraga' },
+        { gesture: '捏合 + 平掌', tech: 'Idle Death Gamble' },
+        { gesture: '双手 ILY', tech: 'Time Cell Moon Palace' },
+        { gesture: '双手食指+中指', tech: 'Malevolent Shrine' },
+        { sep: '语音 · voice (V)' },
+        { gesture: '"don\'t move"', tech: 'Deadly Sentencing' },
+        { gesture: '"run away"', tech: '镜头拉远' },
+        { foot: 'T 轮换技法 / N 回手势模式' }
+    ];
+
+    function buildGuide() {
+        const items = MODE === 'gojo' ? GUIDE_GOJO : GUIDE_ALL;
+        const body = items.map((item) => {
+            if (item.sep) return `<div class="guide-sep">${item.sep}</div>`;
+            if (item.foot) return `<div class="guide-foot">${item.foot}</div>`;
+            return `<div class="guide-row"><span class="guide-gesture">${item.gesture}</span><span class="guide-tech">${item.tech}</span></div>`;
+        }).join('');
+        gestureGuide.innerHTML = `<div class="panel-title">手势指南 · Gesture Guide</div>${body}`;
+    }
+    buildGuide();
 
     function setGuideVisibility(visible) {
         guideVisible = visible;
@@ -1264,6 +1229,12 @@
             forcedTech = null;
             forcedUntilMs = 0;
             updateState('neutral', true);
+            return;
+        }
+        if (key === KEYBINDS.clean.toLowerCase()) {
+            cleanMode = !cleanMode;
+            document.body.classList.toggle('clean-mode', cleanMode);
+            updateKeybindMenu();
             return;
         }
         if (key === KEYBINDS.opening.toLowerCase()) {

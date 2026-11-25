@@ -25,17 +25,22 @@
 
 只认五条悟的四个术式，其他技法保留为备选（`?mode=all` 恢复全套手势，T 键可预览任何技法）。
 
+### 4. 界面：Win11 石墨 Acrylic + 摄像头合成
+
+页面按 Win11 风格重做（石墨灰黑底、毛玻璃卡片、暖金强调色；规范见 navi `skills/web-design.md`）。摄像头画面全屏铺底并镜像，粒子特效以 `mix-blend-mode: screen` 叠在画面上，术式像是直接在你所在的房间里展开；顶栏显示当前技法，左侧是按键表与手势指南卡片。按 **C** 进入纯净模式隐藏全部 UI 方便录制；手部骨架只在 **D** 调试模式下绘制。
+
 ## 手势表（五条悟模式）
 
 | 手势 | 技法 |
 |---|---|
-| 食指伸出 | 術式反転「赫」 Reversal: Red |
+| 食指伸出，或食指+中指并拢+拇指伸出（枪形） | 術式反転「赫」 Reversal: Red |
 | 双手张开 → 握拳 → 再张开 | 術式順転「蒼」 Lapse: Blue |
 | 拇指+食指捏合 | 虚式「茈」 Hollow Purple（保持 1 秒后快速甩指 → 释放爆炸） |
-| 食指+中指（单手或双手） | 领域展开·无量空处 Infinite Void |
+| 双手食指+中指交叉 | 领域展开·无量空处 Infinite Void |
 
 - 「苍」是时序手势：张开→握拳、握拳→张开各需在 1.6 秒内完成；触发后蓝色演出脉冲约 2.2 秒
-- 双手做「无量空处」时要求小指、无名指收拢（自然张开的手掌不算）
+- 「赫」有两种手势：单食指，或枪形（食指+中指并拢+拇指）；单手食指+中指按枪形算「赫」
+- 「无量空处」在五条悟模式下必须**双手**做交叉印（单手二指是枪形赫，不是领域）；双手时要求小指、无名指收拢
 - 张开/握拳按「指尖到手腕距离 vs 指节到手腕距离」判定，不依赖手掌朝向
 - D 调试面板会显示 `blueSeq: stage` 和 `hands: open/fist/?`，调阈值时看这里
 
@@ -67,6 +72,7 @@
 | T | 轮换技法（每个 15 秒，录制预览用） |
 | N | 回到手势识别模式 |
 | K | 按键菜单开关 |
+| C | 纯净模式：隐藏全部 UI（录制用） |
 | O | 新标签页打开「無量空処」开场动画（PR #7） |
 
 录制技巧：`?tech=<技法名>` 可锁定单个技法（如 `?tech=divine`），页面跳过识别、直接演出，适合逐条拍素材。可用名：`neutral void shrine purple red blue blackflash shadowgarden transfiguration divine ratio idlegamble love sentence palace perfection`。
@@ -101,6 +107,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 ## 已知限制
 
 - MediaPipe Hands 是 2D 关键点 + 逐帧检测，极端光照、逆光、手太远仍会丢手；后续若还灵，升级路径是 MediaPipe Tasks `HandLandmarker`（新模型、世界坐标、时序更稳）
+- 粒子用 screen 混合叠在摄像头上：画面极亮（比如对着窗户）时粒子会偏淡，属于预期；降低曝光或调高 bloom 可缓解
 - 无摄像头/拒绝授权时 MediaPipe 会弹「Failed to acquire camera」，正常
 - 语音依赖 Web Speech API，走 Google 在线识别，国内网络可能不通
 
