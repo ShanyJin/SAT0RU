@@ -37,6 +37,11 @@
         const FIST_PTS = buildPose(['index', 'middle', 'ring', 'pinky'], false);
         const open1 = (x, y = 0.75) => [mkHand(x, y, OPEN_PTS)];
         const fist1 = (x, y = 0.75) => [mkHand(x, y, FIST_PTS)];
+        const scaledOpen1 = (x, y, f) => {
+            const hand = mkHand(x, y, OPEN_PTS); // one hand: 21 landmark points
+            const w = hand[0];
+            return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
+        };
 
         let t = 1000;
         const runFrame = (hands, ms) => {
@@ -74,63 +79,76 @@
             log.push(name + ' -> ' + actual + (actual === expect ? ' OK' : ' FAIL(want ' + expect + ')'));
         };
 
-        step([], 5); mark('neutral', 'neutral');
-        step(RED2, 20); mark('red disabled', 'neutral');
-        step([], 5);
+        try {
+            step([], 5); mark('neutral', 'neutral');
+            step(RED2, 20); mark('red disabled', 'neutral');
+            step([], 5);
 
-        // --- 苍1: single hand cycle arms a charge instead of blooming ---
-        step(open1(0.5), 8);
-        step(fist1(0.5), 6);
-        step(open1(0.5), 6);
-        markState('blue1 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
-        mark('no bloom yet', 'neutral');
-
-        // Slow construction (0.18 units/s) must not interrupt.
-        let cx = drift(0.5, -0.006, 20);
-        markState('slow move keeps charge', 'charge', blueCharge ? 'charge' : 'released');
-
-        // Forward fling (7+ units/s) releases the blast.
-        drift(cx, 0.24, 3);
-        mark('fling releases', 'blue');
-
-        step(RED2, 40); mark('anim: other gestures ignored', 'blue');
-        step(RED2, 60); mark('cooldown: still no red', 'neutral');
-        step([], 60);
-
-        // --- 苍2: two hands arm one charge; losing tracking releases ---
-        step(OPEN2, 8);
-        step(FIST2, 6);
-        step(OPEN2, 6);
-        markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
-        step([], 12);
-        mark('tracking loss releases', 'blue');
-        step([], 160);
-
-        // --- no false triggers ---
-        step(OPEN2, 20); mark('open only no trigger', 'neutral');
-        step([], 60);
-        step(FIST2, 8);
-        step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
-        step([], 10); mark('end', null);
-
-        // Optional visual demos for screenshots: ?logictest=1&end=charge|blue
-        const endMode = new URLSearchParams(location.search).get('end');
-        if (endMode === 'charge' || endMode === 'blue') {
-            step([], 200);
+            // --- 苍1: single hand cycle arms a charge instead of blooming ---
             step(open1(0.5), 8);
             step(fist1(0.5), 6);
             step(open1(0.5), 6);
-            if (blueCharge) {
-                // Center the orb and pretend the construction has converged.
-                blueCharge.x = 0.5;
-                blueCharge.y = 0.52;
-                blueCharge.startedMs = performance.now() - 2200;
-                if (endMode === 'blue') drift(0.5, 0.09, 3);
+            markState('blue1 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
+            mark('no bloom yet', 'neutral');
+
+            // Large-amplitude drag (~0.36 units/s) must not interrupt.
+            const cx = drift(0.5, -0.012, 20);
+            markState('drag keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+
+            // Wrist "rotation": palm size wobbles ±5% frame to frame. Must not interrupt.
+            for (let i = 0; i < 24; i++) {
+                runFrame(scaledOpen1(cx, 0.75, i % 2 ? 1.05 : 1.0), t);
+                t += 33;
             }
-            document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
+            markState('rotation wobble keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+
+            // Forceful fling (7+ units/s over the window) releases the blast.
+            drift(cx, 0.24, 3);
+            mark('fling releases', 'blue');
+
+            step(RED2, 40); mark('anim: other gestures ignored', 'blue');
+            step(RED2, 60); mark('cooldown: still no red', 'neutral');
+            step([], 60);
+
+            // --- 苍2: two hands arm one charge; losing tracking releases ---
+            step(OPEN2, 8);
+            step(FIST2, 6);
+            step(OPEN2, 6);
+            markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
+            step([], 24);
+            mark('tracking loss releases', 'blue');
+            step([], 160);
+
+            // --- no false triggers ---
+            step(OPEN2, 20); mark('open only no trigger', 'neutral');
+            step([], 60);
+            step(FIST2, 8);
+            step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
+            step([], 10); mark('end', null);
+
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue
+            const endMode = new URLSearchParams(location.search).get('end');
+            if (endMode === 'charge' || endMode === 'blue') {
+                step([], 200);
+                step(open1(0.5), 8);
+                step(fist1(0.5), 6);
+                step(open1(0.5), 6);
+                if (blueCharge) {
+                    // Center the orb and pretend the construction has converged.
+                    blueCharge.x = 0.5;
+                    blueCharge.y = 0.52;
+                    blueCharge.startedMs = performance.now() - 2200;
+                    if (endMode === 'blue') drift(0.5, 0.09, 3);
+                }
+                document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
+            }
+        } catch (err) {
+            log.push('EXCEPTION -> ' + (err && err.message ? err.message : String(err)));
+            const where = String((err && err.stack) || '').split('\n').filter(Boolean)[1];
+            if (where) log.push(where.trim());
         }
 
-        const fails = log.filter((line) => line.includes('FAIL'));
+        const fails = log.filter((line) => line.includes('FAIL') || line.includes('EXCEPTION'));
         const banner = document.createElement('div');
         banner.id = 'logictest-banner';
         banner.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:' + (fails.length ? '#a00' : '#080') + ';color:#fff;font:13px/1.5 monospace;padding:10px 14px;white-space:pre;border-radius:6px';

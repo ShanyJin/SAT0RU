@@ -216,14 +216,16 @@
     chargeOrb.frustumCulled = false;
     scene.add(chargeOrb);
 
-    function fillOrbPositions(nowSec, radius, burst) {
+    function fillOrbPositions(nowSec, radius, burst, trailX = 0, trailY = 0) {
         for (let i = 0; i < ORB_COUNT; i++) {
             const s = orbSeeds[i];
             const theta = s.theta + nowSec * s.spin;
             const wob = Math.sin(nowSec * s.wobble + s.phase) * 0.12;
             const rr = burst ? radius * (0.55 + s.r) : radius * s.r * (1 + wob);
-            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta);
-            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * (burst ? 1 : 0.82);
+            // Outer particles smear further behind the motion, so the cloud visibly drags.
+            const lag = s.r;
+            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta) + trailX * lag;
+            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * (burst ? 1 : 0.82) + trailY * lag;
             orbPositions[i * 3 + 2] = rr * Math.sin(s.phi) * Math.sin(theta);
         }
         orbGeometry.attributes.position.needsUpdate = true;
@@ -635,16 +637,28 @@
     let lastHandShapes = [];
     const blueHandStates = {};
     const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
-    let blueCharge = null; // active construction: { key, x, y, size, startedMs, lastSeenMs, lastTMs, fastFrames }
-    let chargeReleaseAt = null; // release burst marker: { x, y, untilMs }
+    let blueCharge = null; // active construction: { key, x, y, size, hist, startedMs, lastSeenMs, ... }
+    let chargeReleaseAt = null; // release burst marker in world space: { wx, wy, untilMs }
+    let blueFieldCenter = null; // where the main Blue field blooms (release point), null = screen center
+    const chargeVisual = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, t: 0, init: false }; // damped orb position (drag feel)
     const CHARGE = {
-        lostMs: 320, // hand unseen longer than this => release
-        speedThresh: 1.8, // normalized units per second
-        growthThresh: 1.6, // relative palm-size growth per second (hand pushed toward the camera)
-        fastFrames: 2, // consecutive fast frames needed to confirm a fling
+        windowMs: 120, // fling is judged over this sliding window, not per frame
+        minSpanMs: 60, // need at least this much history before judging
+        speedThresh: 1.6, // window-averaged hand speed (normalized units/s)
+        minTravel: 0.10, // ...and real travel within the window, so jitter can't count
+        growthThresh: 1.7, // palm-size growth/s (hand pushed toward the camera)
+        minGrowth: 0.14, // ...and real relative growth within the window
+        fastFrames: 2, // consecutive fast evaluations (~0.1s) to confirm a fling
+        outMargin: 0.10, // palm center beyond this margin of the frame...
+        outFrames: 2, // ...for this many frames => hand left the frame
+        lostMs: 700, // tracking lost while nearly still => release only after this long
+        lostFastMs: 260, // tracking lost right after a fast move => release sooner
         maxChargeMs: 15000, // safety valve so a stuck charge cannot hang forever
-        convergeMs: 1600, // orb shrinks to a spinning point over this window
-        burstMs: 900 // release burst lifetime
+        convergeMs: 1600, // orb settles into a small cloud over this window
+        burstMs: 900, // release burst lifetime
+        followTauMs: 90, // damped follow time constant (drag feel)
+        trailScale: 0.045, // particle smear along the motion direction (seconds of velocity)
+        trailMax: 5 // max smeared offset in world units
     };
     const FLICK = {
         purpleArmMs: 1000,
@@ -876,12 +890,23 @@
             x: p.cx,
             y: p.cy,
             size: p.size,
+            hist: [],
             startedMs: nowMs,
             lastSeenMs: nowMs,
-            lastTMs: nowMs,
             lastSpeed: 0,
-            fastFrames: 0
+            lastGrowth: 0,
+            fastFrames: 0,
+            outFrames: 0
         };
+        const w = handPointToWorld(p.cx, p.cy);
+        chargeVisual.x = w.x;
+        chargeVisual.y = w.y;
+        chargeVisual.px = w.x;
+        chargeVisual.py = w.y;
+        chargeVisual.vx = 0;
+        chargeVisual.vy = 0;
+        chargeVisual.t = performance.now();
+        chargeVisual.init = true;
         resetBlueHandStates();
         const nameEl = document.getElementById('technique-name');
         if (nameEl) nameEl.innerText = '術式順転「蒼」 · 構築中';
@@ -890,11 +915,13 @@
     function releaseBlueCharge(nowMs) {
         if (!blueCharge) return;
         chargeReleaseAt = {
-            x: clamp01(blueCharge.x),
-            y: clamp01(blueCharge.y),
+            wx: chargeVisual.init ? chargeVisual.x : 0,
+            wy: chargeVisual.init ? chargeVisual.y : 0,
             untilMs: nowMs + CHARGE.burstMs
         };
+        blueFieldCenter = { x: chargeReleaseAt.wx, y: chargeReleaseAt.wy };
         blueCharge = null;
+        chargeVisual.init = false;
         bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
         gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
         pendingBlueInstant = true;
@@ -903,12 +930,15 @@
     function cancelBlueCharge() {
         blueCharge = null;
         chargeReleaseAt = null;
+        blueFieldCenter = null;
+        chargeVisual.init = false;
         chargeOrb.visible = false;
     }
 
     // Tracks the anchored hand while charging. Returns 'charge' to keep constructing,
-    // 'release' to fire the blast. Slow motion/rotation never interrupts; a fast push
-    // (speed or palm-size growth), leaving the frame, or losing tracking does.
+    // 'release' to fire the blast. Dragging with large amplitude or rotating the wrist is
+    // explicitly allowed: fling signals are averaged over ~120ms and need back-to-back
+    // confirmation, so only a forceful swing (or leaving the frame / losing tracking) fires.
     function updateBlueCharge(landmarks, keys, nowMs) {
         const c = blueCharge;
         let lm = null;
@@ -932,25 +962,47 @@
                     idx = i;
                 }
             }
-            if (lm) c.key = keys[idx];
+            if (lm) {
+                c.key = keys[idx];
+                c.hist.length = 0; // re-anchored: don't judge the jump between hands
+            }
         }
         if (!lm) {
-            return (nowMs - c.lastSeenMs > CHARGE.lostMs || nowMs - c.startedMs > CHARGE.maxChargeMs) ? 'release' : 'charge';
+            const since = nowMs - c.lastSeenMs;
+            // Losing tracking right after a fast move means the hand probably flew off;
+            // losing it while nearly still is usually a detection hiccup, so wait longer.
+            const movingFast = c.lastSpeed >= 1.0 || c.lastGrowth >= 1.0;
+            const lostLimit = movingFast ? CHARGE.lostFastMs : CHARGE.lostMs;
+            return (since > lostLimit || nowMs - c.startedMs > CHARGE.maxChargeMs) ? 'release' : 'charge';
         }
         const p = palmState(lm);
-        const outOfFrame = [0, 9].some((i2) => lm[i2].x < -0.12 || lm[i2].x > 1.12 || lm[i2].y < -0.12 || lm[i2].y > 1.12);
-        const dt = Math.max((nowMs - c.lastTMs) / 1000, 1 / 120);
-        const speed = Math.hypot(p.cx - c.x, p.cy - c.y) / dt;
-        const growth = (p.size - c.size) / c.size / dt;
-        c.lastSpeed = speed;
-        c.fastFrames = (speed > CHARGE.speedThresh || growth > CHARGE.growthThresh) ? c.fastFrames + 1 : 0;
+        c.hist.push({ x: p.cx, y: p.cy, s: p.size, t: nowMs });
+        while (c.hist.length > 1 && (nowMs - c.hist[0].t) > CHARGE.windowMs) c.hist.shift();
+
+        const outOfFrame = p.cx < -CHARGE.outMargin || p.cx > 1 + CHARGE.outMargin
+            || p.cy < -CHARGE.outMargin || p.cy > 1 + CHARGE.outMargin;
+        c.outFrames = outOfFrame ? c.outFrames + 1 : 0;
+
+        // Window-averaged fling signals (single-frame landmark jitter is filtered out).
+        const base = c.hist[0];
+        const spanMs = nowMs - base.t;
+        let fastNow = false;
+        if (spanMs >= CHARGE.minSpanMs) {
+            const dist = Math.hypot(p.cx - base.x, p.cy - base.y);
+            const relGrowth = (p.size - base.s) / Math.max(base.s, 0.001);
+            c.lastSpeed = dist / (spanMs / 1000);
+            c.lastGrowth = relGrowth / (spanMs / 1000);
+            fastNow = (c.lastSpeed >= CHARGE.speedThresh && dist >= CHARGE.minTravel)
+                || (c.lastGrowth >= CHARGE.growthThresh && relGrowth >= CHARGE.minGrowth);
+        }
+        c.fastFrames = fastNow ? c.fastFrames + 1 : 0;
+
         c.x = p.cx;
         c.y = p.cy;
         c.size = p.size;
         c.lastSeenMs = nowMs;
-        c.lastTMs = nowMs;
         const tooLong = (nowMs - c.startedMs) > CHARGE.maxChargeMs;
-        return (outOfFrame || c.fastFrames >= CHARGE.fastFrames || tooLong) ? 'release' : 'charge';
+        return (c.outFrames >= CHARGE.outFrames || c.fastFrames >= CHARGE.fastFrames || tooLong) ? 'release' : 'charge';
     }
 
     function computeFrameScores(results, nowMs) {
@@ -1140,7 +1192,7 @@
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
         { foot: '构筑中粒子缩成光点，跟着手移动、旋转，不打断' },
-        { foot: '向前一甩 / 手出画面 / 丢失追踪 → 释放爆炸' },
+        { foot: '用力前甩（慢拖、转腕不触发）/ 手出画面 / 丢失追踪 → 释放' },
         { foot: '释放后演出约 2.5 秒，随后 2.5 秒内不触发任何术式' },
         { foot: '目前只启用苍；其他术式暂停触发，T 可手动预览' }
     ];
@@ -1290,7 +1342,7 @@
             `blueStages: ${Object.entries(blueHandStates).map(([k, s]) => k + ':' + s.stage).join(' ') || '-'}`,
             `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
             `gestureLock: ${Math.max(0, gestureLockUntilMs - nowMs).toFixed(0)}ms`,
-            `charge: ${blueCharge ? 'ON speed:' + (blueCharge.lastSpeed || 0).toFixed(2) : 'off'}`,
+            `charge: ${blueCharge ? `ON spd:${(blueCharge.lastSpeed || 0).toFixed(2)} gro:${(blueCharge.lastGrowth || 0).toFixed(2)}` : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
@@ -1506,6 +1558,7 @@
         const prevTech = currentTech;
         const nowMs = performance.now();
         currentTech = tech;
+        if (tech !== 'blue') blueFieldCenter = null;
         if (currentTech === 'flick') {
             // Safety: if flick was manually entered, still lock it for a full release window.
             flickLockUntilMs = Math.max(flickLockUntilMs, nowMs + TUNING.purpleExplosionDurationMs);
@@ -1629,16 +1682,47 @@
         if (blueCharge) {
             const ageMs = Math.max(0, nowMs - blueCharge.startedMs);
             const converge = Math.min(1, ageMs / CHARGE.convergeMs);
-            const radius = (7.5 - 6.3 * converge) + Math.sin(nowMs * 0.005) * 0.15;
+            const baseRadius = (6.5 - 4.3 * converge) + Math.sin(nowMs * 0.005) * 0.15;
             const world = handPointToWorld(blueCharge.x, blueCharge.y);
-            chargeOrb.position.set(world.x, world.y, 0);
+            if (!chargeVisual.init) {
+                chargeVisual.x = world.x;
+                chargeVisual.y = world.y;
+                chargeVisual.px = world.x;
+                chargeVisual.py = world.y;
+                chargeVisual.vx = 0;
+                chargeVisual.vy = 0;
+                chargeVisual.t = nowMs;
+                chargeVisual.init = true;
+            } else {
+                // Damped follow: the orb drags behind the hand and catches up when it stops.
+                const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - chargeVisual.t) / 1000));
+                const k = 1 - Math.exp(-dtSec / (CHARGE.followTauMs / 1000));
+                chargeVisual.x += (world.x - chargeVisual.x) * k;
+                chargeVisual.y += (world.y - chargeVisual.y) * k;
+                const instVx = (chargeVisual.x - chargeVisual.px) / dtSec;
+                const instVy = (chargeVisual.y - chargeVisual.py) / dtSec;
+                chargeVisual.vx += (instVx - chargeVisual.vx) * 0.2;
+                chargeVisual.vy += (instVy - chargeVisual.vy) * 0.2;
+                chargeVisual.px = chargeVisual.x;
+                chargeVisual.py = chargeVisual.y;
+                chargeVisual.t = nowMs;
+            }
+            // Smear the outer particles behind the motion so the cloud waves with the hand.
+            let trailX = -chargeVisual.vx * CHARGE.trailScale;
+            let trailY = -chargeVisual.vy * CHARGE.trailScale;
+            const trailLen = Math.hypot(trailX, trailY);
+            if (trailLen > CHARGE.trailMax) {
+                trailX *= CHARGE.trailMax / trailLen;
+                trailY *= CHARGE.trailMax / trailLen;
+            }
+            const speedK = Math.min(0.5, Math.hypot(chargeVisual.vx, chargeVisual.vy) / 400);
+            chargeOrb.position.set(chargeVisual.x, chargeVisual.y, 0);
             chargeOrb.visible = true;
             orbMaterial.opacity = 0.95;
-            fillOrbPositions(nowMs / 1000, Math.max(radius, 0.6), false);
+            fillOrbPositions(nowMs / 1000, Math.max(baseRadius * (1 + speedK), 0.8), false, trailX, trailY);
         } else if (chargeReleaseAt && nowMs < chargeReleaseAt.untilMs) {
             const life = Math.max(0, (chargeReleaseAt.untilMs - nowMs) / CHARGE.burstMs);
-            const world = handPointToWorld(chargeReleaseAt.x, chargeReleaseAt.y);
-            chargeOrb.position.set(world.x, world.y, 0);
+            chargeOrb.position.set(chargeReleaseAt.wx, chargeReleaseAt.wy, 0);
             chargeOrb.visible = true;
             orbMaterial.opacity = Math.min(1, life * 1.4);
             fillOrbPositions(nowMs / 1000, 1.2 + (1 - life) * 26, true);
@@ -1736,6 +1820,12 @@
         } else {
             particles.rotation.y += 0.005;
         }
+
+        // The Blue field blooms where the orb was released, not at the screen center.
+        const fieldTargetX = (currentTech === 'blue' && blueFieldCenter) ? blueFieldCenter.x : 0;
+        const fieldTargetY = (currentTech === 'blue' && blueFieldCenter) ? blueFieldCenter.y : 0;
+        particles.position.x += (fieldTargetX - particles.position.x) * 0.08;
+        particles.position.y += (fieldTargetY - particles.position.y) * 0.08;
 
         composer.render();
     }
