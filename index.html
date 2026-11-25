@@ -752,8 +752,9 @@
     // Gojo mode (default): only Gojo's four techniques respond to gestures.
     // ?mode=all restores the full 15-technique set (kept as backup).
     const MODE = new URLSearchParams(window.location.search).get('mode') === 'all' ? 'all' : 'gojo';
-    // Working set for now: only Blue responds to gestures; Red/Purple/Void stay unwired (kept for later).
-    const GOJO_GESTURES = ['blue'];
+    // Working set: Blue (open>fist>open sequence) and Red (index finger pointing up) respond
+    // to gestures; Purple/Void stay unwired (code kept for later).
+    const GOJO_GESTURES = ['blue', 'red'];
     const ACTIVE_GESTURES = MODE === 'gojo' ? GOJO_GESTURES : SCORE_GESTURES;
     const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
     const rawScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
@@ -1186,8 +1187,9 @@
         lastHandShapes = handShapes;
 
         if (MODE === 'gojo') {
-            // Only Blue responds in this pass. The per-hand open>fist>open cycle arms a charge
-            // (orb follows the completing hand); the charge itself decides when to release.
+            // Gojo pass: Blue's per-hand open>fist>open cycle arms a charge (orb follows the
+            // completing hand) and the charge itself decides when to release; Red is the
+            // plain index-up rule from computeHandScores(), gated off while Blue is active.
             const gojoLocked = nowMs < gestureLockUntilMs;
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
@@ -1203,6 +1205,9 @@
             }
             // Blue is sequence-only in Gojo mode; the plain four-finger-spread rule is disabled.
             frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
+            // Red must not hijack an armed charge or the release lock, so the two never fight:
+            // the charge owns the interaction until it releases.
+            if (blueCharge || gojoLocked) frameScores.red = 0;
         } else if (results.multiHandLandmarks.length === 2) {
             const a = results.multiHandLandmarks[0];
             const b = results.multiHandLandmarks[1];
@@ -1280,7 +1285,11 @@
         { foot: '构筑中大量粒子环绕光团，跟手移动、随手旋转' },
         { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放' },
         { foot: '释放后演出约 2.5 秒，随后 2.5 秒内不触发任何术式' },
-        { foot: '目前只启用苍；其他术式暂停触发，T 可手动预览' }
+        { sep: '術式反転「赫」 · Reversal: Red' },
+        { gesture: '单手食指向上指，其余三指收拢', tech: '赫' },
+        { foot: '食指伸出即持续展开红色斥力；收回或换姿势即退场' },
+        { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
+        { foot: '目前启用苍与赫；其余术式暂停触发，T 可手动预览' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },

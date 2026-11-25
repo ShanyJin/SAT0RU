@@ -35,8 +35,10 @@
         const GUN1 = [mkHand(0.5, 0.75, buildPose(['ring', 'pinky'], false))];
         const OPEN_PTS = buildPose([], false);
         const FIST_PTS = buildPose(['index', 'middle', 'ring', 'pinky'], false);
+        const RED_PTS = buildPose(['middle', 'ring', 'pinky'], false); // index up, others curled
         const open1 = (x, y = 0.75) => [mkHand(x, y, OPEN_PTS)];
         const fist1 = (x, y = 0.75) => [mkHand(x, y, FIST_PTS)];
+        const red1 = (x, y = 0.75) => [mkHand(x, y, RED_PTS)];
         const scaledOpen1 = (x, y, f) => {
             const hand = mkHand(x, y, OPEN_PTS); // one hand: 21 landmark points
             const w = hand[0];
@@ -81,8 +83,12 @@
 
         try {
             step([], 5); mark('neutral', 'neutral');
-            step(RED2, 20); mark('red disabled', 'neutral');
-            step([], 5);
+
+            // --- 赫: index finger pointing up ---
+            step(red1(0.5), 25); mark('red pointing shows', 'red');
+            step([], 20); mark('red releases on drop', 'neutral');
+            step(RED2, 20); mark('red two hands', 'red');
+            step([], 30);
 
             // --- 苍1: single hand cycle arms a charge instead of blooming ---
             step(open1(0.5), 8);
@@ -102,12 +108,16 @@
             }
             markState('rotation wobble keeps charge', 'charge', blueCharge ? 'charge' : 'released');
 
+            // Pointing at the charging hand (Red) must not hijack the charge.
+            step(red1(cx), 10);
+            markState('point during charge keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+
             // Forceful fling (7+ units/s over the window) releases the blast.
             drift(cx, 0.24, 3);
             mark('fling releases', 'blue');
 
             step(RED2, 40); mark('anim: other gestures ignored', 'blue');
-            step(RED2, 60); mark('cooldown: still no red', 'neutral');
+            step(RED2, 60); mark('cooldown: red ignored', 'neutral');
             step([], 60);
 
             // --- 苍2: two hands arm one charge; losing tracking releases ---
