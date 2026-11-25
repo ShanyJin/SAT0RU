@@ -180,24 +180,24 @@
     // --- Blue charge orb (蒼「构筑」): a separate particle cluster anchored to the hand ---
     // After the open>fist>open cycle it converges to a spinning point that follows the hand;
     // a fling / leaving the frame / losing tracking releases the main Blue blast.
-    const ORB_COUNT = 1400;
+    const ORB_COUNT = 3200;
     const orbGeometry = new THREE.BufferGeometry();
     const orbPositions = new Float32Array(ORB_COUNT * 3);
     const orbColors = new Float32Array(ORB_COUNT * 3);
     const orbSeeds = [];
     for (let i = 0; i < ORB_COUNT; i++) {
-        const core = i < ORB_COUNT * 0.3;
+        const core = i < ORB_COUNT * 0.18;
         orbSeeds.push({
-            r: core ? 0.10 + Math.random() * 0.30 : 0.30 + Math.random() * 0.70,
+            r: core ? 0.05 + Math.random() * 0.22 : 0.35 + Math.random() * 1.15,
             phi: Math.acos(2 * Math.random() - 1),
             theta: Math.random() * Math.PI * 2,
-            spin: 2.2 + Math.random() * 3.8,
+            spin: 1.8 + Math.random() * 5.2,
             wobble: 0.5 + Math.random() * 1.5,
             phase: Math.random() * Math.PI * 2
         });
         const c = core
-            ? { r: 0.75, g: 0.92, b: 1.0 }
-            : (Math.random() < 0.25 ? { r: 0.55, g: 0.85, b: 1.0 } : { r: 0.12, g: 0.35, b: 1.0 });
+            ? { r: 0.45, g: 0.65, b: 1.0 }
+            : (Math.random() < 0.3 ? { r: 0.25, g: 0.5, b: 0.95 } : { r: 0.08, g: 0.22, b: 0.7 });
         orbColors[i * 3] = c.r;
         orbColors[i * 3 + 1] = c.g;
         orbColors[i * 3 + 2] = c.b;
@@ -205,7 +205,7 @@
     orbGeometry.setAttribute('position', new THREE.BufferAttribute(orbPositions, 3));
     orbGeometry.setAttribute('color', new THREE.BufferAttribute(orbColors, 3));
     const orbMaterial = new THREE.PointsMaterial({
-        size: 0.55,
+        size: 0.3,
         vertexColors: true,
         blending: THREE.AdditiveBlending,
         transparent: true,
@@ -216,16 +216,29 @@
     chargeOrb.frustumCulled = false;
     scene.add(chargeOrb);
 
-    function fillOrbPositions(nowSec, radius, burst, trailX = 0, trailY = 0) {
+    // The swarm orbits the core; outer particles sit along the orb's recent path (oldest
+    // sample first), so the whole cloud visibly trails behind the hand as it moves.
+    function fillOrbPositions(nowSec, radius, path, cx, cy) {
+        const n = path ? path.length : 0;
         for (let i = 0; i < ORB_COUNT; i++) {
             const s = orbSeeds[i];
-            const theta = s.theta + nowSec * s.spin;
-            const wob = Math.sin(nowSec * s.wobble + s.phase) * 0.12;
-            const rr = burst ? radius * (0.55 + s.r) : radius * s.r * (1 + wob);
-            // Outer particles smear further behind the motion, so the cloud visibly drags.
-            const lag = s.r;
-            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta) + trailX * lag;
-            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * (burst ? 1 : 0.82) + trailY * lag;
+            const theta = s.theta + nowSec * s.spin + orbSpinPhase;
+            const wob = Math.sin(nowSec * s.wobble + s.phase) * 0.14;
+            const rr = radius * s.r * (1 + wob);
+            let ox = 0;
+            let oy = 0;
+            if (n > 1) {
+                const idx = Math.min(n - 1, Math.floor((1 - s.r) * (n - 1)));
+                ox = path[idx].x - cx;
+                oy = path[idx].y - cy;
+                const ol = Math.hypot(ox, oy);
+                if (ol > 10) {
+                    ox *= 10 / ol;
+                    oy *= 10 / ol;
+                }
+            }
+            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta) + ox;
+            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * 0.82 + oy;
             orbPositions[i * 3 + 2] = rr * Math.sin(s.phi) * Math.sin(theta);
         }
         orbGeometry.attributes.position.needsUpdate = true;
@@ -638,9 +651,9 @@
     const blueHandStates = {};
     const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
     let blueCharge = null; // active construction: { key, x, y, size, hist, startedMs, lastSeenMs, ... }
-    let chargeReleaseAt = null; // release burst marker in world space: { wx, wy, untilMs }
-    let blueFieldCenter = null; // where the main Blue field blooms (release point), null = screen center
-    const chargeVisual = { x: 0, y: 0, px: 0, py: 0, vx: 0, vy: 0, t: 0, init: false }; // damped orb position (drag feel)
+    const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
+    let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
+    const orbPathHistory = []; // recent orb positions -> the swarm trails along this path
     const CHARGE = {
         windowMs: 120, // fling is judged over this sliding window, not per frame
         minSpanMs: 60, // need at least this much history before judging
@@ -653,12 +666,12 @@
         outFrames: 2, // ...for this many frames => hand left the frame
         lostMs: 700, // tracking lost while nearly still => release only after this long
         lostFastMs: 260, // tracking lost right after a fast move => release sooner
+        palmGap: 0.13, // two palms closer than this => 合掌 release
+        palmGapFrames: 2,
         maxChargeMs: 15000, // safety valve so a stuck charge cannot hang forever
         convergeMs: 1600, // orb settles into a small cloud over this window
-        burstMs: 900, // release burst lifetime
         followTauMs: 90, // damped follow time constant (drag feel)
-        trailScale: 0.045, // particle smear along the motion direction (seconds of velocity)
-        trailMax: 5 // max smeared offset in world units
+        pathMs: 320 // how much of the orb's recent path the swarm trails over
     };
     const FLICK = {
         purpleArmMs: 1000,
@@ -896,17 +909,18 @@
             lastSpeed: 0,
             lastGrowth: 0,
             fastFrames: 0,
-            outFrames: 0
+            outFrames: 0,
+            palmFrames: 0,
+            prevAngle: null
         };
         const w = handPointToWorld(p.cx, p.cy);
         chargeVisual.x = w.x;
         chargeVisual.y = w.y;
         chargeVisual.px = w.x;
         chargeVisual.py = w.y;
-        chargeVisual.vx = 0;
-        chargeVisual.vy = 0;
         chargeVisual.t = performance.now();
         chargeVisual.init = true;
+        orbPathHistory.length = 0;
         resetBlueHandStates();
         const nameEl = document.getElementById('technique-name');
         if (nameEl) nameEl.innerText = '術式順転「蒼」 · 構築中';
@@ -914,14 +928,11 @@
 
     function releaseBlueCharge(nowMs) {
         if (!blueCharge) return;
-        chargeReleaseAt = {
-            wx: chargeVisual.init ? chargeVisual.x : 0,
-            wy: chargeVisual.init ? chargeVisual.y : 0,
-            untilMs: nowMs + CHARGE.burstMs
-        };
-        blueFieldCenter = { x: chargeReleaseAt.wx, y: chargeReleaseAt.wy };
+        // The orb vanishes and the main Blue explosion blooms at the screen center.
         blueCharge = null;
         chargeVisual.init = false;
+        orbPathHistory.length = 0;
+        chargeOrb.visible = false;
         bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
         gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
         pendingBlueInstant = true;
@@ -929,9 +940,8 @@
 
     function cancelBlueCharge() {
         blueCharge = null;
-        chargeReleaseAt = null;
-        blueFieldCenter = null;
         chargeVisual.init = false;
+        orbPathHistory.length = 0;
         chargeOrb.visible = false;
     }
 
@@ -965,6 +975,7 @@
             if (lm) {
                 c.key = keys[idx];
                 c.hist.length = 0; // re-anchored: don't judge the jump between hands
+                c.prevAngle = null;
             }
         }
         if (!lm) {
@@ -982,6 +993,26 @@
         const outOfFrame = p.cx < -CHARGE.outMargin || p.cx > 1 + CHARGE.outMargin
             || p.cy < -CHARGE.outMargin || p.cy > 1 + CHARGE.outMargin;
         c.outFrames = outOfFrame ? c.outFrames + 1 : 0;
+
+        // 合掌: another hand's palm comes right up against the anchored palm.
+        let minPalmGap = Infinity;
+        for (let i2 = 0; i2 < landmarks.length; i2++) {
+            if (i2 === idx) continue;
+            const other = palmState(landmarks[i2]);
+            minPalmGap = Math.min(minPalmGap, Math.hypot(other.cx - p.cx, other.cy - p.cy));
+        }
+        c.palmFrames = minPalmGap < CHARGE.palmGap ? c.palmFrames + 1 : 0;
+
+        // Wrist roll drives the swarm's spin, so the orb rotates with the hand.
+        const palmAngle = Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x);
+        if (c.prevAngle !== null) {
+            let dA = palmAngle - c.prevAngle;
+            if (dA > Math.PI) dA -= Math.PI * 2;
+            else if (dA < -Math.PI) dA += Math.PI * 2;
+            dA = Math.max(-0.8, Math.min(0.8, dA));
+            orbSpinPhase -= dA * 1.6; // the feed is mirrored: match the rotation the user sees
+        }
+        c.prevAngle = palmAngle;
 
         // Window-averaged fling signals (single-frame landmark jitter is filtered out).
         const base = c.hist[0];
@@ -1002,7 +1033,8 @@
         c.size = p.size;
         c.lastSeenMs = nowMs;
         const tooLong = (nowMs - c.startedMs) > CHARGE.maxChargeMs;
-        return (c.outFrames >= CHARGE.outFrames || c.fastFrames >= CHARGE.fastFrames || tooLong) ? 'release' : 'charge';
+        return (c.outFrames >= CHARGE.outFrames || c.fastFrames >= CHARGE.fastFrames
+            || c.palmFrames >= CHARGE.palmGapFrames || tooLong) ? 'release' : 'charge';
     }
 
     function computeFrameScores(results, nowMs) {
@@ -1191,8 +1223,8 @@
     const GUIDE_GOJO = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
-        { foot: '构筑中粒子缩成光点，跟着手移动、旋转，不打断' },
-        { foot: '用力前甩（慢拖、转腕不触发）/ 手出画面 / 丢失追踪 → 释放' },
+        { foot: '构筑中大量粒子环绕光团，跟手移动、随手旋转' },
+        { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放' },
         { foot: '释放后演出约 2.5 秒，随后 2.5 秒内不触发任何术式' },
         { foot: '目前只启用苍；其他术式暂停触发，T 可手动预览' }
     ];
@@ -1558,7 +1590,6 @@
         const prevTech = currentTech;
         const nowMs = performance.now();
         currentTech = tech;
-        if (tech !== 'blue') blueFieldCenter = null;
         if (currentTech === 'flick') {
             // Safety: if flick was manually entered, still lock it for a full release window.
             flickLockUntilMs = Math.max(flickLockUntilMs, nowMs + TUNING.purpleExplosionDurationMs);
@@ -1606,10 +1637,8 @@
         for(let i=0; i<COUNT; i++) {
             let p;
             if(tech === 'neutral') {
-                if(i < COUNT * 0.05) {
-                    const r = 15 + Math.random()*20; const t = Math.random()*6.28; const ph = Math.random()*3.14;
-                    p = { x: r*Math.sin(ph)*Math.cos(t), y: r*Math.sin(ph)*Math.sin(t), z: r*Math.cos(ph), r: 0.1, g: 0.1, b: 0.2, s: 0.4 };
-                } else p = { x:0, y:0, z:0, r:0, g:0, b:0, s:0 };
+                // Idle shows nothing at all; only an active technique emits particles.
+                p = { x:0, y:0, z:0, r:0, g:0, b:0, s:0 };
             }
             else if(tech === 'red') p = getRed(i);
             else if(tech === 'void') p = getVoid(i);
@@ -1682,53 +1711,35 @@
         if (blueCharge) {
             const ageMs = Math.max(0, nowMs - blueCharge.startedMs);
             const converge = Math.min(1, ageMs / CHARGE.convergeMs);
-            const baseRadius = (6.5 - 4.3 * converge) + Math.sin(nowMs * 0.005) * 0.15;
+            const baseRadius = (8.5 - 4.8 * converge) + Math.sin(nowMs * 0.005) * 0.22;
             const world = handPointToWorld(blueCharge.x, blueCharge.y);
             if (!chargeVisual.init) {
                 chargeVisual.x = world.x;
                 chargeVisual.y = world.y;
                 chargeVisual.px = world.x;
                 chargeVisual.py = world.y;
-                chargeVisual.vx = 0;
-                chargeVisual.vy = 0;
                 chargeVisual.t = nowMs;
                 chargeVisual.init = true;
             } else {
-                // Damped follow: the orb drags behind the hand and catches up when it stops.
+                // Damped follow: the swarm drags behind the hand and catches up when it stops.
                 const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - chargeVisual.t) / 1000));
                 const k = 1 - Math.exp(-dtSec / (CHARGE.followTauMs / 1000));
                 chargeVisual.x += (world.x - chargeVisual.x) * k;
                 chargeVisual.y += (world.y - chargeVisual.y) * k;
-                const instVx = (chargeVisual.x - chargeVisual.px) / dtSec;
-                const instVy = (chargeVisual.y - chargeVisual.py) / dtSec;
-                chargeVisual.vx += (instVx - chargeVisual.vx) * 0.2;
-                chargeVisual.vy += (instVy - chargeVisual.vy) * 0.2;
                 chargeVisual.px = chargeVisual.x;
                 chargeVisual.py = chargeVisual.y;
                 chargeVisual.t = nowMs;
             }
-            // Smear the outer particles behind the motion so the cloud waves with the hand.
-            let trailX = -chargeVisual.vx * CHARGE.trailScale;
-            let trailY = -chargeVisual.vy * CHARGE.trailScale;
-            const trailLen = Math.hypot(trailX, trailY);
-            if (trailLen > CHARGE.trailMax) {
-                trailX *= CHARGE.trailMax / trailLen;
-                trailY *= CHARGE.trailMax / trailLen;
-            }
-            const speedK = Math.min(0.5, Math.hypot(chargeVisual.vx, chargeVisual.vy) / 400);
+            // Remember the recent path; outer particles ride the older samples => a real trail.
+            orbPathHistory.push({ x: chargeVisual.x, y: chargeVisual.y, t: nowMs });
+            while (orbPathHistory.length > 1 && (nowMs - orbPathHistory[0].t) > CHARGE.pathMs) orbPathHistory.shift();
             chargeOrb.position.set(chargeVisual.x, chargeVisual.y, 0);
             chargeOrb.visible = true;
             orbMaterial.opacity = 0.95;
-            fillOrbPositions(nowMs / 1000, Math.max(baseRadius * (1 + speedK), 0.8), false, trailX, trailY);
-        } else if (chargeReleaseAt && nowMs < chargeReleaseAt.untilMs) {
-            const life = Math.max(0, (chargeReleaseAt.untilMs - nowMs) / CHARGE.burstMs);
-            chargeOrb.position.set(chargeReleaseAt.wx, chargeReleaseAt.wy, 0);
-            chargeOrb.visible = true;
-            orbMaterial.opacity = Math.min(1, life * 1.4);
-            fillOrbPositions(nowMs / 1000, 1.2 + (1 - life) * 26, true);
+            fillOrbPositions(nowMs / 1000, Math.max(baseRadius, 1.1), orbPathHistory, chargeVisual.x, chargeVisual.y);
         } else {
             chargeOrb.visible = false;
-            chargeReleaseAt = null;
+            orbPathHistory.length = 0;
         }
         const explosionTimeLeftMs = purpleExplosionUntilMs - nowMs;
         if (explosionTimeLeftMs > 0) {
@@ -1820,12 +1831,6 @@
         } else {
             particles.rotation.y += 0.005;
         }
-
-        // The Blue field blooms where the orb was released, not at the screen center.
-        const fieldTargetX = (currentTech === 'blue' && blueFieldCenter) ? blueFieldCenter.x : 0;
-        const fieldTargetY = (currentTech === 'blue' && blueFieldCenter) ? blueFieldCenter.y : 0;
-        particles.position.x += (fieldTargetX - particles.position.x) * 0.08;
-        particles.position.y += (fieldTargetY - particles.position.y) * 0.08;
 
         composer.render();
     }

@@ -119,6 +119,15 @@
             mark('tracking loss releases', 'blue');
             step([], 160);
 
+            // --- 合掌: bringing the palms together releases ---
+            step(OPEN2, 8);
+            step(FIST2, 6);
+            step(OPEN2, 6);
+            markState('palms charge armed', 'charge', blueCharge ? 'charge' : 'idle');
+            step([mkHand(0.44, 0.75, OPEN_PTS), mkHand(0.56, 0.75, OPEN_PTS)], 6);
+            mark('palms together releases', 'blue');
+            step([], 160);
+
             // --- no false triggers ---
             step(OPEN2, 20); mark('open only no trigger', 'neutral');
             step([], 60);
@@ -139,6 +148,17 @@
                     blueCharge.y = 0.52;
                     blueCharge.startedMs = performance.now() - 2200;
                     if (endMode === 'blue') drift(0.5, 0.09, 3);
+                    if (endMode === 'charge') {
+                        // Slow orbit so the screenshot shows the swarm trailing behind the orb.
+                        const t0 = performance.now();
+                        (function wiggle() {
+                            if (!blueCharge) return;
+                            const sec = (performance.now() - t0) / 1000;
+                            blueCharge.x = 0.5 + Math.sin(sec * 2.2) * 0.08;
+                            blueCharge.y = 0.52 + Math.cos(sec * 1.7) * 0.05;
+                            requestAnimationFrame(wiggle);
+                        })();
+                    }
                 }
                 document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
             }
