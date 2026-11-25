@@ -94,28 +94,77 @@
             white-space: pre;
             pointer-events: none;
         }
+
+        #gesture-guide {
+            position: absolute;
+            top: 168px;
+            left: 12px;
+            z-index: 50;
+            min-width: 300px;
+            padding: 10px 12px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.62);
+            color: #e8f4ff;
+            font: 12px/1.35 "Courier New", monospace;
+            white-space: pre;
+            pointer-events: none;
+        }
+
+        #idle-flash {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 4;
+            opacity: 0;
+            background: radial-gradient(ellipse at center, rgba(80,0,120,0.3) 0%, transparent 70%);
+            transition: opacity 0.5s ease;
+        }
+        #idle-flash.active { animation: idlePulse 2.5s ease-in-out infinite; }
+        @keyframes idlePulse {
+            0% { opacity: 0; }
+            40% { opacity: 1; }
+            60% { opacity: 0.6; }
+            100% { opacity: 0; }
+        }
+
+        #trigger-word-text {
+            font-size: 1.2rem;
+            color: #ff0000;
+            margin-top: 8px;
+            font-weight: bold;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+        @keyframes flicker {
+            0% { opacity: 1; } 50% { opacity: 1; } 75% { opacity: 1; }
+            80% { opacity: 0; } 82% { opacity: 1; } 84% { opacity: 0; }
+            88% { opacity: 1; } 90% { opacity: 0; } 92% { opacity: 1; }
+            95% { opacity: 0; } 97% { opacity: 1; } 100% { opacity: 0; }
+        }
     </style>
     
     <script type="importmap">
         {
             "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+                "three": "/vendor/three/build/three.module.js",
+                "three/addons/": "/vendor/three/examples/jsm/"
             }
         }
     </script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
+    <script src="/vendor/mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="/vendor/mediapipe/hands/hands.js" crossorigin="anonymous"></script>
+    <script src="/vendor/mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 </head>
 <body>
     <audio id="bg-audio" src="ost.mp3" preload="auto" loop></audio>
 
     <div id="grain"></div>
+    <div id="idle-flash"></div>
 
     <div id="ui">
         <h1>呪術廻戦</h1>
         <div id="technique-name">CURSED ENERGY</div>
+        <div id="trigger-word-text"></div>
     </div>
 
     <div id="video-container">
@@ -123,6 +172,7 @@
         <canvas id="output_canvas"></canvas>
     </div>
     <div id="keybind-menu"></div>
+    <div id="gesture-guide"></div>
     <div id="debug-panel"></div>
 
 <script type="module">
@@ -222,6 +272,320 @@
         } else return { x: 0, y: 0, z: 0, r: 0, g: 0, b: 0, s: 0 };
     }
 
+    // --- Techniques ported from community PRs (#2, #3, #9, #13) ---
+    function getBlue(i) {
+        const r = 15 + Math.random() * 30;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 0.1, g: 0.3, b: 1.0, s: 2.0 };
+    }
+
+    function getBlackFlash(i) {
+        if (i < COUNT * 0.2) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 5 + Math.random() * 15;
+            return { x: radius * Math.cos(angle), y: radius * Math.sin(angle), z: (Math.random() - 0.5) * 20, r: 0.0, g: 0.0, b: 0.0, s: 3.0 };
+        } else {
+            return { x: (Math.random() - 0.5) * 100, y: (Math.random() - 0.5) * 100, z: (Math.random() - 0.5) * 100, r: 0.1, g: 0.1, b: 0.1, s: 0.5 };
+        }
+    }
+
+    function getShadowGarden(i) {
+        const x = (Math.random() - 0.5) * 80;
+        const z = (Math.random() - 0.5) * 80;
+        const y = Math.random() > 0.9 ? (Math.random() * 40 - 20) : -25;
+        return { x: x, y: y, z: z, r: 0.05, g: 0.05, b: 0.1, s: 1.5 };
+    }
+
+    function getTransfiguration(i) {
+        const t = (i / COUNT) * Math.PI * 12;
+        const r = 8 + Math.sin(t * 0.5) * 4;
+        return { x: r * Math.cos(t), y: (i / COUNT) * 60 - 30, z: r * Math.sin(t), r: 0.9, g: 0.6, b: 0.7, s: 2.0 };
+    }
+
+    function getRatio(i) {
+        const isMajorLine = i % 10 < 3;
+        const x = (i % 20 - 10) * 4;
+        const y = (Math.floor(i / 20) % 20 - 10) * 4;
+        return { x: x, y: y, z: (Math.random() - 0.5) * 5, r: isMajorLine ? 1.0 : 0.8, g: isMajorLine ? 0.8 : 0.2, b: 0.1, s: isMajorLine ? 2.5 : 0.8 };
+    }
+
+    let divineFlag = 0;
+    let divineFlag2 = 0;
+
+    // Mahoraga — ported from PR #13 (closed fist remapped to both fists).
+    function getDivine(i) {
+        if (i < COUNT * 0.1) {
+            const angle = Math.random() * Math.PI * 2;
+            return { x: 26 * Math.cos(angle), y: 26 * Math.sin(angle), z: (Math.random() - 0.5) * 1, r: 1, g: 0.84, b: 0, s: 2.5 };
+        }
+        if (i < COUNT * 0.2) {
+            const r = Math.random() * 10;
+            const theta = Math.random() * 6.28; const phi = Math.acos(2 * Math.random() - 1);
+            return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 1, g: 0.84, b: 0, s: 2.5 };
+        }
+        else if (i < COUNT * 0.3) {
+            const y = 35;
+            const angle = Math.PI / 3;
+            const rotatedX = y * Math.sin(angle);
+            const rotatedY = y * Math.cos(angle);
+            if (divineFlag == 0) {
+                divineFlag = 1;
+                return { x: 0, y: 35, z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag == 1) {
+                divineFlag = 2;
+                return { x: rotatedX, y: rotatedY, z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag == 2) {
+                divineFlag = 3;
+                return { x: y * Math.sin(angle * 2), y: y * Math.cos(angle * 2), z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag == 3) {
+                divineFlag = 4;
+                return { x: y * Math.sin(angle * 3), y: y * Math.cos(angle * 3), z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag == 4) {
+                divineFlag = 5;
+                return { x: y * Math.sin(angle * 4), y: y * Math.cos(angle * 4), z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag == 5) {
+                divineFlag = 0;
+                return { x: y * Math.sin(angle * 5), y: y * Math.cos(angle * 5), z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            }
+        }
+        else if (i < COUNT * 0.42) {
+            const angle = Math.PI / 3;
+            const thickness = 4.2;
+            const y = -35 + Math.random() * 70;
+            const rotatedX = y * Math.sin(angle);
+            const rotatedY = y * Math.cos(angle);
+            if (divineFlag2 == 0) {
+                divineFlag2 = 1;
+                return { x: 0, y: 35, z: 0, r: 1, g: 0.84, b: 0, s: 2.5 };
+            } else if (divineFlag2 == 1) {
+                divineFlag2 = 2;
+                return { x: rotatedX, y: rotatedY, z: (Math.random() - 0.5) * thickness, r: 1, g: 0.84, b: 0, s: 1.5 };
+            } else if (divineFlag2 == 2) {
+                divineFlag2 = 3;
+                return { x: y * Math.sin(angle * 2), y: y * Math.cos(angle * 2), z: (Math.random() - 0.5) * thickness, r: 1, g: 0.84, b: 0, s: 1.5 };
+            } else if (divineFlag2 == 3) {
+                divineFlag2 = 4;
+                return { x: y * Math.sin(angle * 3), y: y * Math.cos(angle * 3), z: (Math.random() - 0.5) * thickness, r: 1, g: 0.84, b: 0, s: 1.5 };
+            } else if (divineFlag2 == 4) {
+                divineFlag2 = 5;
+                return { x: y * Math.sin(angle * 4), y: y * Math.cos(angle * 4), z: (Math.random() - 0.5) * thickness, r: 1, g: 0.84, b: 0, s: 1.5 };
+            } else if (divineFlag2 == 5) {
+                divineFlag2 = 0;
+                return { x: y * Math.sin(angle * 5), y: y * Math.cos(angle * 5), z: (Math.random() - 0.5) * thickness, r: 1, g: 0.84, b: 0, s: 1.5 };
+            }
+        }
+        else {
+            const radius = 30 + Math.random() * 90;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            return { x: radius * Math.sin(phi) * Math.cos(theta), y: radius * Math.sin(phi) * Math.sin(theta), z: radius * Math.cos(phi), r: 1, g: 1, b: 1.0, s: 0.7 };
+        }
+    }
+
+    // Idle Death Gamble — ported from PR #9.
+    function getIdleDeathGamble(i) {
+        const total = COUNT;
+        if (i < total * 0.05) {
+            const r = Math.random() * 4;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            const heat = Math.random();
+            return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 1.0, g: heat * 0.85, b: heat * 0.3, s: 3.5 };
+        }
+        else if (i < total * 0.15) {
+            const angle = Math.random() * Math.PI * 2;
+            const radius = 18 + Math.random() * 4;
+            return { x: radius * Math.cos(angle), y: radius * Math.sin(angle) + (Math.random() - 0.5) * 2, z: (Math.random() - 0.5) * 2, r: 0.7, g: 0.0, b: 1.0, s: 2.0 };
+        }
+        else if (i < total * 0.40) {
+            const clusterIndex = Math.floor(Math.random() * 6);
+            const clusterAngles = [0, 1.05, 2.09, 3.14, 4.19, 5.24];
+            const clusterR = 28 + (clusterIndex % 3) * 6;
+            const cx = clusterR * Math.cos(clusterAngles[clusterIndex]);
+            const cy = clusterR * Math.sin(clusterAngles[clusterIndex]) * 0.5;
+            const cz = (clusterIndex % 2 === 0 ? 1 : -1) * 8;
+            return { x: cx + (Math.random() - 0.5) * 8, y: cy + (Math.random() - 0.5) * 8, z: cz + (Math.random() - 0.5) * 8, r: 0.45, g: 0.0, b: 0.65, s: 0.9 };
+        }
+        else if (i < total * 0.60) {
+            const t = (i - total * 0.40) / (total * 0.20);
+            const armOffset = (i % 3) * (Math.PI * 2 / 3);
+            const angle = t * 18 + armOffset;
+            const radius = 5 + t * 45;
+            return { x: radius * Math.cos(angle), y: radius * Math.sin(angle) + (Math.random() - 0.5) * (6 * t), z: (Math.random() - 0.5) * (12 * t), r: 0.25, g: 0.0, b: 0.35, s: 0.7 };
+        }
+        else {
+            const radius = 55 + Math.random() * 55;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            return { x: radius * Math.sin(phi) * Math.cos(theta), y: radius * Math.sin(phi) * Math.sin(theta), z: radius * Math.cos(phi), r: 0.12, g: 0.0, b: 0.18, s: 0.5 };
+        }
+    }
+
+    // Authentic Mutual Love — ported from PR #9.
+    function getAuthenticMutualLove(i) {
+        const total = COUNT;
+        if (i < total * 0.15) {
+            const t = (i / (total * 0.15));
+            const bladeY = -20 + t * 55;
+            const thickness = (1 - t) * 1.2 + 0.1;
+            const heat = 1 - t * 0.4;
+            return { x: (Math.random() - 0.5) * thickness, y: bladeY + (Math.random() - 0.5) * 0.6, z: (Math.random() - 0.5) * thickness, r: heat, g: heat * 0.92, b: heat * 0.6, s: 1.8 - t * 1.0 };
+        }
+        else if (i < total * 0.19) {
+            return { x: (Math.random() - 0.5) * 18, y: -14 + (Math.random() - 0.5) * 0.8, z: (Math.random() - 0.5) * 1.2, r: 1.0, g: 0.82, b: 0.2, s: 1.6 };
+        }
+        else if (i < total * 0.37) {
+            const angle = ((i - total * 0.19) / (total * 0.18)) * Math.PI * 2;
+            const ringR = 22, tilt = 0.09;
+            return { x: ringR * Math.cos(angle), y: ringR * Math.sin(angle) * tilt + (Math.random() - 0.5) * 0.5, z: ringR * Math.sin(angle), r: 0.05, g: 0.55, b: 1.0, s: 2.2 };
+        }
+        else if (i < total * 0.49) {
+            const angle = Math.random() * Math.PI * 2;
+            const ringR = 22 + (Math.random() - 0.5) * 5, tilt = 0.09;
+            return { x: ringR * Math.cos(angle), y: ringR * Math.sin(angle) * tilt + (Math.random() - 0.5) * 2, z: ringR * Math.sin(angle), r: 0.3, g: 0.8, b: 1.0, s: 0.7 };
+        }
+        else {
+            const radius = 40 + Math.random() * 55, theta = Math.random() * Math.PI * 2, phi = Math.acos(2 * Math.random() - 1);
+            const warmth = Math.random();
+            return { x: radius * Math.sin(phi) * Math.cos(theta), y: radius * Math.sin(phi) * Math.sin(theta), z: radius * Math.cos(phi), r: 0.9, g: warmth * 0.45, b: warmth * 0.55, s: 0.4 };
+        }
+    }
+
+    // Deadly Sentencing — ported from PR #9, triggered by voice ("don't move").
+    function getDeadlySentencing(i) {
+        const total = COUNT;
+        const headLen = 16;
+        const headR = 5;
+        const headCX = 2;
+        const headCY = 6;
+        const tiltAng = -Math.PI * 0.22;
+        const tCos = Math.cos(tiltAng), tSin = Math.sin(tiltAng);
+        const tiltHead = (lx, ly) => ({
+            x: headCX + lx * tCos - ly * tSin,
+            y: headCY + lx * tSin + ly * tCos
+        });
+        const tiltedBottom = tiltHead(0, -headR);
+        const handleStartX = tiltedBottom.x;
+        const handleStartY = tiltedBottom.y;
+        const handleAng = Math.PI * 1.22;
+        const hCos = Math.cos(handleAng);
+        const hSin = Math.sin(handleAng);
+
+        if (i < total * 0.20) {
+            const lx = (Math.random() - 0.5) * headLen * 2;
+            const cAng = Math.random() * Math.PI * 2;
+            const ly = Math.cos(cAng) * headR;
+            const lz = Math.sin(cAng) * headR;
+            const highlight = Math.max(0, -Math.cos(cAng)) * 0.12;
+            const w = tiltHead(lx, ly);
+            return { x: w.x, y: w.y, z: lz, r: 0.40 + highlight, g: 0.20 + highlight, b: 0.04, s: 0.85 };
+        }
+        else if (i < total * 0.26) {
+            const side = (i % 2 === 0) ? -headLen : headLen;
+            const capAng = Math.random() * Math.PI * 2;
+            const capR = Math.random() * headR;
+            const w = tiltHead(side, Math.cos(capAng) * capR);
+            return { x: w.x, y: w.y, z: Math.sin(capAng) * capR, r: 0.28, g: 0.13, b: 0.03, s: 0.9 };
+        }
+        else if (i < total * 0.36) {
+            const lx = (Math.random() - 0.5) * 5;
+            const cAng = Math.random() * Math.PI * 2;
+            const bandR = headR + 0.6;
+            const sheen = 0.65 + Math.max(0, -Math.cos(cAng)) * 0.35;
+            const w = tiltHead(lx, Math.cos(cAng) * bandR);
+            return { x: w.x, y: w.y, z: Math.sin(cAng) * bandR, r: sheen, g: sheen * 0.76, b: 0.04, s: 1.2 };
+        }
+        else if (i < total * 0.50) {
+            const t = (i - total * 0.36) / (total * 0.14);
+            const dist = t * 30;
+            const radius = 1.3 - t * 0.85;
+            const cAng = Math.random() * Math.PI * 2;
+            const perpX = -hSin, perpY = hCos;
+            const cr = radius * Math.cos(cAng);
+            const lz = radius * Math.sin(cAng);
+            return { x: handleStartX + hCos * dist + perpX * cr, y: handleStartY + hSin * dist + perpY * cr, z: lz, r: 0.38 - t * 0.12, g: 0.18 - t * 0.06, b: 0.02, s: 1.0 - t * 0.4 };
+        }
+        else if (i < total * 0.72) {
+            const bAng = Math.random() * Math.PI * 2;
+            const bR = Math.random() * 20;
+            const domeH = Math.sqrt(Math.max(0, 1 - (bR / 20) ** 2)) * 4;
+            return { x: bR * Math.cos(bAng), y: -20 + domeH * Math.random(), z: (Math.random() - 0.5) * bR * 0.55, r: 0.44, g: 0.22, b: 0.04, s: 0.8 };
+        }
+        else {
+            const radius = 50 + Math.random() * 60;
+            const theta = Math.random() * Math.PI * 2;
+            const phi = Math.acos(2 * Math.random() - 1);
+            return { x: radius * Math.sin(phi) * Math.cos(theta), y: radius * Math.sin(phi) * Math.sin(theta), z: radius * Math.cos(phi), r: 0.05, g: 0.03, b: 0.02, s: 0.3 };
+        }
+    }
+
+    // Time Cell Moon Palace — ported from PR #9 (both-hands ILY).
+    function getPalace(i) {
+        const total = COUNT;
+        if (i < total * 0.05) {
+            return { x: (Math.random() - 0.5) * 100, y: (Math.random() - 0.2) * 80, z: (Math.random() - 0.5) * 80, r: Math.random(), g: 0, b: Math.random(), s: 0.2 };
+        } else if (i < total * 0.45) {
+            return { x: (Math.random() - 0.5) * 150, y: -15, z: (Math.random() - 0.5) * 150, r: 2, g: 0, b: 3, s: 0.8 };
+        } else if (i < total * 0.6) {
+            const t = Math.random() * Math.PI * 2; const rad = Math.random() * 30;
+            const curve = Math.pow(rad / 30, 2) * 20;
+            return { x: rad * Math.cos(t), y: 30 - curve + (Math.random() * 2), z: rad * Math.sin(t) * 0.6, r: 3, g: 0, b: 0, s: 0.6 };
+        } else if (i < total * 0.80) {
+            const t = Math.random() * Math.PI * 2; const rad = Math.random() * 30;
+            const curve = Math.pow(rad / 30, 2) * -20;
+            return { x: rad * Math.cos(t), y: -5 - curve + (Math.random() * 2), z: rad * Math.sin(t) * 0.6, r: 3, g: 0, b: 0, s: 0.6 };
+        } else if (i < total * 0.90) {
+            const t = Math.random() * Math.PI * 2; const rad = Math.random() * 30;
+            const curve = Math.pow(rad / 30, 2) * -3;
+            return { x: rad * Math.cos(t) / 2, y: 13 + rad * Math.sin(t) * 0.6, z: -5 - curve + (Math.random() * 2), r: 0.6, g: 0.6, b: 0.6, s: 0.6 };
+        } else {
+            const t = Math.random() * Math.PI * 2; const rad = Math.random() * 30;
+            const curve = Math.pow(rad / 30, 2) * 3;
+            return { x: rad * Math.cos(t) / 2, y: 13 + rad * Math.sin(t) * 0.6, z: 0 - curve + (Math.random() * 2), r: 0.6, g: 0.6, b: 0.6, s: 0.6 };
+        }
+    }
+
+    // Self Embodiment of Perfection — ported from PR #9.
+    function getPerfection(i) {
+        const total = COUNT;
+        if (i < total * 0.1) {
+            return { x: (Math.random() - 0.5) * 20, y: -15 + (Math.random() - 1) * 30, z: 20 + Math.random() * 20, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.2) {
+            return { x: (Math.random() - 0.5) * 20, y: -15 + (Math.random() - 1) * 30, z: -20 + (Math.random() - 1) * 20, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.3) {
+            return { x: (Math.random() - 0.5) * 20, y: -15 + (Math.random() - 1) * 5, z: 20 + Math.random() * 35, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.4) {
+            return { x: (Math.random() - 0.5) * 20, y: -15 + (Math.random() - 1) * 5, z: -20 + (Math.random() - 1) * 35, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.425) {
+            return { x: 12 + (Math.random() - 0.5) * 10, y: -15 + (Math.random() - 1) * 2, z: 30 + Math.random() * 4.5, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.45) {
+            return { x: 12 + (Math.random() - 0.5) * 10, y: -15 + (Math.random() - 1) * 2, z: -30 + (Math.random() - 1) * 4.5, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.5) {
+            return { x: 15 + (Math.random() - 0.5) * 4, y: -15 + Math.random() * 4, z: 30 + Math.random() * 4.5, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.55) {
+            return { x: 15 + (Math.random() - 0.5) * 4, y: -15 + Math.random() * 4, z: -30 + (Math.random() - 1) * 4.5, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.6) {
+            return { x: 8 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 10, z: 50 + Math.random() * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.65) {
+            return { x: 8 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 10, z: -50 + (Math.random() - 1) * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.7) {
+            return { x: 3 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 14, z: 50 + Math.random() * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.75) {
+            return { x: 3 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 14, z: -50 + (Math.random() - 1) * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.8) {
+            return { x: -2 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 10, z: 50 + Math.random() * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.85) {
+            return { x: -2 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 10, z: -50 + (Math.random() - 1) * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.875) {
+            return { x: -7 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 6, z: 50 + Math.random() * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else if (i < total * 0.9) {
+            return { x: -7 + (Math.random() - 0.5) * 3, y: -15 + Math.random() * 6, z: -50 + (Math.random() - 1) * 3, r: 0.1, g: 0, b: 0, s: 0.0 };
+        } else {
+            return { x: (Math.random() - 0.5) * 80, y: (Math.random() - 0.5) * 50, z: (Math.random() - 0.5) * 50, r: 0.03, g: 0, b: 0, s: 0.5 };
+        }
+    }
+
     // Hand Tracking
     // --- Gesture Tuning Knobs (safe to change) ---
     // Keep tuning changes in this object. Core logic below should stay stable unless you are rewriting detection behavior.
@@ -263,10 +627,22 @@
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
     let glowColor = '#00ffff';
-    const GESTURES = ['neutral', 'red', 'void', 'purple', 'shrine', 'flick'];
-    const ACTIVE_GESTURES = ['red', 'void', 'purple', 'shrine', 'flick'];
-    const smoothedScores = { neutral: 1, red: 0, void: 0, purple: 0, shrine: 0, flick: 0 };
-    const rawScores = { neutral: 1, red: 0, void: 0, purple: 0, shrine: 0, flick: 0 };
+    // Score-driven gestures. Order matters: earlier entries win exact ties.
+    const SCORE_GESTURES = [
+        'purple', 'transfiguration', 'shadowgarden', 'divine', 'idlegamble', 'palace',
+        'shrine', 'void', 'red', 'blue', 'blackflash', 'love', 'perfection', 'ratio', 'flick'
+    ];
+    const VOICE_GESTURES = ['sentence'];
+    const GESTURES = ['neutral', ...SCORE_GESTURES, ...VOICE_GESTURES];
+    const ACTIVE_GESTURES = SCORE_GESTURES;
+    const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
+    const rawScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
+    const TECH_CYCLE = ['void', 'shrine', 'purple', 'red', 'blue', 'blackflash', 'shadowgarden', 'transfiguration', 'divine', 'ratio', 'idlegamble', 'love', 'sentence', 'palace', 'perfection'];
+    let forcedTech = null;
+    let forcedUntilMs = 0;
+    let idleTime = 0;
+    let zoomUntilMs = 0;
+    const INITIAL_CAMERA_Z = 55;
     let challengerGesture = null;
     let challengerSinceMs = 0;
     let frameFlickScore = 0;
@@ -286,10 +662,44 @@
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
     let musicEnabled = false;
     let keybindMenuVisible = true;
-    const KEYBINDS = { debug: 'D', music: 'M', menu: 'K' };
+    const KEYBINDS = { debug: 'D', music: 'M', menu: 'K', guide: 'H', cycle: 'T', voice: 'V', auto: 'N', opening: 'O' };
+    const gestureGuide = document.getElementById('gesture-guide');
+    const triggerWordEl = document.getElementById('trigger-word-text');
+    const idleFlash = document.getElementById('idle-flash');
+    let guideVisible = true;
+    let voiceEnabled = false;
+    let voiceStatus = 'OFF';
+    let recognition = null;
+    let lastVoiceTriggerMs = -Infinity;
+    const VOICE_TRIGGER_COOLDOWN_MS = 5000;
 
     function clamp01(v) {
         return Math.min(1, Math.max(0, v));
+    }
+
+    function maxActiveScore(frameScores) {
+        let maxScore = 0;
+        for (const tech of ACTIVE_GESTURES) {
+            maxScore = Math.max(maxScore, frameScores[tech] || 0);
+        }
+        return maxScore;
+    }
+
+    function flashTriggerText(word, durationMs = 5000) {
+        if (!triggerWordEl) return;
+        triggerWordEl.style.animation = 'none';
+        triggerWordEl.textContent = word;
+        void triggerWordEl.offsetWidth;
+        triggerWordEl.style.animation = `flicker ${durationMs / 1000}s forwards`;
+    }
+
+    function forceTechnique(tech, durationMs = 15000) {
+        forcedTech = tech;
+        forcedUntilMs = performance.now() + durationMs;
+    }
+
+    function pinchDistance(lm) {
+        return Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
     }
 
     function computeHandScores(lm) {
@@ -298,27 +708,39 @@
         const middleUp = isUp(12, 10) ? 1 : 0;
         const ringUp = isUp(16, 14) ? 1 : 0;
         const pinkyUp = isUp(20, 18) ? 1 : 0;
+        const thumbUp = isUp(4, 3) ? 1 : 0;
 
-        const pinch = Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
-        const pinchScore = pinch < 0.04 ? 1 : 0; // Original hardcoded purple pinch rule.
+        const pinchScore = pinchDistance(lm) < 0.04 ? 1 : 0;
+        const fingerGap = Math.hypot(lm[8].x - lm[12].x, lm[8].y - lm[12].y);
+        const thumbOut = Math.hypot(lm[4].x - lm[0].x, lm[4].y - lm[0].y) > 0.25;
+        const handAngle = Math.abs(Math.atan2(lm[12].y - lm[0].y, lm[12].x - lm[0].x));
 
-        const purple = pinchScore;
-        const shrine = clamp01(0.25 * (indexUp + middleUp + ringUp + pinkyUp));
-        const voidScore = clamp01((0.45 * indexUp) + (0.45 * middleUp) + (0.10 * (1 - ringUp)));
-        const redBase = clamp01((0.65 * indexUp) + (0.20 * (1 - middleUp)) + (0.10 * (1 - ringUp)) + (0.05 * (1 - pinkyUp)));
-        const red = clamp01(redBase * (1 - (0.70 * middleUp)));
+        const fourUp = indexUp === 1 && middleUp === 1 && ringUp === 1 && pinkyUp === 1;
+        const fourDown = indexUp === 0 && middleUp === 0 && ringUp === 0 && pinkyUp === 0;
 
-        const pinchSuppression = 1 - (pinchScore * 0.45);
-        return {
-            red: clamp01(red * pinchSuppression),
-            void: clamp01(voidScore * pinchSuppression),
-            purple: purple,
-            shrine: clamp01(shrine * (1 - (pinchScore * 0.25)))
+        const scores = {
+            purple: pinchScore,
+            shrine: fourUp && fingerGap < 0.05 ? 1 : 0,
+            blue: fourUp && fingerGap > 0.10 ? 1 : 0,
+            perfection: fourUp && thumbUp === 1 ? 1 : 0,
+            blackflash: fourDown ? 1 : 0,
+            love: indexUp === 1 && pinkyUp === 1 && middleUp === 0 && ringUp === 0 && thumbOut ? 1 : 0,
+            void: indexUp === 1 && middleUp === 1 && ringUp === 0 && pinkyUp === 0 ? 1 : 0,
+            red: indexUp === 1 && middleUp === 0 && ringUp === 0 && pinkyUp === 0 ? 1 : 0,
+            ratio: fourUp && fingerGap >= 0.05 && fingerGap <= 0.10 && handAngle > 0.5 && handAngle < 2.5 ? 0.8 : 0
         };
+
+        // Pinch suppresses loosely-related poses so Hollow Purple stays reliable.
+        const pinchSuppression = 1 - (pinchScore * 0.45);
+        ['shrine', 'blue', 'perfection', 'void', 'red', 'blackflash', 'love', 'ratio'].forEach((tech) => {
+            scores[tech] = clamp01(scores[tech] * pinchSuppression);
+        });
+        return scores;
     }
 
     function computeFrameScores(results, nowMs) {
-        const frameScores = { neutral: 1, red: 0, void: 0, purple: 0, shrine: 0, flick: 0 };
+        const frameScores = Object.fromEntries(GESTURES.map((tech) => [tech, 0]));
+        frameScores.neutral = 1;
         frameFlickScore = 0;
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return frameScores;
 
@@ -390,9 +812,39 @@
             flickDetectorByHand[handLabel] = detector;
         });
 
+        // Two-hand gestures (ported from PR #3, #9, #13). They win over single-hand poses.
+        if (results.multiHandLandmarks.length === 2) {
+            const a = results.multiHandLandmarks[0];
+            const b = results.multiHandLandmarks[1];
+            const isUpH = (lm, tip, pip) => lm[tip].y < lm[pip].y;
+            const isFist = (lm) => !isUpH(lm, 8, 6) && !isUpH(lm, 12, 10) && !isUpH(lm, 16, 14) && !isUpH(lm, 20, 18);
+            const isFlat = (lm) => isUpH(lm, 8, 6) && isUpH(lm, 12, 10) && isUpH(lm, 16, 14) && isUpH(lm, 20, 18);
+            const isPinch = (lm) => pinchDistance(lm) < 0.07;
+            const isILY = (lm) => isUpH(lm, 8, 6) && isUpH(lm, 20, 18) && !isUpH(lm, 12, 10) && !isUpH(lm, 16, 14);
+            const wristDist = Math.hypot(a[0].x - b[0].x, a[0].y - b[0].y);
+            const thumbDist = Math.hypot(a[4].x - b[4].x, a[4].y - b[4].y);
+            const bothIndexMiddleUp = isUpH(a, 8, 6) && isUpH(a, 12, 10) && isUpH(b, 8, 6) && isUpH(b, 12, 10);
+            const tipsClose = Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y) < 0.18
+                && Math.hypot(a[12].x - b[12].x, a[12].y - b[12].y) < 0.22;
+
+            let twoHandTech = null;
+            if (isFist(a) && isFist(b)) twoHandTech = 'divine';
+            else if ((isPinch(a) && isFlat(b)) || (isPinch(b) && isFlat(a))) twoHandTech = 'idlegamble';
+            else if (thumbDist < 0.05) twoHandTech = 'transfiguration';
+            else if (isILY(a) && isILY(b)) twoHandTech = 'palace';
+            else if (bothIndexMiddleUp && tipsClose) frameScores.shrine = 1;
+            else if (wristDist > 0.08 && wristDist < 0.15) twoHandTech = 'shadowgarden';
+
+            if (twoHandTech) {
+                ACTIVE_GESTURES.forEach((tech) => {
+                    if (tech !== 'flick') frameScores[tech] *= 0.25;
+                });
+                frameScores[twoHandTech] = 1;
+            }
+        }
+
         frameScores.flick = nowMs <= flickPulseUntilMs ? 1 : 0;
-        const maxActive = Math.max(frameScores.red, frameScores.void, frameScores.purple, frameScores.shrine, frameScores.flick);
-        frameScores.neutral = clamp01(1 - maxActive);
+        frameScores.neutral = clamp01(1 - maxActiveScore(frameScores));
         return frameScores;
     }
 
@@ -421,8 +873,105 @@
             'Keybinds',
             `[${KEYBINDS.music}] Soundtrack: ${musicEnabled ? 'ON' : 'OFF'}`,
             `[${KEYBINDS.debug}] Debug Panel: ${debugEnabled ? 'ON' : 'OFF'}`,
+            `[${KEYBINDS.guide}] Gesture Guide: ${guideVisible ? 'ON' : 'OFF'}`,
+            `[${KEYBINDS.voice}] Voice Cast: ${voiceStatus}`,
+            `[${KEYBINDS.cycle}] Cycle Technique (15s)`,
+            `[${KEYBINDS.auto}] Back to Gesture Mode`,
+            `[${KEYBINDS.opening}] Void Opening Cutscene`,
             `[${KEYBINDS.menu}] This Menu: ON`
         ].join('\n');
+    }
+
+    const GUIDE_TEXT = [
+        'GESTURE GUIDE (H to hide)',
+        '--- one hand ---',
+        'pinch thumb+index   Hollow Purple',
+        'index only          Red',
+        'index+middle        Infinite Void',
+        '4 fingers together  Malevolent Shrine',
+        '4 fingers spread    Blue',
+        'closed fist         Black Flash',
+        'ILY index+pinky     Authentic Mutual Love',
+        'open hand + thumb   Self Embodiment',
+        'flat, mid finger gap Ratio',
+        '--- two hands ---',
+        'thumbs touching     Idle Transfiguration',
+        'wrists 0.08-0.15    Shadow Garden',
+        'both fists          Mahoraga',
+        'pinch + flat hand   Idle Death Gamble',
+        'both ILY            Time Cell Moon Palace',
+        'both index+middle   Malevolent Shrine',
+        '--- voice (V) ---',
+        "\"don't move\"        Deadly Sentencing",
+        '"run away"          camera zoom out',
+        '',
+        'T cycle technique | N back to auto'
+    ].join('\n');
+    gestureGuide.textContent = GUIDE_TEXT;
+
+    function setGuideVisibility(visible) {
+        guideVisible = visible;
+        gestureGuide.style.display = visible ? 'block' : 'none';
+    }
+
+    function setVoiceEnabled(enabled) {
+        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+        if (!SpeechRecognitionCtor) {
+            voiceEnabled = false;
+            voiceStatus = 'UNAVAILABLE';
+            updateKeybindMenu();
+            return;
+        }
+        if (!recognition) {
+            recognition = new SpeechRecognitionCtor();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+            recognition.onresult = (event) => {
+                const transcript = Array.from(event.results).map((result) => result[0].transcript).join('').toLowerCase();
+                const now = performance.now();
+                if (now - lastVoiceTriggerMs < VOICE_TRIGGER_COOLDOWN_MS) return;
+                if (transcript.includes("don't move")) {
+                    lastVoiceTriggerMs = now;
+                    flashTriggerText("don't move");
+                    forceTechnique('sentence', 6000);
+                } else if (transcript.includes('run away')) {
+                    lastVoiceTriggerMs = now;
+                    flashTriggerText('run away');
+                    zoomUntilMs = now + 5000;
+                }
+            };
+            recognition.onerror = () => {
+                voiceEnabled = false;
+                voiceStatus = 'ERROR';
+                updateKeybindMenu();
+            };
+            recognition.onend = () => {
+                if (!voiceEnabled) return;
+                try {
+                    recognition.start();
+                } catch (e) {
+                    voiceStatus = 'ERROR';
+                    updateKeybindMenu();
+                }
+            };
+        }
+        voiceEnabled = enabled;
+        if (enabled) {
+            try {
+                recognition.start();
+                voiceStatus = 'LISTENING';
+            } catch (e) {
+                voiceEnabled = false;
+                voiceStatus = 'ERROR';
+            }
+        } else {
+            try {
+                recognition.stop();
+            } catch (e) { /* already stopped */ }
+            voiceStatus = 'OFF';
+        }
+        updateKeybindMenu();
     }
 
     function setMusicEnabled(enabled) {
@@ -584,6 +1133,7 @@
 
     setDebugVisibility();
     setKeybindMenuVisibility(true);
+    setGuideVisibility(true);
     updateKeybindMenu();
     setMusicEnabled(false);
     window.addEventListener('keydown', (event) => {
@@ -602,10 +1152,39 @@
         }
         if (key === KEYBINDS.menu.toLowerCase()) {
             setKeybindMenuVisibility(!keybindMenuVisible);
+            return;
+        }
+        if (key === KEYBINDS.guide.toLowerCase()) {
+            setGuideVisibility(!guideVisible);
+            updateKeybindMenu();
+            return;
+        }
+        if (key === KEYBINDS.voice.toLowerCase()) {
+            setVoiceEnabled(!voiceEnabled);
+            return;
+        }
+        if (key === KEYBINDS.cycle.toLowerCase()) {
+            const now = performance.now();
+            const currentIdx = forcedTech && now < forcedUntilMs ? TECH_CYCLE.indexOf(forcedTech) : -1;
+            const nextTech = TECH_CYCLE[(currentIdx + 1) % TECH_CYCLE.length];
+            forceTechnique(nextTech);
+            updateState(nextTech, true);
+            updateKeybindMenu();
+            return;
+        }
+        if (key === KEYBINDS.auto.toLowerCase()) {
+            forcedTech = null;
+            forcedUntilMs = 0;
+            updateState('neutral', true);
+            return;
+        }
+        if (key === KEYBINDS.opening.toLowerCase()) {
+            window.open('DomainExpansion-infintevoid/DomainExpansion_infinite-void.html', '_blank');
+            return;
         }
     });
 
-    const hands = new Hands({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`});
+    const hands = new Hands({locateFile: (file) => `/vendor/mediapipe/hands/${file}`});
     hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7 });
 
     hands.onResults((results) => {
@@ -618,11 +1197,17 @@
             // Preserve flick intent even if the hand settles into another symbol right after the flick motion.
             pendingPurpleExitFlick = true;
         }
-        const maxActive = Math.max(frameScores.red, frameScores.void, frameScores.purple, frameScores.shrine, frameScores.flick);
-        frameScores.neutral = clamp01(1 - maxActive);
+        frameScores.neutral = clamp01(1 - maxActiveScore(frameScores));
         GESTURES.forEach((tech) => { rawScores[tech] = frameScores[tech]; });
         smoothScores(frameScores);
-        const nextGesture = pickGestureFromScores(nowMs);
+        let nextGesture = pickGestureFromScores(nowMs);
+        if (forcedTech) {
+            if (nowMs < forcedUntilMs) {
+                nextGesture = forcedTech;
+            } else {
+                forcedTech = null;
+            }
+        }
         maybeTriggerPurpleExitExplosion(nextGesture, nowMs);
         updateState(nextGesture);
         updateDebugPanel(nextGesture);
@@ -650,14 +1235,26 @@
             pendingPurpleExitFlick = false;
         }
         const nameEl = document.getElementById('technique-name');
-        shakeIntensity = tech !== 'neutral' ? 0.4 : 0;
+        shakeIntensity = tech === 'shrine' ? 1.5 : (tech !== 'neutral' ? 0.4 : 0);
 
         if(tech === 'shrine') { glowColor = '#ff0000'; nameEl.innerText = "Domain Expansion: Malevolent Shrine"; baseBloomStrength = 2.5; }
         else if(tech === 'purple') { glowColor = '#bb00ff'; nameEl.innerText = "Secret Technique: Hollow Purple"; baseBloomStrength = 4.0; }
         else if(tech === 'void') { glowColor = '#00ffff'; nameEl.innerText = "Domain Expansion: Infinite Void"; baseBloomStrength = 2.0; }
         else if(tech === 'red') { glowColor = '#ff3333'; nameEl.innerText = "Reverse Cursed Technique: Red"; baseBloomStrength = 2.5; }
+        else if(tech === 'blue') { glowColor = '#4d7dff'; nameEl.innerText = "Limitless: Blue"; baseBloomStrength = 3.0; }
+        else if(tech === 'blackflash') { glowColor = '#ff0044'; nameEl.innerText = "Black Flash"; baseBloomStrength = 5.0; }
+        else if(tech === 'shadowgarden') { glowColor = '#4466ff'; nameEl.innerText = "Domain Expansion: Chimera Shadow Garden"; baseBloomStrength = 1.5; }
+        else if(tech === 'transfiguration') { glowColor = '#ff9fcf'; nameEl.innerText = "Idle Transfiguration"; baseBloomStrength = 2.8; }
+        else if(tech === 'ratio') { glowColor = '#ffd700'; nameEl.innerText = "Ratio Technique"; baseBloomStrength = 2.2; }
+        else if(tech === 'divine') { glowColor = '#ffd700'; nameEl.innerText = "Divine General: Mahoraga"; baseBloomStrength = 2.5; }
+        else if(tech === 'idlegamble') { glowColor = '#aa00ff'; nameEl.innerText = "Domain Expansion: Idle Death Gamble"; baseBloomStrength = 3.5; }
+        else if(tech === 'love') { glowColor = '#66ccff'; nameEl.innerText = "Domain Expansion: Authentic Mutual Love"; baseBloomStrength = 3.0; }
+        else if(tech === 'sentence') { glowColor = '#ffaa33'; nameEl.innerText = "Domain Expansion: Deadly Sentencing"; baseBloomStrength = 0.6; }
+        else if(tech === 'palace') { glowColor = '#ff0000'; nameEl.innerText = "Domain Expansion: Time Cell Moon Palace"; baseBloomStrength = 2.5; }
+        else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "Domain Expansion: Self Embodiment of Perfection"; baseBloomStrength = 2.5; }
         else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "Hollow Purple: Release"; baseBloomStrength = 1.4; }
         else { glowColor = '#00ffff'; nameEl.innerText = "Neutral State"; baseBloomStrength = 1.0; }
+        idleFlash.classList.toggle('active', tech === 'idlegamble');
         bloomPass.strength = baseBloomStrength;
 
         if (tech === 'flick') {
@@ -677,7 +1274,18 @@
             else if(tech === 'void') p = getVoid(i);
             else if(tech === 'purple') p = getPurple(i);
             else if(tech === 'shrine') p = getShrine(i);
-            
+            else if(tech === 'blue') p = getBlue(i);
+            else if(tech === 'blackflash') p = getBlackFlash(i);
+            else if(tech === 'shadowgarden') p = getShadowGarden(i);
+            else if(tech === 'transfiguration') p = getTransfiguration(i);
+            else if(tech === 'ratio') p = getRatio(i);
+            else if(tech === 'divine') p = getDivine(i);
+            else if(tech === 'idlegamble') p = getIdleDeathGamble(i);
+            else if(tech === 'love') p = getAuthenticMutualLove(i);
+            else if(tech === 'sentence') p = getDeadlySentencing(i);
+            else if(tech === 'palace') p = getPalace(i);
+            else if(tech === 'perfection') p = getPerfection(i);
+
             targetPositions[i*3] = p.x; targetPositions[i*3+1] = p.y; targetPositions[i*3+2] = p.z;
             targetColors[i*3] = p.r; targetColors[i*3+1] = p.g; targetColors[i*3+2] = p.b;
             targetSizes[i] = p.s;
@@ -693,6 +1301,15 @@
 
     updateState('neutral', true);
 
+    // ?tech=<name> pins one technique (useful for filming a take without gestures).
+    const initialTech = new URLSearchParams(window.location.search).get('tech');
+    if (initialTech && GESTURES.includes(initialTech)) {
+        forcedTech = initialTech;
+        forcedUntilMs = Infinity;
+        updateState(initialTech, true);
+        setGuideVisibility(false);
+    }
+
     const cameraUtils = new Camera(videoElement, {
         onFrame: async () => {
             canvasElement.width = videoElement.videoWidth;
@@ -705,6 +1322,9 @@
     // Animation
     function animate() {
         requestAnimationFrame(animate);
+        idleTime += 0.01;
+        const zoomTarget = performance.now() < zoomUntilMs ? 120 : INITIAL_CAMERA_Z;
+        camera.position.z += (zoomTarget - camera.position.z) * 0.05;
 
         const pos = particles.geometry.attributes.position.array;
         const col = particles.geometry.attributes.color.array;
@@ -760,6 +1380,11 @@
             renderer.domElement.style.transform = `translate(${(Math.random()-0.5)*effectiveShake*40}px, ${(Math.random()-0.5)*effectiveShake*40}px)`;
         } else {
             bloomPass.strength = baseBloomStrength;
+            if (currentTech === 'idlegamble') {
+                bloomPass.strength = 3.0 + Math.sin(idleTime * 2.2) * 1.2;
+            } else if (currentTech === 'love') {
+                bloomPass.strength = 2.8 + Math.sin(idleTime * 1.8) * 0.5;
+            }
             if (shakeIntensity > 0) {
                 renderer.domElement.style.transform = `translate(${(Math.random()-0.5)*shakeIntensity*40}px, ${(Math.random()-0.5)*shakeIntensity*40}px)`;
             } else {
@@ -771,17 +1396,35 @@
         particles.geometry.attributes.color.needsUpdate = true;
         particles.geometry.attributes.size.needsUpdate = true;
         
-        // UPDATED ROTATION LOGIC: Locking rotation for Shrine
+        // Technique-specific rotation (ported from PRs #2, #3, #9, #13)
         if(currentTech === 'red') {
             particles.rotation.z -= 0.1;
+        } else if (currentTech === 'blue') {
+            particles.rotation.y += 0.02;
+            particles.rotation.z += 0.01;
+        } else if (currentTech === 'blackflash') {
+            particles.rotation.x += 0.3;
+            particles.rotation.y += 0.3;
         } else if (currentTech === 'purple') {
-            particles.rotation.z += 0.2; 
+            particles.rotation.z += 0.2;
             particles.rotation.y += 0.05;
         } else if (currentTech === 'shrine') {
-            // FORCE UPRIGHT: Reset and freeze all rotations
-            particles.rotation.set(0, 0, 0); 
+            particles.rotation.set(0, 0, 0);
+        } else if (currentTech === 'divine') {
+            particles.rotation.y += 0.005;
+            particles.rotation.z += 0.005;
+        } else if (currentTech === 'idlegamble') {
+            particles.rotation.y -= 0.008;
+            particles.rotation.z += 0.003;
+        } else if (currentTech === 'love') {
+            particles.rotation.y += 0.012;
+        } else if (currentTech === 'sentence') {
+            particles.rotation.set(0, 0, 0);
+        } else if (currentTech === 'palace') {
+            particles.rotation.y += 0.0005;
+        } else if (currentTech === 'perfection') {
+            particles.rotation.y += 0.05;
         } else {
-            // Default Neutral rotation
             particles.rotation.y += 0.005;
         }
 

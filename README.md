@@ -1,49 +1,107 @@
-## Description
-SAT0RU is a cursed technique visualizer based on the popular anime series, Jujutsu Kaisen 呪術廻戦. It combines the mediapipe library with three.js to recreate cursed techniques from Jujutsu Kaisen. Powered by Gemini 3.
+# SAT0RU · Domain Expansion — 合并最终版
 
-![Demo GIF](https://github.com/user-attachments/assets/8ad2b871-02c0-4b97-95f3-34682e745be0)
+基于 [reinesana/SAT0RU](https://github.com/reinesana/SAT0RU) 的私人合并版：把仓库里 10 个未合并 PR 里有价值的部分全部手工并入了一个 `index.html`，另附 PR #7 的独立开场动画页。
 
-## Features
+> 仅个人拍摄/娱乐使用。原仓库未附 LICENSE，请勿公开分发。
 
-This project utilizes particles to render volume-based cursed techniques:
+## 相比原版改了什么
 
-* **Secret Technique: Hollow Purple**
-    * **Visuals:** A chaotic singularity combining attraction and repulsion.
-    * **Trigger:** "Pinch" gesture (Thumb + Index touching).
-* **Hollow Purple: Release**
-    * **Visuals:** A long outward explosion using Hollow Purple particle color and shape.
-    * **Trigger:** Hold Hollow Purple for at least 1 second, then perform a fast index-finger flick.
-* **Domain Expansion: Infinite Void**
-    * **Visuals:** A multi-layered celestial domain featuring a bright event horizon ring, a vertical stream of infinite information, and a deep cosmos background.
-    * **Trigger:** "Cross" gesture (Index + Middle fingers crossed).
-* **Cursed Technique Reversal: Red**
-    * **Visuals:** A blinding white-hot core generating a violent, jagged sphere of repulsive force.
-    * **Trigger:** Index finger pointing up.
-* **Domain Expansion: Malevolent Shrine**
-    * **Visuals:** A dark, ominous aura representing the King of Curses.
-    * **Trigger:** Flat hand / Prayer gesture.
+### 1. 识别引擎重写（解决「手势不灵」的根因）
 
-## Getting Started
+原版是单帧硬判断：每一帧按 y 坐标猜手指伸没伸，猜错一次特效就跳一次。最终版改为 **分数制 + EMA 平滑**（PR #6 的思路，重写实现）：
 
-### Prerequisites
-You need a modern web browser (Chrome, Edge, Firefox) and a webcam.
+- 每个手势每帧输出 0~1 分数，EMA 平滑（α=0.20）
+- 进入阈值 0.75 / 退出阈值 0.50，防抖
+- 切换技法需领先当前技法 0.12 且持续 300ms 以上
+- 单帧抖动不再跳变，双手中优先级排定（双 fists > 捏合+平掌 > … > 单手中最高分）
 
-### Installation
-1.  **Clone the repo**
-    ```bash
-    git clone [https://github.com/reinesana/SAT0RU.git](https://github.com/reinesana/SAT0RU.git)
-    cd SAT0RU
-    ```
+手势规则本身也收紧了（吸收 PR #10）：四指「并拢/张开」按食指-中指指尖距离区分（<0.05 / >0.10），捏合会抑制其他手势，拇指外张、双指夹角都参与判定。阈值集中在 `index.html` 的 `computeHandScores()`，不合手型可直接微调。
 
-2.  **Run the project**
-    **VS Code:** Install the "Live Server" extension, right-click `index.html`, and select "Open with Live Server".
+### 2. 技法从 6 个扩到 15 个 + 语音
 
-## Controls
+移植了 PR #2 / #3 / #9 / #13 的技法函数与配色、bloom 强度。
 
-* `M`: Toggle soundtrack on/off.
-* `D`: Toggle debug panel on/off.
-* `K`: Toggle keybind menu on/off.
+## 手势表
 
-## Note 
+单手：
 
-This project was built and powered by **Google Gemini 3**.
+| 手势 | 技法 |
+|---|---|
+| 拇指+食指捏合 | Hollow Purple（保持 1 秒后快速甩指 → 释放爆炸） |
+| 只伸食指 | RCT: Red |
+| 食指+中指 | Domain Expansion: Infinite Void |
+| 四指并拢 | Malevolent Shrine |
+| 四指张开 | Lapse: Blue |
+| 握拳 | Black Flash |
+| ILY（食指+小指） | Authentic Mutual Love |
+| 张开手掌+拇指伸出 | Self Embodiment of Perfection |
+| 平掌、中指无名指留缝 | Ratio 7:3 |
+
+双手：
+
+| 手势 | 技法 |
+|---|---|
+| 双拳 | Divine General: Mahoraga（金色法轮） |
+| 拇指相触 | Idle Transfiguration |
+| 双腕距 0.08~0.15 | Shadow Garden |
+| 一手捏合 + 一手平掌 | Idle Death Gamble |
+| 双手 ILY | Time Cell Moon Palace |
+| 双手食指+中指 | Malevolent Shrine（双倍加成） |
+
+语音（按 V 开启，Chrome/Edge，Firefox 不支持）：
+
+| 台词 | 效果 |
+|---|---|
+| "don't move" | 死刑宣判 Deadly Sentencing |
+| "run away" | 镜头拉远（术式反转演出） |
+
+## 按键
+
+| 键 | 功能 |
+|---|---|
+| M | 音乐（`ost.mp3`） |
+| D | 调试面板（各手势实时分数） |
+| H | 手势指南开关 |
+| V | 语音触发开关 |
+| T | 轮换技法（每个 15 秒，录制预览用） |
+| N | 回到手势识别模式 |
+| K | 按键菜单开关 |
+| O | 新标签页打开「無量空処」开场动画（PR #7） |
+
+录制技巧：`?tech=<技法名>` 可锁定单个技法（如 `?tech=divine`），页面跳过识别、直接演出，适合逐条拍素材。可用名：`neutral void shrine purple red blue blackflash shadowgarden transfiguration divine ratio idlegamble love sentence palace perfection`。
+
+## 运行
+
+- 需要摄像头；浏览器只在 `localhost` / HTTPS 下允许取摄像头
+- 任意静态服务器均可，需正确 MIME（`.wasm` → `application/wasm`，`.data` / `.tflite` → `application/octet-stream`），仓库外的 `serve.py` 已配置好：
+  ```
+  python3 serve.py /path/to/sat0ru-final 8787
+  ```
+  打开 `http://127.0.0.1:8787`
+- 全部依赖已本地化在 `vendor/`（MediaPipe Hands、three.js、字体），**零外网请求**
+
+## 目录
+
+- `index.html` — 主页面（手势识别 + 粒子演出）
+- `DomainExpansion-infintevoid/` — PR #7 独立开场页（手势 splash → 無量空処 → Enter）
+- `vendor/` — MediaPipe / three.js / 字体
+- `ost.mp3` — 原仓库音乐
+
+## 已知限制
+
+- MediaPipe Hands 是 2D 关键点 + 逐帧检测，极端光照、逆光、手太远仍会丢手；后续若还灵，升级路径是 MediaPipe Tasks `HandLandmarker`（新模型、世界坐标、时序更稳）
+- 无摄像头/拒绝授权时 MediaPipe 会弹「Failed to acquire camera」，正常
+- 语音依赖 Web Speech API，走 Google 在线识别，国内网络可能不通
+
+## 致谢
+
+- 原项目：[reinesana/SAT0RU](https://github.com/reinesana/SAT0RU)
+- 并入的 PR 作者：
+  - #2 joseangelalejo — Blue / Black Flash
+  - #3 Archit Sehgal — Shadow Garden / Ratio / Idle Transfiguration 等
+  - #6 Ethanc143 — Hollow Purple 平滑与释放（识别引擎基础）
+  - #7 VarunKumar-05 — 独立「無量空処」开场动画
+  - #9 Hoochymoochy — 多技法扩展
+  - #10 Security__geek — 手势判定逻辑修复思路
+  - #13 Arpith Krishna R — Mahoraga
+- #1 / #4 / #5 为 README 修正类 PR，内容已被本文件取代
