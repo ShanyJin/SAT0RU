@@ -558,11 +558,14 @@
     let purpleEnteredAtMs = -Infinity;
     let purpleFlickEligibleUntilMs = 0;
     let shakeIntensity = 0;
-    // Gojo Blue (苍) sequence detector: both hands open -> both fists -> both open.
+    // Gojo Blue (苍) detector: per-hand open -> fist -> open cycles.
+    // One hand completing the cycle = 苍1; both hands = 苍2. Both trigger Blue.
     let bluePulseUntilMs = 0;
+    let gestureLockUntilMs = 0;
+    let pendingBlueInstant = false;
     let lastHandShapes = [];
-    const blueSeq = { stage: 0, stageAtMs: 0, lastTwoHandsMs: 0 };
-    const BLUE_SEQ = { stageWindowMs: 1600, handGraceMs: 400, pulseMs: 2200 };
+    const blueHandStates = {};
+    const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
     const FLICK = {
         purpleArmMs: 1000,
         flickOnlyWindowMs: 280,
@@ -592,7 +595,8 @@
     // Gojo mode (default): only Gojo's four techniques respond to gestures.
     // ?mode=all restores the full 15-technique set (kept as backup).
     const MODE = new URLSearchParams(window.location.search).get('mode') === 'all' ? 'all' : 'gojo';
-    const GOJO_GESTURES = ['purple', 'blue', 'void', 'red', 'flick'];
+    // Working set for now: only Blue responds to gestures; Red/Purple/Void stay unwired (kept for later).
+    const GOJO_GESTURES = ['blue'];
     const ACTIVE_GESTURES = MODE === 'gojo' ? GOJO_GESTURES : SCORE_GESTURES;
     const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
     const rawScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
@@ -713,38 +717,62 @@
         return scores;
     }
 
-    // Gojo Blue (苍): both hands open -> both fists -> both open again.
-    function updateBlueSequence(shapes, nowMs) {
-        if (shapes.length === 2) blueSeq.lastTwoHandsMs = nowMs;
-        const twoHandsRecent = shapes.length === 2
-            || (blueSeq.stage > 0 && (nowMs - blueSeq.lastTwoHandsMs) <= BLUE_SEQ.handGraceMs);
-        if (!twoHandsRecent) {
-            blueSeq.stage = 0;
-            return false;
-        }
+    // Gojo Blue (苍): each hand independently runs open -> fist -> open.
+    // Requires a few consecutive frames per shape so a one-frame misread can't advance the chain.
+    function updateBlueSequences(shapes, keys, nowMs) {
+        let anyComplete = false;
+        const seen = new Set();
+        shapes.forEach((shape, i) => {
+            const key = keys[i] || `hand_${i}`;
+            seen.add(key);
+            const st = blueHandStates[key] || { stage: 0, atMs: 0, openRun: 0, fistRun: 0, lastSeenMs: 0 };
 
-        if (blueSeq.stage > 0 && (nowMs - blueSeq.stageAtMs) > BLUE_SEQ.stageWindowMs) {
-            blueSeq.stage = 0;
-        }
+            if (shape.isOpen) {
+                st.openRun += 1;
+                st.fistRun = 0;
+            } else if (shape.isFist) {
+                st.fistRun += 1;
+                st.openRun = 0;
+            } else {
+                st.openRun = 0;
+                st.fistRun = 0;
+            }
+            st.lastSeenMs = nowMs;
 
-        const bothOpen = shapes.length === 2 && shapes.every((s) => s.isOpen);
-        const bothFist = shapes.length === 2 && shapes.every((s) => s.isFist);
+            if (st.stage === 0) {
+                if (st.openRun >= BLUE_SEQ.openFrames) {
+                    st.stage = 1;
+                    st.atMs = nowMs;
+                }
+            } else if (st.stage === 1) {
+                if ((nowMs - st.atMs) > BLUE_SEQ.stageWindowMs) {
+                    st.stage = 0;
+                } else if (st.fistRun >= BLUE_SEQ.fistFrames) {
+                    st.stage = 2;
+                    st.atMs = nowMs;
+                }
+            } else if (st.stage === 2) {
+                if ((nowMs - st.atMs) > BLUE_SEQ.stageWindowMs) {
+                    st.stage = 0;
+                } else if (st.openRun >= BLUE_SEQ.openFrames) {
+                    st.stage = 0;
+                    st.openRun = 0;
+                    anyComplete = true;
+                }
+            }
+            blueHandStates[key] = st;
+        });
 
-        if (blueSeq.stage === 0 && bothOpen) {
-            blueSeq.stage = 1;
-            blueSeq.stageAtMs = nowMs;
-            return false;
+        for (const key of Object.keys(blueHandStates)) {
+            if (!seen.has(key) && (nowMs - blueHandStates[key].lastSeenMs) > BLUE_SEQ.handGraceMs) {
+                delete blueHandStates[key];
+            }
         }
-        if (blueSeq.stage === 1 && bothFist) {
-            blueSeq.stage = 2;
-            blueSeq.stageAtMs = nowMs;
-            return false;
-        }
-        if (blueSeq.stage === 2 && bothOpen) {
-            blueSeq.stage = 0;
-            return true;
-        }
-        return false;
+        return anyComplete;
+    }
+
+    function resetBlueHandStates() {
+        for (const key of Object.keys(blueHandStates)) delete blueHandStates[key];
     }
 
     function computeFrameScores(results, nowMs) {
@@ -752,6 +780,8 @@
         frameScores.neutral = 1;
         frameFlickScore = 0;
         lastHandShapes = [];
+        // Keep an already-triggered Blue playing even if the hands leave the frame mid-animation.
+        if (MODE === 'gojo' && nowMs <= bluePulseUntilMs) frameScores.blue = 1;
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return frameScores;
 
         const handShapes = [];
@@ -830,15 +860,18 @@
         lastHandShapes = handShapes;
 
         if (MODE === 'gojo') {
-            // Gojo mode gesture set.
-            // Void needs BOTH hands in the crossed sign (ring/pinky folded);
-            // a single hand's index+middle is Red's second form (the "gun" pose).
-            const domainSign = (s) => s.indexUp === 1 && s.middleUp === 1 && s.ringUp === 0 && s.pinkyUp === 0;
-            const domainHands = handShapes.filter(domainSign).length;
-            frameScores.void = domainHands >= 2 ? 1 : 0;
-            if (domainHands === 1) frameScores.red = Math.max(frameScores.red, 1);
-            if (updateBlueSequence(handShapes, nowMs)) {
-                bluePulseUntilMs = nowMs + BLUE_SEQ.pulseMs;
+            // Only Blue responds in this pass. The per-hand cycle triggers once per completed
+            // open>fist>open; the gesture lock keeps a follow-through motion from chaining another effect.
+            const gojoLocked = nowMs < gestureLockUntilMs;
+            if (gojoLocked) {
+                resetBlueHandStates();
+            } else {
+                const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
+                if (updateBlueSequences(handShapes, handKeys, nowMs)) {
+                    bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
+                    gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
+                    pendingBlueInstant = true;
+                }
             }
             // Blue is sequence-only in Gojo mode; the plain four-finger-spread rule is disabled.
             frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
@@ -914,15 +947,11 @@
     }
 
     const GUIDE_GOJO = [
-        { sep: '单手 · one hand' },
-        { gesture: '食指伸出', tech: '術式反転「赫」' },
-        { gesture: '食指+中指并拢 + 拇指（枪形）', tech: '術式反転「赫」' },
-        { gesture: '拇指+食指捏合', tech: '虚式「茈」' },
-        { sep: '双手 · two hands' },
-        { gesture: '张开 → 握拳 → 再张开', tech: '術式順転「蒼」' },
-        { gesture: '双手食指+中指交叉', tech: '領域展開・無量空処' },
-        { foot: '茈 保持 1 秒后甩指释放 · T 轮换 / N 自动 / C 纯净模式' },
-        { foot: '?mode=all 恢复全套手势（备选）' }
+        { sep: '術式順転「蒼」 · Lapse: Blue' },
+        { gesture: '单手：张开 → 握拳 → 再张开', tech: '苍 1' },
+        { gesture: '双手：张开 → 握拳 → 再张开', tech: '苍 2' },
+        { foot: '动画约 2.5 秒，随后 2.5 秒内不触发任何术式（防连贯误触）' },
+        { foot: '目前只启用苍；其他术式暂停触发，T 可手动预览' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },
@@ -1067,8 +1096,9 @@
             `nextGesture: ${nextGesture}`,
             `flickScore: ${scoreText(frameFlickScore)}`,
             `flickPulse: ${flickPulseLeftMs.toFixed(0)}ms`,
-            `blueSeq: stage ${blueSeq.stage}`,
+            `blueStages: ${Object.entries(blueHandStates).map(([k, s]) => k + ':' + s.stage).join(' ') || '-'}`,
             `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
+            `gestureLock: ${Math.max(0, gestureLockUntilMs - nowMs).toFixed(0)}ms`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
@@ -1259,6 +1289,11 @@
         frameScores.neutral = clamp01(1 - maxActiveScore(frameScores));
         GESTURES.forEach((tech) => { rawScores[tech] = frameScores[tech]; });
         smoothScores(frameScores);
+        if (pendingBlueInstant) {
+            // The open>fist>open cycle fires the effect immediately instead of waiting for EMA to climb.
+            smoothedScores.blue = 1;
+            pendingBlueInstant = false;
+        }
         let nextGesture = pickGestureFromScores(nowMs);
         if (forcedTech) {
             if (nowMs < forcedUntilMs) {

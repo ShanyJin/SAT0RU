@@ -32,6 +32,9 @@
         const OPEN2 = twoHands(buildPose([], false));
         const FIST2 = twoHands(buildPose(['index', 'middle', 'ring', 'pinky'], false));
         const PURPLE1 = [mkHand(0.5, 0.75, buildPose([], true))];
+        const GUN1 = [mkHand(0.5, 0.75, buildPose(['ring', 'pinky'], false))];
+        const OPEN1 = [mkHand(0.5, 0.75, buildPose([], false))];
+        const FIST1 = [mkHand(0.5, 0.75, buildPose(['index', 'middle', 'ring', 'pinky'], false))];
 
         let t = 1000;
         const runFrame = (hands, ms) => {
@@ -45,6 +48,7 @@
             scores.neutral = clamp01(1 - maxActiveScore(scores));
             GESTURES.forEach((tech) => { rawScores[tech] = scores[tech]; });
             smoothScores(scores);
+            if (pendingBlueInstant) { smoothedScores.blue = 1; pendingBlueInstant = false; }
             const next = pickGestureFromScores(ms);
             maybeTriggerPurpleExitExplosion(next, ms);
             updateState(next);
@@ -60,15 +64,21 @@
         };
 
         step([], 5); mark('neutral', 'neutral');
-        step(RED2, 20); mark('red', 'red');
-        step([], 10); mark('idle', 'neutral');
-        step(VOID2, 20); mark('void', 'void');
-        step([], 10);
-        step(PURPLE1, 40); mark('purple', 'purple');
-        step([], 15); mark('exit purple', 'neutral');
-        step(OPEN2, 12); mark('blue open1', 'neutral');
-        step(FIST2, 10); mark('blue fist', 'neutral');
-        step(OPEN2, 14); mark('blue open2', 'blue');
+        step(RED2, 20); mark('red disabled', 'neutral');
+        step([], 5);
+        step(OPEN1, 8);
+        step(FIST1, 6);
+        step(OPEN1, 8); mark('blue1 single hand', 'blue');
+        step(RED2, 40); mark('anim: other gestures ignored', 'blue');
+        step(RED2, 60); mark('cooldown: still no red', 'neutral');
+        step([], 60);
+        step(OPEN2, 8);
+        step(FIST2, 6);
+        step(OPEN2, 8); mark('blue2 both hands', 'blue');
+        step([], 120);
+        step(OPEN2, 20); mark('open only no trigger', 'neutral');
+        step(FIST2, 8);
+        step(OPEN2, 20); mark('fist>open no trigger', 'neutral');
         step([], 10); mark('end', null);
 
         const fails = log.filter((line) => line.includes('FAIL'));
