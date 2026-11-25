@@ -21,32 +21,33 @@
 
 移植了 PR #2 / #3 / #9 / #13 的技法函数与配色、bloom 强度。
 
-## 手势表
+### 3. 五条悟模式（当前默认）
 
-单手：
+只认五条悟的四个术式，其他技法保留为备选（`?mode=all` 恢复全套手势，T 键可预览任何技法）。
 
-| 手势 | 技法 |
-|---|---|
-| 拇指+食指捏合 | Hollow Purple（保持 1 秒后快速甩指 → 释放爆炸） |
-| 只伸食指 | RCT: Red |
-| 食指+中指 | Domain Expansion: Infinite Void |
-| 四指并拢 | Malevolent Shrine |
-| 四指张开 | Lapse: Blue |
-| 握拳 | Black Flash |
-| ILY（食指+小指） | Authentic Mutual Love |
-| 张开手掌+拇指伸出 | Self Embodiment of Perfection |
-| 平掌、中指无名指留缝 | Ratio 7:3 |
-
-双手：
+## 手势表（五条悟模式）
 
 | 手势 | 技法 |
 |---|---|
-| 双拳 | Divine General: Mahoraga（金色法轮） |
-| 拇指相触 | Idle Transfiguration |
-| 双腕距 0.08~0.15 | Shadow Garden |
-| 一手捏合 + 一手平掌 | Idle Death Gamble |
-| 双手 ILY | Time Cell Moon Palace |
-| 双手食指+中指 | Malevolent Shrine（双倍加成） |
+| 食指伸出 | 術式反転「赫」 Reversal: Red |
+| 双手张开 → 握拳 → 再张开 | 術式順転「蒼」 Lapse: Blue |
+| 拇指+食指捏合 | 虚式「茈」 Hollow Purple（保持 1 秒后快速甩指 → 释放爆炸） |
+| 食指+中指（单手或双手） | 领域展开·无量空处 Infinite Void |
+
+- 「苍」是时序手势：张开→握拳、握拳→张开各需在 1.6 秒内完成；触发后蓝色演出脉冲约 2.2 秒
+- 双手做「无量空处」时要求小指、无名指收拢（自然张开的手掌不算）
+- 张开/握拳按「指尖到手腕距离 vs 指节到手腕距离」判定，不依赖手掌朝向
+- D 调试面板会显示 `blueSeq: stage` 和 `hands: open/fist/?`，调阈值时看这里
+
+<details>
+<summary>备选：?mode=all 全套 15 技法手势</summary>
+
+单手：捏合→Hollow Purple / 食指→Red / 食指+中指→Infinite Void / 四指并拢→Malevolent Shrine / 四指张开→Blue / 握拳→Black Flash / ILY→Authentic Mutual Love / 张开+拇指→Self Embodiment / 平掌中缝→Ratio。
+
+双手：拇指相触→Idle Transfiguration / 双腕距 0.08~0.15→Shadow Garden / 双拳→Mahoraga / 捏合+平掌→Idle Death Gamble / 双手 ILY→Time Cell Moon Palace / 双手食指+中指→Malevolent Shrine。
+
+语音（V，Chrome/Edge）："don't move"→Deadly Sentencing，"run away"→镜头拉远。
+</details>
 
 语音（按 V 开启，Chrome/Edge，Firefox 不支持）：
 
@@ -69,6 +70,16 @@
 | O | 新标签页打开「無量空処」开场动画（PR #7） |
 
 录制技巧：`?tech=<技法名>` 可锁定单个技法（如 `?tech=divine`），页面跳过识别、直接演出，适合逐条拍素材。可用名：`neutral void shrine purple red blue blackflash shadowgarden transfiguration divine ratio idlegamble love sentence palace perfection`。
+
+模式：默认五条悟模式（4 手势）；`?mode=all` 恢复全套 15 技法手势。
+
+## 自测（无摄像头逻辑回归）
+
+```
+python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-driver.js
+```
+
+浏览器打开 `logic-test.html?logictest=1`：合成手部关键点喂进真实识别管线，左上角绿色 PASS / 红色 FAIL，逐项比对四个手势判定与「苍」的时序。改阈值后跑一遍再上线。
 
 ## 运行
 

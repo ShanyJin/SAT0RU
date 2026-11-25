@@ -608,6 +608,11 @@
     let purpleEnteredAtMs = -Infinity;
     let purpleFlickEligibleUntilMs = 0;
     let shakeIntensity = 0;
+    // Gojo Blue (苍) sequence detector: both hands open -> both fists -> both open.
+    let bluePulseUntilMs = 0;
+    let lastHandShapes = [];
+    const blueSeq = { stage: 0, stageAtMs: 0, lastTwoHandsMs: 0 };
+    const BLUE_SEQ = { stageWindowMs: 1600, handGraceMs: 400, pulseMs: 2200 };
     const FLICK = {
         purpleArmMs: 1000,
         flickOnlyWindowMs: 280,
@@ -634,7 +639,11 @@
     ];
     const VOICE_GESTURES = ['sentence'];
     const GESTURES = ['neutral', ...SCORE_GESTURES, ...VOICE_GESTURES];
-    const ACTIVE_GESTURES = SCORE_GESTURES;
+    // Gojo mode (default): only Gojo's four techniques respond to gestures.
+    // ?mode=all restores the full 15-technique set (kept as backup).
+    const MODE = new URLSearchParams(window.location.search).get('mode') === 'all' ? 'all' : 'gojo';
+    const GOJO_GESTURES = ['purple', 'blue', 'void', 'red', 'flick'];
+    const ACTIVE_GESTURES = MODE === 'gojo' ? GOJO_GESTURES : SCORE_GESTURES;
     const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
     const rawScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
     const TECH_CYCLE = ['void', 'shrine', 'purple', 'red', 'blue', 'blackflash', 'shadowgarden', 'transfiguration', 'divine', 'ratio', 'idlegamble', 'love', 'sentence', 'palace', 'perfection'];
@@ -702,7 +711,7 @@
         return Math.hypot(lm[8].x - lm[4].x, lm[8].y - lm[4].y);
     }
 
-    function computeHandScores(lm) {
+    function handShape(lm) {
         const isUp = (tip, pip) => lm[tip].y < lm[pip].y;
         const indexUp = isUp(8, 6) ? 1 : 0;
         const middleUp = isUp(12, 10) ? 1 : 0;
@@ -710,45 +719,98 @@
         const pinkyUp = isUp(20, 18) ? 1 : 0;
         const thumbUp = isUp(4, 3) ? 1 : 0;
 
-        const pinchScore = pinchDistance(lm) < 0.04 ? 1 : 0;
-        const fingerGap = Math.hypot(lm[8].x - lm[12].x, lm[8].y - lm[12].y);
-        const thumbOut = Math.hypot(lm[4].x - lm[0].x, lm[4].y - lm[0].y) > 0.25;
-        const handAngle = Math.abs(Math.atan2(lm[12].y - lm[0].y, lm[12].x - lm[0].x));
+        // Orientation-independent openness (for the Blue sequence):
+        // compare each fingertip / PIP distance from the wrist instead of y coordinates,
+        // so open palms and fists are detected even when hands are tilted or sideways.
+        const wristDist = (point) => Math.hypot(lm[point].x - lm[0].x, lm[point].y - lm[0].y);
+        const extended = (tip, pip) => wristDist(tip) > wristDist(pip) * 1.12;
+        const curled = (tip, pip) => wristDist(tip) < wristDist(pip) * 0.92;
+        const isOpen = [8, 12, 16, 20].every((tip) => extended(tip, tip - 2));
+        const isFist = [8, 12, 16, 20].every((tip) => curled(tip, tip - 2));
 
-        const fourUp = indexUp === 1 && middleUp === 1 && ringUp === 1 && pinkyUp === 1;
-        const fourDown = indexUp === 0 && middleUp === 0 && ringUp === 0 && pinkyUp === 0;
+        return {
+            indexUp, middleUp, ringUp, pinkyUp, thumbUp,
+            fourUp: indexUp === 1 && middleUp === 1 && ringUp === 1 && pinkyUp === 1,
+            fourDown: indexUp === 0 && middleUp === 0 && ringUp === 0 && pinkyUp === 0,
+            pinchScore: pinchDistance(lm) < 0.04 ? 1 : 0,
+            fingerGap: Math.hypot(lm[8].x - lm[12].x, lm[8].y - lm[12].y),
+            thumbOut: Math.hypot(lm[4].x - lm[0].x, lm[4].y - lm[0].y) > 0.25,
+            handAngle: Math.abs(Math.atan2(lm[12].y - lm[0].y, lm[12].x - lm[0].x)),
+            isOpen,
+            isFist
+        };
+    }
 
+    function computeHandScores(lm, shape = handShape(lm)) {
         const scores = {
-            purple: pinchScore,
-            shrine: fourUp && fingerGap < 0.05 ? 1 : 0,
-            blue: fourUp && fingerGap > 0.10 ? 1 : 0,
-            perfection: fourUp && thumbUp === 1 ? 1 : 0,
-            blackflash: fourDown ? 1 : 0,
-            love: indexUp === 1 && pinkyUp === 1 && middleUp === 0 && ringUp === 0 && thumbOut ? 1 : 0,
-            void: indexUp === 1 && middleUp === 1 && ringUp === 0 && pinkyUp === 0 ? 1 : 0,
-            red: indexUp === 1 && middleUp === 0 && ringUp === 0 && pinkyUp === 0 ? 1 : 0,
-            ratio: fourUp && fingerGap >= 0.05 && fingerGap <= 0.10 && handAngle > 0.5 && handAngle < 2.5 ? 0.8 : 0
+            purple: shape.pinchScore,
+            shrine: shape.fourUp && shape.fingerGap < 0.05 ? 1 : 0,
+            blue: shape.fourUp && shape.fingerGap > 0.10 ? 1 : 0,
+            perfection: shape.fourUp && shape.thumbUp === 1 ? 1 : 0,
+            blackflash: shape.fourDown ? 1 : 0,
+            love: shape.indexUp === 1 && shape.pinkyUp === 1 && shape.middleUp === 0 && shape.ringUp === 0 && shape.thumbOut ? 1 : 0,
+            void: shape.indexUp === 1 && shape.middleUp === 1 && shape.ringUp === 0 && shape.pinkyUp === 0 ? 1 : 0,
+            red: shape.indexUp === 1 && shape.middleUp === 0 && shape.ringUp === 0 && shape.pinkyUp === 0 ? 1 : 0,
+            ratio: shape.fourUp && shape.fingerGap >= 0.05 && shape.fingerGap <= 0.10 && shape.handAngle > 0.5 && shape.handAngle < 2.5 ? 0.8 : 0
         };
 
         // Pinch suppresses loosely-related poses so Hollow Purple stays reliable.
-        const pinchSuppression = 1 - (pinchScore * 0.45);
+        const pinchSuppression = 1 - (shape.pinchScore * 0.45);
         ['shrine', 'blue', 'perfection', 'void', 'red', 'blackflash', 'love', 'ratio'].forEach((tech) => {
             scores[tech] = clamp01(scores[tech] * pinchSuppression);
         });
         return scores;
     }
 
+    // Gojo Blue (苍): both hands open -> both fists -> both open again.
+    function updateBlueSequence(shapes, nowMs) {
+        if (shapes.length === 2) blueSeq.lastTwoHandsMs = nowMs;
+        const twoHandsRecent = shapes.length === 2
+            || (blueSeq.stage > 0 && (nowMs - blueSeq.lastTwoHandsMs) <= BLUE_SEQ.handGraceMs);
+        if (!twoHandsRecent) {
+            blueSeq.stage = 0;
+            return false;
+        }
+
+        if (blueSeq.stage > 0 && (nowMs - blueSeq.stageAtMs) > BLUE_SEQ.stageWindowMs) {
+            blueSeq.stage = 0;
+        }
+
+        const bothOpen = shapes.length === 2 && shapes.every((s) => s.isOpen);
+        const bothFist = shapes.length === 2 && shapes.every((s) => s.isFist);
+
+        if (blueSeq.stage === 0 && bothOpen) {
+            blueSeq.stage = 1;
+            blueSeq.stageAtMs = nowMs;
+            return false;
+        }
+        if (blueSeq.stage === 1 && bothFist) {
+            blueSeq.stage = 2;
+            blueSeq.stageAtMs = nowMs;
+            return false;
+        }
+        if (blueSeq.stage === 2 && bothOpen) {
+            blueSeq.stage = 0;
+            return true;
+        }
+        return false;
+    }
+
     function computeFrameScores(results, nowMs) {
         const frameScores = Object.fromEntries(GESTURES.map((tech) => [tech, 0]));
         frameScores.neutral = 1;
         frameFlickScore = 0;
+        lastHandShapes = [];
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return frameScores;
 
+        const handShapes = [];
         results.multiHandLandmarks.forEach((lm, handIdx) => {
             drawConnectors(canvasCtx, lm, HAND_CONNECTIONS, { color: glowColor, lineWidth: 5 });
             drawLandmarks(canvasCtx, lm, { color: '#fff', lineWidth: 1, radius: 2 });
 
-            const handScores = computeHandScores(lm);
+            const shape = handShape(lm);
+            handShapes.push(shape);
+            const handScores = computeHandScores(lm, shape);
             ACTIVE_GESTURES.forEach((tech) => {
                 if (!Object.prototype.hasOwnProperty.call(handScores, tech)) return;
                 frameScores[tech] = Math.max(frameScores[tech], handScores[tech]);
@@ -812,8 +874,21 @@
             flickDetectorByHand[handLabel] = detector;
         });
 
-        // Two-hand gestures (ported from PR #3, #9, #13). They win over single-hand poses.
-        if (results.multiHandLandmarks.length === 2) {
+        lastHandShapes = handShapes;
+
+        if (MODE === 'gojo') {
+            // Gojo mode: two-hand domain sign + the Blue open>fist>open sequence.
+            // Sukuna-era two-hand gestures (shrine/divine/palace/...) stay in ?mode=all.
+            if (handShapes.length === 2 && handShapes.every((s) => s.indexUp === 1 && s.middleUp === 1 && s.ringUp === 0 && s.pinkyUp === 0)) {
+                // Ring/pinky must be folded, otherwise an open palm would read as the domain sign.
+                frameScores.void = Math.max(frameScores.void, 1);
+            }
+            if (updateBlueSequence(handShapes, nowMs)) {
+                bluePulseUntilMs = nowMs + BLUE_SEQ.pulseMs;
+            }
+            // Blue is sequence-only in Gojo mode; the plain four-finger-spread rule is disabled.
+            frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
+        } else if (results.multiHandLandmarks.length === 2) {
             const a = results.multiHandLandmarks[0];
             const b = results.multiHandLandmarks[1];
             const isUpH = (lm, tip, pip) => lm[tip].y < lm[pip].y;
@@ -870,7 +945,7 @@
     function updateKeybindMenu() {
         if (!keybindMenuVisible) return;
         keybindMenu.textContent = [
-            'Keybinds',
+            `Keybinds (mode: ${MODE === 'gojo' ? 'GOJO' : 'ALL'})`,
             `[${KEYBINDS.music}] Soundtrack: ${musicEnabled ? 'ON' : 'OFF'}`,
             `[${KEYBINDS.debug}] Debug Panel: ${debugEnabled ? 'ON' : 'OFF'}`,
             `[${KEYBINDS.guide}] Gesture Guide: ${guideVisible ? 'ON' : 'OFF'}`,
@@ -882,8 +957,18 @@
         ].join('\n');
     }
 
-    const GUIDE_TEXT = [
-        'GESTURE GUIDE (H to hide)',
+    const GUIDE_TEXT = MODE === 'gojo' ? [
+        'GESTURE GUIDE - GOJO (H to hide)',
+        'index up               Reversal: Red',
+        'both hands open>fist>open  Lapse: Blue',
+        'pinch thumb+index      Hollow Purple',
+        'index+middle           Infinite Void',
+        'Purple held 1s + flick = Release',
+        '',
+        'T cycle | N auto | O cutscene',
+        '?mode=all = full gesture set (backup)'
+    ].join('\n') : [
+        'GESTURE GUIDE - ALL (H to hide)',
         '--- one hand ---',
         'pinch thumb+index   Hollow Purple',
         'index only          Red',
@@ -1017,6 +1102,9 @@
             `nextGesture: ${nextGesture}`,
             `flickScore: ${scoreText(frameFlickScore)}`,
             `flickPulse: ${flickPulseLeftMs.toFixed(0)}ms`,
+            `blueSeq: stage ${blueSeq.stage}`,
+            `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
+            `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
             '',
