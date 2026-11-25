@@ -86,6 +86,15 @@
         try {
             step([], 5); mark('neutral', 'neutral');
 
+            // The natural open>curl>open motion of making the gun sign must not arm Blue
+            // (reported bug: doing Red's second form fired Blue).
+            step(open1(0.5), 8);
+            step(gun1(0.5), 3);
+            step(fist1(0.5), 2);
+            step(open1(0.5), 6);
+            markState('gun motion does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
+            step([], 20);
+
             // --- 赫 form 2: gun (index+middle together, thumb flared) ---
             step(gun1(0.5), 25); mark('red gun form shows', 'red');
             step([], 24); mark('red gun releases on drop', 'neutral');
