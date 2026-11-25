@@ -138,7 +138,7 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.domElement.id = 'three-canvas';
     renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5));
     renderer.domElement.style.position = 'fixed';
     renderer.domElement.style.top = '0';
     renderer.domElement.style.left = '0';
@@ -184,20 +184,53 @@
     const orbGeometry = new THREE.BufferGeometry();
     const orbPositions = new Float32Array(ORB_COUNT * 3);
     const orbColors = new Float32Array(ORB_COUNT * 3);
+    // A uniform random shell reads as a static glowing ball even while it spins. Three tilted
+    // arc rings (one counter-rotating) make the orbit unmistakable; a dim haze fills volume.
+    const ORB_RINGS = [
+        { u: [1, 0, 0], w: [0, 0.42, 0.91], spin: 2.6, scale: 1.0 },
+        { u: [0.87, 0, -0.5], w: [0.36, 0.8, 0.48], spin: 1.7, scale: 0.82 },
+        { u: [1, 0, 0], w: [0, 1, 0], spin: -2.1, scale: 1.22 }
+    ];
+    const ORB_ARC_BASE = [0, 1.9, 3.4, 5.1];
     const orbSeeds = [];
     for (let i = 0; i < ORB_COUNT; i++) {
-        const core = i < ORB_COUNT * 0.18;
-        orbSeeds.push({
-            r: core ? 0.05 + Math.random() * 0.22 : 0.35 + Math.random() * 1.15,
-            phi: Math.acos(2 * Math.random() - 1),
-            theta: Math.random() * Math.PI * 2,
-            spin: 1.8 + Math.random() * 5.2,
-            wobble: 0.5 + Math.random() * 1.5,
-            phase: Math.random() * Math.PI * 2
-        });
-        const c = core
-            ? { r: 0.45, g: 0.65, b: 1.0 }
-            : (Math.random() < 0.3 ? { r: 0.25, g: 0.5, b: 0.95 } : { r: 0.08, g: 0.22, b: 0.7 });
+        const frac = i / ORB_COUNT;
+        let c;
+        if (frac < 0.12) {
+            orbSeeds.push({
+                type: 'core',
+                r: 0.05 + Math.random() * 0.25,
+                phi: Math.acos(2 * Math.random() - 1),
+                theta: Math.random() * Math.PI * 2,
+                spin: 2.4 + Math.random() * 2.6,
+                wobble: 0.4 + Math.random() * 1.2,
+                phase: Math.random() * Math.PI * 2
+            });
+            c = { r: 0.42, g: 0.62, b: 0.98 };
+        } else if (frac < 0.67) {
+            const k = i % 3;
+            orbSeeds.push({
+                type: 'ring',
+                k,
+                r: Math.min(1, ORB_RINGS[k].scale),
+                theta0: ORB_ARC_BASE[(i * 7) % 4] + (Math.random() + Math.random() + Math.random() - 1.5) * 0.35,
+                rj: 1 + (Math.random() - 0.5) * 0.12
+            });
+            c = k === 0 ? { r: 0.38, g: 0.6, b: 1.0 }
+                : k === 1 ? { r: 0.3, g: 0.52, b: 0.95 }
+                : { r: 0.22, g: 0.42, b: 0.88 };
+        } else {
+            orbSeeds.push({
+                type: 'haze',
+                r: 0.35 + Math.random() * 1.15,
+                phi: Math.acos(2 * Math.random() - 1),
+                theta: Math.random() * Math.PI * 2,
+                spin: 1.9 + Math.random() * 0.9,
+                wobble: 0.5 + Math.random() * 1.5,
+                phase: Math.random() * Math.PI * 2
+            });
+            c = Math.random() < 0.3 ? { r: 0.25, g: 0.5, b: 0.95 } : { r: 0.08, g: 0.22, b: 0.7 };
+        }
         orbColors[i * 3] = c.r;
         orbColors[i * 3 + 1] = c.g;
         orbColors[i * 3 + 2] = c.b;
@@ -216,19 +249,36 @@
     chargeOrb.frustumCulled = false;
     scene.add(chargeOrb);
 
-    // The swarm orbits the core; outer particles sit along the orb's recent path (oldest
-    // sample first), so the whole cloud visibly trails behind the hand as it moves.
+    // Rings spin rigidly (same phase for every particle in a ring, so arcs never smear);
+    // haze particles drift and breathe; everything also trails along the orb's recent path.
     function fillOrbPositions(nowSec, radius, path, cx, cy) {
         const n = path ? path.length : 0;
         for (let i = 0; i < ORB_COUNT; i++) {
             const s = orbSeeds[i];
-            const theta = s.theta + nowSec * s.spin + orbSpinPhase;
-            const wob = Math.sin(nowSec * s.wobble + s.phase) * 0.14;
-            const rr = radius * s.r * (1 + wob);
+            let x;
+            let y;
+            let z;
+            if (s.type === 'ring') {
+                const R = ORB_RINGS[s.k];
+                const theta = s.theta0 + nowSec * R.spin + orbSpinPhase;
+                const rad = radius * R.scale * s.rj;
+                const ct = Math.cos(theta);
+                const st = Math.sin(theta);
+                x = (R.u[0] * ct + R.w[0] * st) * rad;
+                y = (R.u[1] * ct + R.w[1] * st) * rad;
+                z = (R.u[2] * ct + R.w[2] * st) * rad;
+            } else {
+                const theta = s.theta + nowSec * s.spin + orbSpinPhase;
+                const wob = Math.sin(nowSec * s.wobble + s.phase) * (s.type === 'core' ? 0.06 : 0.14);
+                const rr = radius * s.r * (1 + wob);
+                x = rr * Math.sin(s.phi) * Math.cos(theta);
+                y = rr * Math.cos(s.phi) * 0.82;
+                z = rr * Math.sin(s.phi) * Math.sin(theta);
+            }
             let ox = 0;
             let oy = 0;
             if (n > 1) {
-                const idx = Math.min(n - 1, Math.floor((1 - s.r) * (n - 1)));
+                const idx = Math.max(0, Math.min(n - 1, Math.floor((1 - s.r) * (n - 1))));
                 ox = path[idx].x - cx;
                 oy = path[idx].y - cy;
                 const ol = Math.hypot(ox, oy);
@@ -237,9 +287,9 @@
                     oy *= 10 / ol;
                 }
             }
-            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta) + ox;
-            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * 0.82 + oy;
-            orbPositions[i * 3 + 2] = rr * Math.sin(s.phi) * Math.sin(theta);
+            orbPositions[i * 3] = x + ox;
+            orbPositions[i * 3 + 1] = y + oy;
+            orbPositions[i * 3 + 2] = z;
         }
         orbGeometry.attributes.position.needsUpdate = true;
     }
@@ -711,6 +761,10 @@
     let forcedTech = null;
     let forcedUntilMs = 0;
     let idleTime = 0;
+    let neutralSettledAtMs = 0;
+    let fpsFrames = 0;
+    let fpsLastMs = 0;
+    let fpsValue = 0;
     let zoomUntilMs = 0;
     const INITIAL_CAMERA_Z = 55;
     let challengerGesture = null;
@@ -1368,6 +1422,7 @@
         const lines = [
             'Debug (toggle: D)',
             `currentTech: ${currentTech}`,
+            `fps: ${fpsValue.toFixed(0)}`,
             `nextGesture: ${nextGesture}`,
             `flickScore: ${scoreText(frameFlickScore)}`,
             `flickPulse: ${flickPulseLeftMs.toFixed(0)}ms`,
@@ -1590,6 +1645,7 @@
         const prevTech = currentTech;
         const nowMs = performance.now();
         currentTech = tech;
+        if (tech === 'neutral') neutralSettledAtMs = nowMs + 700;
         if (currentTech === 'flick') {
             // Safety: if flick was manually entered, still lock it for a full release window.
             flickLockUntilMs = Math.max(flickLockUntilMs, nowMs + TUNING.purpleExplosionDurationMs);
@@ -1696,17 +1752,30 @@
         const zoomTarget = performance.now() < zoomUntilMs ? 120 : INITIAL_CAMERA_Z;
         camera.position.z += (zoomTarget - camera.position.z) * 0.05;
 
+        const nowMs = performance.now();
+        // FPS meter for the debug panel.
+        fpsFrames += 1;
+        if (nowMs - fpsLastMs >= 500) {
+            fpsValue = (fpsFrames * 1000) / (nowMs - fpsLastMs);
+            fpsFrames = 0;
+            fpsLastMs = nowMs;
+        }
+        // While idling or constructing, the big field is fully dark: skip its per-frame lerp and
+        // 240KB attribute upload. This keeps the charge swarm smooth even on weak GPUs.
+        const fieldIdle = currentTech === 'neutral'
+            && nowMs > neutralSettledAtMs
+            && purpleExplosionUntilMs <= nowMs;
+        particles.visible = !fieldIdle;
         const pos = particles.geometry.attributes.position.array;
         const col = particles.geometry.attributes.color.array;
         const siz = particles.geometry.attributes.size.array;
-
-        for(let i=0; i<COUNT*3; i++) {
-            pos[i] += (targetPositions[i] - pos[i]) * 0.1;
-            col[i] += (targetColors[i] - col[i]) * 0.1;
+        if (!fieldIdle) {
+            for(let i=0; i<COUNT*3; i++) {
+                pos[i] += (targetPositions[i] - pos[i]) * 0.1;
+                col[i] += (targetColors[i] - col[i]) * 0.1;
+            }
+            for(let i=0; i<COUNT; i++) siz[i] += (targetSizes[i] - siz[i]) * 0.1;
         }
-        for(let i=0; i<COUNT; i++) siz[i] += (targetSizes[i] - siz[i]) * 0.1;
-
-        const nowMs = performance.now();
         // Charge orb: follows the anchored hand, converges to a spinning point; bursts on release.
         if (blueCharge) {
             const ageMs = Math.max(0, nowMs - blueCharge.startedMs);
@@ -1741,7 +1810,7 @@
             chargeOrb.visible = false;
             orbPathHistory.length = 0;
         }
-        const explosionTimeLeftMs = purpleExplosionUntilMs - nowMs;
+        const explosionTimeLeftMs = fieldIdle ? 0 : purpleExplosionUntilMs - nowMs;
         if (explosionTimeLeftMs > 0) {
             const life = explosionTimeLeftMs / TUNING.purpleExplosionDurationMs;
             const progress = 1 - life;
@@ -1796,12 +1865,16 @@
             }
         }
 
-        particles.geometry.attributes.position.needsUpdate = true;
-        particles.geometry.attributes.color.needsUpdate = true;
-        particles.geometry.attributes.size.needsUpdate = true;
-        
+        if (!fieldIdle) {
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+            particles.geometry.attributes.size.needsUpdate = true;
+        }
+
         // Technique-specific rotation (ported from PRs #2, #3, #9, #13)
-        if(currentTech === 'red') {
+        if (fieldIdle) {
+            // Nothing to rotate while the field is dark.
+        } else if(currentTech === 'red') {
             particles.rotation.z -= 0.1;
         } else if (currentTech === 'blue') {
             particles.rotation.y += 0.02;
