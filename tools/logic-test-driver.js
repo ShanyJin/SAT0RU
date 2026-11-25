@@ -33,8 +33,10 @@
         const FIST2 = twoHands(buildPose(['index', 'middle', 'ring', 'pinky'], false));
         const PURPLE1 = [mkHand(0.5, 0.75, buildPose([], true))];
         const GUN1 = [mkHand(0.5, 0.75, buildPose(['ring', 'pinky'], false))];
-        const OPEN1 = [mkHand(0.5, 0.75, buildPose([], false))];
-        const FIST1 = [mkHand(0.5, 0.75, buildPose(['index', 'middle', 'ring', 'pinky'], false))];
+        const OPEN_PTS = buildPose([], false);
+        const FIST_PTS = buildPose(['index', 'middle', 'ring', 'pinky'], false);
+        const open1 = (x, y = 0.75) => [mkHand(x, y, OPEN_PTS)];
+        const fist1 = (x, y = 0.75) => [mkHand(x, y, FIST_PTS)];
 
         let t = 1000;
         const runFrame = (hands, ms) => {
@@ -57,29 +59,76 @@
             for (let i = 0; i < n; i++) { runFrame(hands, t); t += 33; }
             return currentTech;
         };
+        // Moves a single open hand horizontally `n` frames from `x0` at `dx` per frame.
+        const drift = (x0, dx, n) => {
+            let x = x0;
+            for (let i = 0; i < n; i++) { x += dx; runFrame(open1(x), t); t += 33; }
+            return x;
+        };
 
         const log = [];
         const mark = (name, expect) => {
             log.push(name + ' -> ' + currentTech + (expect ? (currentTech === expect ? ' OK' : ' FAIL(want ' + expect + ')') : ''));
         };
+        const markState = (name, expect, actual) => {
+            log.push(name + ' -> ' + actual + (actual === expect ? ' OK' : ' FAIL(want ' + expect + ')'));
+        };
 
         step([], 5); mark('neutral', 'neutral');
         step(RED2, 20); mark('red disabled', 'neutral');
         step([], 5);
-        step(OPEN1, 8);
-        step(FIST1, 6);
-        step(OPEN1, 8); mark('blue1 single hand', 'blue');
+
+        // --- 苍1: single hand cycle arms a charge instead of blooming ---
+        step(open1(0.5), 8);
+        step(fist1(0.5), 6);
+        step(open1(0.5), 6);
+        markState('blue1 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
+        mark('no bloom yet', 'neutral');
+
+        // Slow construction (0.18 units/s) must not interrupt.
+        let cx = drift(0.5, -0.006, 20);
+        markState('slow move keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+
+        // Forward fling (7+ units/s) releases the blast.
+        drift(cx, 0.24, 3);
+        mark('fling releases', 'blue');
+
         step(RED2, 40); mark('anim: other gestures ignored', 'blue');
         step(RED2, 60); mark('cooldown: still no red', 'neutral');
         step([], 60);
+
+        // --- 苍2: two hands arm one charge; losing tracking releases ---
         step(OPEN2, 8);
         step(FIST2, 6);
-        step(OPEN2, 8); mark('blue2 both hands', 'blue');
-        step([], 120);
+        step(OPEN2, 6);
+        markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
+        step([], 12);
+        mark('tracking loss releases', 'blue');
+        step([], 160);
+
+        // --- no false triggers ---
         step(OPEN2, 20); mark('open only no trigger', 'neutral');
+        step([], 60);
         step(FIST2, 8);
-        step(OPEN2, 20); mark('fist>open no trigger', 'neutral');
+        step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
         step([], 10); mark('end', null);
+
+        // Optional visual demos for screenshots: ?logictest=1&end=charge|blue
+        const endMode = new URLSearchParams(location.search).get('end');
+        if (endMode === 'charge' || endMode === 'blue') {
+            step([], 200);
+            step(open1(0.5), 8);
+            step(fist1(0.5), 6);
+            step(open1(0.5), 6);
+            if (blueCharge) {
+                // Center the orb and pretend the construction has converged.
+                blueCharge.x = 0.5;
+                blueCharge.y = 0.52;
+                blueCharge.startedMs = performance.now() - 2200;
+                if (endMode === 'blue') drift(0.5, 0.09, 3);
+            }
+            document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
+        }
 
         const fails = log.filter((line) => line.includes('FAIL'));
         const banner = document.createElement('div');

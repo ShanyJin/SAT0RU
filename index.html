@@ -177,6 +177,73 @@
     const particles = new THREE.Points(geometry, particleMaterial);
     scene.add(particles);
 
+    // --- Blue charge orb (蒼「构筑」): a separate particle cluster anchored to the hand ---
+    // After the open>fist>open cycle it converges to a spinning point that follows the hand;
+    // a fling / leaving the frame / losing tracking releases the main Blue blast.
+    const ORB_COUNT = 1400;
+    const orbGeometry = new THREE.BufferGeometry();
+    const orbPositions = new Float32Array(ORB_COUNT * 3);
+    const orbColors = new Float32Array(ORB_COUNT * 3);
+    const orbSeeds = [];
+    for (let i = 0; i < ORB_COUNT; i++) {
+        const core = i < ORB_COUNT * 0.3;
+        orbSeeds.push({
+            r: core ? 0.10 + Math.random() * 0.30 : 0.30 + Math.random() * 0.70,
+            phi: Math.acos(2 * Math.random() - 1),
+            theta: Math.random() * Math.PI * 2,
+            spin: 2.2 + Math.random() * 3.8,
+            wobble: 0.5 + Math.random() * 1.5,
+            phase: Math.random() * Math.PI * 2
+        });
+        const c = core
+            ? { r: 0.75, g: 0.92, b: 1.0 }
+            : (Math.random() < 0.25 ? { r: 0.55, g: 0.85, b: 1.0 } : { r: 0.12, g: 0.35, b: 1.0 });
+        orbColors[i * 3] = c.r;
+        orbColors[i * 3 + 1] = c.g;
+        orbColors[i * 3 + 2] = c.b;
+    }
+    orbGeometry.setAttribute('position', new THREE.BufferAttribute(orbPositions, 3));
+    orbGeometry.setAttribute('color', new THREE.BufferAttribute(orbColors, 3));
+    const orbMaterial = new THREE.PointsMaterial({
+        size: 0.55,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        depthWrite: false
+    });
+    const chargeOrb = new THREE.Points(orbGeometry, orbMaterial);
+    chargeOrb.visible = false;
+    chargeOrb.frustumCulled = false;
+    scene.add(chargeOrb);
+
+    function fillOrbPositions(nowSec, radius, burst) {
+        for (let i = 0; i < ORB_COUNT; i++) {
+            const s = orbSeeds[i];
+            const theta = s.theta + nowSec * s.spin;
+            const wob = Math.sin(nowSec * s.wobble + s.phase) * 0.12;
+            const rr = burst ? radius * (0.55 + s.r) : radius * s.r * (1 + wob);
+            orbPositions[i * 3] = rr * Math.sin(s.phi) * Math.cos(theta);
+            orbPositions[i * 3 + 1] = rr * Math.cos(s.phi) * (burst ? 1 : 0.82);
+            orbPositions[i * 3 + 2] = rr * Math.sin(s.phi) * Math.sin(theta);
+        }
+        orbGeometry.attributes.position.needsUpdate = true;
+    }
+
+    function handPointToWorld(nx, ny) {
+        // The feed is displayed mirrored (selfie) and object-fit: cover crops part of the frame,
+        // so map the landmark through the visible source rect before converting to world space.
+        const vw = videoElement.videoWidth || 640;
+        const vh = videoElement.videoHeight || 480;
+        const scale = Math.max(window.innerWidth / vw, window.innerHeight / vh);
+        const visW = Math.min(vw, window.innerWidth / scale) / vw;
+        const visH = Math.min(vh, window.innerHeight / scale) / vh;
+        const sx = (nx - (1 - visW) / 2) / visW;
+        const sy = (ny - (1 - visH) / 2) / visH;
+        const halfH = Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
+        const halfW = halfH * camera.aspect;
+        return { x: (1 - 2 * sx) * halfW, y: (1 - 2 * sy) * halfH };
+    }
+
     // Technique Functions 
     function getRed(i) {
         if(i < COUNT * 0.1) {
@@ -559,13 +626,26 @@
     let purpleFlickEligibleUntilMs = 0;
     let shakeIntensity = 0;
     // Gojo Blue (苍) detector: per-hand open -> fist -> open cycles.
-    // One hand completing the cycle = 苍1; both hands = 苍2. Both trigger Blue.
+    // Completing the cycle on either hand (one or both) arms a charge: a blue orb shrinks into a
+    // spinning point in that hand instead of blooming immediately. The blast releases on a forward
+    // fling, when the hand leaves the frame, or when tracking is lost. Only one hand is followed.
     let bluePulseUntilMs = 0;
     let gestureLockUntilMs = 0;
     let pendingBlueInstant = false;
     let lastHandShapes = [];
     const blueHandStates = {};
     const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
+    let blueCharge = null; // active construction: { key, x, y, size, startedMs, lastSeenMs, lastTMs, fastFrames }
+    let chargeReleaseAt = null; // release burst marker: { x, y, untilMs }
+    const CHARGE = {
+        lostMs: 320, // hand unseen longer than this => release
+        speedThresh: 1.8, // normalized units per second
+        growthThresh: 1.6, // relative palm-size growth per second (hand pushed toward the camera)
+        fastFrames: 2, // consecutive fast frames needed to confirm a fling
+        maxChargeMs: 15000, // safety valve so a stuck charge cannot hang forever
+        convergeMs: 1600, // orb shrinks to a spinning point over this window
+        burstMs: 900 // release burst lifetime
+    };
     const FLICK = {
         purpleArmMs: 1000,
         flickOnlyWindowMs: 280,
@@ -720,7 +800,7 @@
     // Gojo Blue (苍): each hand independently runs open -> fist -> open.
     // Requires a few consecutive frames per shape so a one-frame misread can't advance the chain.
     function updateBlueSequences(shapes, keys, nowMs) {
-        let anyComplete = false;
+        let completedKey = null;
         const seen = new Set();
         shapes.forEach((shape, i) => {
             const key = keys[i] || `hand_${i}`;
@@ -757,7 +837,7 @@
                 } else if (st.openRun >= BLUE_SEQ.openFrames) {
                     st.stage = 0;
                     st.openRun = 0;
-                    anyComplete = true;
+                    if (!completedKey) completedKey = key;
                 }
             }
             blueHandStates[key] = st;
@@ -768,11 +848,109 @@
                 delete blueHandStates[key];
             }
         }
-        return anyComplete;
+        return completedKey;
     }
 
     function resetBlueHandStates() {
         for (const key of Object.keys(blueHandStates)) delete blueHandStates[key];
+    }
+
+    function palmState(lm) {
+        const ids = [0, 5, 9, 13, 17];
+        let cx = 0;
+        let cy = 0;
+        for (const id of ids) {
+            cx += lm[id].x;
+            cy += lm[id].y;
+        }
+        cx /= ids.length;
+        cy /= ids.length;
+        const size = Math.max(Math.hypot(lm[0].x - lm[9].x, lm[0].y - lm[9].y), 0.001);
+        return { cx, cy, size };
+    }
+
+    function armBlueCharge(key, lm, nowMs) {
+        const p = palmState(lm);
+        blueCharge = {
+            key,
+            x: p.cx,
+            y: p.cy,
+            size: p.size,
+            startedMs: nowMs,
+            lastSeenMs: nowMs,
+            lastTMs: nowMs,
+            lastSpeed: 0,
+            fastFrames: 0
+        };
+        resetBlueHandStates();
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl) nameEl.innerText = '術式順転「蒼」 · 構築中';
+    }
+
+    function releaseBlueCharge(nowMs) {
+        if (!blueCharge) return;
+        chargeReleaseAt = {
+            x: clamp01(blueCharge.x),
+            y: clamp01(blueCharge.y),
+            untilMs: nowMs + CHARGE.burstMs
+        };
+        blueCharge = null;
+        bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
+        gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
+        pendingBlueInstant = true;
+    }
+
+    function cancelBlueCharge() {
+        blueCharge = null;
+        chargeReleaseAt = null;
+        chargeOrb.visible = false;
+    }
+
+    // Tracks the anchored hand while charging. Returns 'charge' to keep constructing,
+    // 'release' to fire the blast. Slow motion/rotation never interrupts; a fast push
+    // (speed or palm-size growth), leaving the frame, or losing tracking does.
+    function updateBlueCharge(landmarks, keys, nowMs) {
+        const c = blueCharge;
+        let lm = null;
+        let idx = -1;
+        for (let i = 0; i < landmarks.length; i++) {
+            if (keys[i] === c.key) {
+                lm = landmarks[i];
+                idx = i;
+                break;
+            }
+        }
+        if (!lm) {
+            // Handedness labels can flip while turning the hand; re-acquire a nearby hand instead.
+            let bestDist = 0.30;
+            for (let i = 0; i < landmarks.length; i++) {
+                const p = palmState(landmarks[i]);
+                const d = Math.hypot(p.cx - c.x, p.cy - c.y);
+                if (d < bestDist) {
+                    bestDist = d;
+                    lm = landmarks[i];
+                    idx = i;
+                }
+            }
+            if (lm) c.key = keys[idx];
+        }
+        if (!lm) {
+            return (nowMs - c.lastSeenMs > CHARGE.lostMs || nowMs - c.startedMs > CHARGE.maxChargeMs) ? 'release' : 'charge';
+        }
+        const p = palmState(lm);
+        const outOfFrame = [0, 9].some((i2) => lm[i2].x < -0.12 || lm[i2].x > 1.12 || lm[i2].y < -0.12 || lm[i2].y > 1.12);
+        const dt = Math.max((nowMs - c.lastTMs) / 1000, 1 / 120);
+        const speed = Math.hypot(p.cx - c.x, p.cy - c.y) / dt;
+        const growth = (p.size - c.size) / c.size / dt;
+        c.lastSpeed = speed;
+        c.fastFrames = (speed > CHARGE.speedThresh || growth > CHARGE.growthThresh) ? c.fastFrames + 1 : 0;
+        c.x = p.cx;
+        c.y = p.cy;
+        c.size = p.size;
+        c.lastSeenMs = nowMs;
+        c.lastTMs = nowMs;
+        const tooLong = (nowMs - c.startedMs) > CHARGE.maxChargeMs;
+        return (outOfFrame || c.fastFrames >= CHARGE.fastFrames || tooLong) ? 'release' : 'charge';
     }
 
     function computeFrameScores(results, nowMs) {
@@ -782,6 +960,16 @@
         lastHandShapes = [];
         // Keep an already-triggered Blue playing even if the hands leave the frame mid-animation.
         if (MODE === 'gojo' && nowMs <= bluePulseUntilMs) frameScores.blue = 1;
+        // Charge updates even with zero hands so losing tracking releases the blast.
+        if (MODE === 'gojo' && blueCharge) {
+            const lms = results.multiHandLandmarks || [];
+            const hk = lms.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
+            if (updateBlueCharge(lms, hk, nowMs) === 'release') {
+                releaseBlueCharge(nowMs);
+            } else {
+                frameScores.blue = 0;
+            }
+        }
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) return frameScores;
 
         const handShapes = [];
@@ -860,17 +1048,19 @@
         lastHandShapes = handShapes;
 
         if (MODE === 'gojo') {
-            // Only Blue responds in this pass. The per-hand cycle triggers once per completed
-            // open>fist>open; the gesture lock keeps a follow-through motion from chaining another effect.
+            // Only Blue responds in this pass. The per-hand open>fist>open cycle arms a charge
+            // (orb follows the completing hand); the charge itself decides when to release.
             const gojoLocked = nowMs < gestureLockUntilMs;
-            if (gojoLocked) {
+            if (blueCharge) {
+                resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
+            } else if (gojoLocked) {
                 resetBlueHandStates();
             } else {
                 const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
-                if (updateBlueSequences(handShapes, handKeys, nowMs)) {
-                    bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
-                    gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
-                    pendingBlueInstant = true;
+                const completedKey = updateBlueSequences(handShapes, handKeys, nowMs);
+                if (completedKey) {
+                    const ci = handKeys.indexOf(completedKey);
+                    armBlueCharge(completedKey, results.multiHandLandmarks[ci >= 0 ? ci : 0], nowMs);
                 }
             }
             // Blue is sequence-only in Gojo mode; the plain four-finger-spread rule is disabled.
@@ -948,9 +1138,10 @@
 
     const GUIDE_GOJO = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
-        { gesture: '单手：张开 → 握拳 → 再张开', tech: '苍 1' },
-        { gesture: '双手：张开 → 握拳 → 再张开', tech: '苍 2' },
-        { foot: '动画约 2.5 秒，随后 2.5 秒内不触发任何术式（防连贯误触）' },
+        { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
+        { foot: '构筑中粒子缩成光点，跟着手移动、旋转，不打断' },
+        { foot: '向前一甩 / 手出画面 / 丢失追踪 → 释放爆炸' },
+        { foot: '释放后演出约 2.5 秒，随后 2.5 秒内不触发任何术式' },
         { foot: '目前只启用苍；其他术式暂停触发，T 可手动预览' }
     ];
     const GUIDE_ALL = [
@@ -1099,6 +1290,7 @@
             `blueStages: ${Object.entries(blueHandStates).map(([k, s]) => k + ':' + s.stage).join(' ') || '-'}`,
             `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
             `gestureLock: ${Math.max(0, gestureLockUntilMs - nowMs).toFixed(0)}ms`,
+            `charge: ${blueCharge ? 'ON speed:' + (blueCharge.lastSpeed || 0).toFixed(2) : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
@@ -1250,6 +1442,7 @@
             const now = performance.now();
             const currentIdx = forcedTech && now < forcedUntilMs ? TECH_CYCLE.indexOf(forcedTech) : -1;
             const nextTech = TECH_CYCLE[(currentIdx + 1) % TECH_CYCLE.length];
+            cancelBlueCharge();
             forceTechnique(nextTech);
             updateState(nextTech, true);
             updateKeybindMenu();
@@ -1258,6 +1451,7 @@
         if (key === KEYBINDS.auto.toLowerCase()) {
             forcedTech = null;
             forcedUntilMs = 0;
+            cancelBlueCharge();
             updateState('neutral', true);
             return;
         }
@@ -1431,6 +1625,27 @@
         for(let i=0; i<COUNT; i++) siz[i] += (targetSizes[i] - siz[i]) * 0.1;
 
         const nowMs = performance.now();
+        // Charge orb: follows the anchored hand, converges to a spinning point; bursts on release.
+        if (blueCharge) {
+            const ageMs = Math.max(0, nowMs - blueCharge.startedMs);
+            const converge = Math.min(1, ageMs / CHARGE.convergeMs);
+            const radius = (7.5 - 6.3 * converge) + Math.sin(nowMs * 0.005) * 0.15;
+            const world = handPointToWorld(blueCharge.x, blueCharge.y);
+            chargeOrb.position.set(world.x, world.y, 0);
+            chargeOrb.visible = true;
+            orbMaterial.opacity = 0.95;
+            fillOrbPositions(nowMs / 1000, Math.max(radius, 0.6), false);
+        } else if (chargeReleaseAt && nowMs < chargeReleaseAt.untilMs) {
+            const life = Math.max(0, (chargeReleaseAt.untilMs - nowMs) / CHARGE.burstMs);
+            const world = handPointToWorld(chargeReleaseAt.x, chargeReleaseAt.y);
+            chargeOrb.position.set(world.x, world.y, 0);
+            chargeOrb.visible = true;
+            orbMaterial.opacity = Math.min(1, life * 1.4);
+            fillOrbPositions(nowMs / 1000, 1.2 + (1 - life) * 26, true);
+        } else {
+            chargeOrb.visible = false;
+            chargeReleaseAt = null;
+        }
         const explosionTimeLeftMs = purpleExplosionUntilMs - nowMs;
         if (explosionTimeLeftMs > 0) {
             const life = explosionTimeLeftMs / TUNING.purpleExplosionDurationMs;
