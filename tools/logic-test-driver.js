@@ -36,9 +36,11 @@
         const OPEN_PTS = buildPose([], false);
         const FIST_PTS = buildPose(['index', 'middle', 'ring', 'pinky'], false);
         const RED_PTS = buildPose(['middle', 'ring', 'pinky'], false); // index up, others curled
+        const GUN_PTS = buildPose(['ring', 'pinky'], false); // index+middle up, thumb flared
         const open1 = (x, y = 0.75) => [mkHand(x, y, OPEN_PTS)];
         const fist1 = (x, y = 0.75) => [mkHand(x, y, FIST_PTS)];
         const red1 = (x, y = 0.75) => [mkHand(x, y, RED_PTS)];
+        const gun1 = (x, y = 0.75) => [mkHand(x, y, GUN_PTS)];
         const scaledOpen1 = (x, y, f) => {
             const hand = mkHand(x, y, OPEN_PTS); // one hand: 21 landmark points
             const w = hand[0];
@@ -84,9 +86,20 @@
         try {
             step([], 5); mark('neutral', 'neutral');
 
-            // --- 赫: index finger pointing up ---
+            // --- 赫 form 2: gun (index+middle together, thumb flared) ---
+            step(gun1(0.5), 25); mark('red gun form shows', 'red');
+            step([], 24); mark('red gun releases on drop', 'neutral');
+            step([], 210); // drain the cooldown
+
+            // --- 赫 form 1: index finger pointing up ---
             step(red1(0.5), 25); mark('red pointing shows', 'red');
-            step([], 20); mark('red releases on drop', 'neutral');
+            // Switching between the two Red forms keeps the field (same technique, no drop).
+            step(gun1(0.5), 10); markState('red form handoff stays red', 'red', currentTech);
+            // Brief tracking gaps mid-switch are bridged too.
+            step([], 8);
+            step(red1(0.5), 6);
+            markState('red survives brief pose gap', 'red', currentTech);
+            step([], 24); mark('red releases on drop', 'neutral');
             // The anti-chain cooldown blocks an immediate re-trigger.
             step(red1(0.5), 20); mark('red cooldown blocks retrigger', 'neutral');
             // The reported bug: the return swing after a Red fling must not arm Blue either.
