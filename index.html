@@ -249,6 +249,52 @@
     chargeOrb.frustumCulled = false;
     scene.add(chargeOrb);
 
+    // --- Ambient dust: the standby particles, and proof of Blue's pull / Red's push ---
+    // Idle they drift like dust in the room. While Blue charges they spiral inward and orbit
+    // the blue ball (following the hand); while Red is out they get shoved into a clean rim
+    // around the red core; Blue's release blasts them outward.
+    const DUST_COUNT = 1200;
+    const dustGeometry = new THREE.BufferGeometry();
+    const dustPositions = new Float32Array(DUST_COUNT * 3);
+    const dustColors = new Float32Array(DUST_COUNT * 3);
+    const dustSeeds = [];
+    for (let i = 0; i < DUST_COUNT; i++) {
+        const seed = {
+            bx: (Math.random() - 0.5) * 112,
+            by: (Math.random() - 0.5) * 78,
+            bz: (Math.random() - 0.5) * 26,
+            driftPhase: Math.random() * Math.PI * 2,
+            driftSpeed: 0.15 + Math.random() * 0.35,
+            driftAmp: 1.5 + Math.random() * 3.5,
+            orbitR: 9 + Math.random() * 8,
+            orbitSpeed: (0.5 + Math.random() * 0.9) * (Math.random() < 0.5 ? -1 : 1),
+            orbitPhase: Math.random() * Math.PI * 2,
+            tau: 0.18 + Math.random() * 0.30 // per-particle follow lag => smooth hand-offs
+        };
+        dustSeeds.push(seed);
+        const b = 0.1 + Math.random() * 0.18;
+        dustColors[i * 3] = b * 0.75;
+        dustColors[i * 3 + 1] = b * 0.85;
+        dustColors[i * 3 + 2] = b * 1.25;
+        dustPositions[i * 3] = seed.bx;
+        dustPositions[i * 3 + 1] = seed.by;
+        dustPositions[i * 3 + 2] = seed.bz;
+    }
+    dustGeometry.setAttribute('position', new THREE.BufferAttribute(dustPositions, 3));
+    dustGeometry.setAttribute('color', new THREE.BufferAttribute(dustColors, 3));
+    const dustMaterial = new THREE.PointsMaterial({
+        size: 0.34,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false
+    });
+    const dust = new THREE.Points(dustGeometry, dustMaterial);
+    dust.frustumCulled = false;
+    scene.add(dust);
+    let lastDustMs = 0;
+
     // Rings spin rigidly (same phase for every particle in a ring, so arcs never smear);
     // haze particles drift and breathe; everything also trails along the orb's recent path.
     function fillOrbPositions(nowSec, radius, path, cx, cy) {
@@ -1342,37 +1388,40 @@
     const GUIDE_GOJO = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
-        { foot: '构筑时粒子从小球展开成环绕手心的大片粒子状态，呼吸浮动、跟手移动、随手旋转' },
-        { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放' },
+        { foot: '引力：构筑时四周待机粒子被吸过来，绕着蓝球旋绕并随手动' },
+        { foot: '蓝球从小球展开成环绕手心的大片粒子状态，呼吸浮动、随手旋转' },
+        { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放（粒子被炸开）' },
         { foot: '释放后演出约 2.5 秒，随后 8 秒内不触发任何术式' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '食指向上指，其余三指收拢', tech: '赫' },
         { gesture: '食指+中指并拢、拇指外张（枪形）', tech: '赫' },
+        { foot: '斥力：红球出现时，周围的待机粒子被排开，绕出一圈净空' },
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
         { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
+        { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）' },
         { foot: '任何术式触发后 8 秒冷却，防甩手回来时连锁误触' },
         { foot: '目前启用苍与赫；其余术式暂停触发，T 可手动预览' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },
-        { gesture: '拇指+食指捏合', tech: 'Hollow Purple' },
-        { gesture: '食指伸出', tech: 'Red' },
-        { gesture: '食指+中指', tech: 'Infinite Void' },
-        { gesture: '四指并拢', tech: 'Malevolent Shrine' },
-        { gesture: '四指张开', tech: 'Blue' },
-        { gesture: '握拳', tech: 'Black Flash' },
-        { gesture: '食指+小指（ILY）', tech: 'Authentic Mutual Love' },
-        { gesture: '张开手掌+拇指伸出', tech: 'Self Embodiment' },
-        { gesture: '平掌、中指无名指留缝', tech: 'Ratio' },
+        { gesture: '拇指+食指捏合', tech: '虚式「茈」' },
+        { gesture: '食指伸出', tech: '術式反転「赫」' },
+        { gesture: '食指+中指', tech: '領域展開「無量空処」' },
+        { gesture: '四指并拢', tech: '領域展開「伏魔御廚子」' },
+        { gesture: '四指张开', tech: '術式順転「蒼」' },
+        { gesture: '握拳', tech: '黒閃' },
+        { gesture: '食指+小指（ILY）', tech: '領域展開「真贋相愛」' },
+        { gesture: '张开手掌+拇指伸出', tech: '領域展開「自閉円頓裹」' },
+        { gesture: '平掌、中指无名指留缝', tech: '十劃呪法「比率」' },
         { sep: '双手 · two hands' },
-        { gesture: '拇指相触', tech: 'Idle Transfiguration' },
-        { gesture: '双腕距 0.08~0.15', tech: 'Shadow Garden' },
-        { gesture: '双拳', tech: 'Mahoraga' },
-        { gesture: '捏合 + 平掌', tech: 'Idle Death Gamble' },
-        { gesture: '双手 ILY', tech: 'Time Cell Moon Palace' },
-        { gesture: '双手食指+中指', tech: 'Malevolent Shrine' },
+        { gesture: '拇指相触', tech: '無為転変' },
+        { gesture: '双腕距 0.08~0.15', tech: '領域展開「嵌合暗翳庭」' },
+        { gesture: '双拳', tech: '八握剣異戒神将魔虚羅' },
+        { gesture: '捏合 + 平掌', tech: '領域展開「坐殺博徒」' },
+        { gesture: '双手 ILY', tech: '領域展開「時胞月宮殿」' },
+        { gesture: '双手食指+中指', tech: '領域展開「伏魔御廚子」' },
         { sep: '语音 · voice (V)' },
-        { gesture: '"don\'t move"', tech: 'Deadly Sentencing' },
+        { gesture: '"don\'t move"', tech: '領域展開「誅伏賜死」' },
         { gesture: '"run away"', tech: '镜头拉远' },
         { foot: 'T 轮换技法 / N 回手势模式' }
     ];
@@ -1741,23 +1790,23 @@
         const nameEl = document.getElementById('technique-name');
         shakeIntensity = tech === 'shrine' ? 1.5 : (tech !== 'neutral' ? 0.4 : 0);
 
-        if(tech === 'shrine') { glowColor = '#ff0000'; nameEl.innerText = "Domain Expansion: Malevolent Shrine"; baseBloomStrength = 2.5; }
-        else if(tech === 'purple') { glowColor = '#bb00ff'; nameEl.innerText = "Secret Technique: Hollow Purple"; baseBloomStrength = 4.0; }
-        else if(tech === 'void') { glowColor = '#00ffff'; nameEl.innerText = "Domain Expansion: Infinite Void"; baseBloomStrength = 2.0; }
-        else if(tech === 'red') { glowColor = '#ff3333'; nameEl.innerText = "Reverse Cursed Technique: Red"; baseBloomStrength = 2.5; }
-        else if(tech === 'blue') { glowColor = '#4d7dff'; nameEl.innerText = "Limitless: Blue"; baseBloomStrength = 3.0; }
-        else if(tech === 'blackflash') { glowColor = '#ff0044'; nameEl.innerText = "Black Flash"; baseBloomStrength = 5.0; }
-        else if(tech === 'shadowgarden') { glowColor = '#4466ff'; nameEl.innerText = "Domain Expansion: Chimera Shadow Garden"; baseBloomStrength = 1.5; }
-        else if(tech === 'transfiguration') { glowColor = '#ff9fcf'; nameEl.innerText = "Idle Transfiguration"; baseBloomStrength = 2.8; }
-        else if(tech === 'ratio') { glowColor = '#ffd700'; nameEl.innerText = "Ratio Technique"; baseBloomStrength = 2.2; }
-        else if(tech === 'divine') { glowColor = '#ffd700'; nameEl.innerText = "Divine General: Mahoraga"; baseBloomStrength = 2.5; }
-        else if(tech === 'idlegamble') { glowColor = '#aa00ff'; nameEl.innerText = "Domain Expansion: Idle Death Gamble"; baseBloomStrength = 3.5; }
-        else if(tech === 'love') { glowColor = '#66ccff'; nameEl.innerText = "Domain Expansion: Authentic Mutual Love"; baseBloomStrength = 3.0; }
-        else if(tech === 'sentence') { glowColor = '#ffaa33'; nameEl.innerText = "Domain Expansion: Deadly Sentencing"; baseBloomStrength = 0.6; }
-        else if(tech === 'palace') { glowColor = '#ff0000'; nameEl.innerText = "Domain Expansion: Time Cell Moon Palace"; baseBloomStrength = 2.5; }
-        else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "Domain Expansion: Self Embodiment of Perfection"; baseBloomStrength = 2.5; }
-        else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "Hollow Purple: Release"; baseBloomStrength = 1.4; }
-        else { glowColor = '#00ffff'; nameEl.innerText = "Neutral State"; baseBloomStrength = 1.0; }
+        if(tech === 'shrine') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「伏魔御廚子」"; baseBloomStrength = 2.5; }
+        else if(tech === 'purple') { glowColor = '#bb00ff'; nameEl.innerText = "虚式「茈」"; baseBloomStrength = 4.0; }
+        else if(tech === 'void') { glowColor = '#00ffff'; nameEl.innerText = "領域展開「無量空処」"; baseBloomStrength = 2.0; }
+        else if(tech === 'red') { glowColor = '#ff3333'; nameEl.innerText = "術式反転「赫」"; baseBloomStrength = 2.5; }
+        else if(tech === 'blue') { glowColor = '#4d7dff'; nameEl.innerText = "術式順転「蒼」"; baseBloomStrength = 3.0; }
+        else if(tech === 'blackflash') { glowColor = '#ff0044'; nameEl.innerText = "黒閃"; baseBloomStrength = 5.0; }
+        else if(tech === 'shadowgarden') { glowColor = '#4466ff'; nameEl.innerText = "領域展開「嵌合暗翳庭」"; baseBloomStrength = 1.5; }
+        else if(tech === 'transfiguration') { glowColor = '#ff9fcf'; nameEl.innerText = "無為転変"; baseBloomStrength = 2.8; }
+        else if(tech === 'ratio') { glowColor = '#ffd700'; nameEl.innerText = "十劃呪法「比率」"; baseBloomStrength = 2.2; }
+        else if(tech === 'divine') { glowColor = '#ffd700'; nameEl.innerText = "八握剣異戒神将魔虚羅"; baseBloomStrength = 2.5; }
+        else if(tech === 'idlegamble') { glowColor = '#aa00ff'; nameEl.innerText = "領域展開「坐殺博徒」"; baseBloomStrength = 3.5; }
+        else if(tech === 'love') { glowColor = '#66ccff'; nameEl.innerText = "領域展開「真贋相愛」"; baseBloomStrength = 3.0; }
+        else if(tech === 'sentence') { glowColor = '#ffaa33'; nameEl.innerText = "領域展開「誅伏賜死」"; baseBloomStrength = 0.6; }
+        else if(tech === 'palace') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「時胞月宮殿」"; baseBloomStrength = 2.5; }
+        else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "領域展開「自閉円頓裹」"; baseBloomStrength = 2.5; }
+        else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "虚式「茈」· 放出"; baseBloomStrength = 1.4; }
+        else { glowColor = '#00ffff'; nameEl.innerText = "通常状態"; baseBloomStrength = 1.0; }
         idleFlash.classList.toggle('active', tech === 'idlegamble');
         bloomPass.strength = baseBloomStrength;
 
@@ -1888,6 +1937,55 @@
         } else {
             chargeOrb.visible = false;
             orbPathHistory.length = 0;
+        }
+        // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
+        // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a
+        // clean rim around the red core; Blue's release blasts them outward.
+        {
+            const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - lastDustMs) / 1000));
+            lastDustMs = nowMs;
+            const tSec = nowMs / 1000;
+            const attract = blueCharge ? chargeVisual : null;
+            const repel = (!blueCharge && currentTech === 'red' && redFollow.init) ? redFollow : null;
+            const blasting = nowMs <= bluePulseUntilMs && !blueCharge;
+            const chargeAgeSec = blueCharge ? Math.max(0, (nowMs - blueCharge.startedMs) / 1000) : 0;
+            const shrink = 0.75 + 0.25 * Math.min(1, chargeAgeSec / 1.2);
+            for (let i = 0; i < DUST_COUNT; i++) {
+                const s = dustSeeds[i];
+                let tx = s.bx + Math.sin(tSec * s.driftSpeed + s.driftPhase) * s.driftAmp;
+                let ty = s.by + Math.cos(tSec * s.driftSpeed * 0.8 + s.driftPhase * 1.3) * s.driftAmp * 0.7;
+                if (attract) {
+                    // Spiral inward over the first ~1.2s, then ride the orb's wrist-spin.
+                    const a = s.orbitPhase + tSec * s.orbitSpeed + orbSpinPhase * 0.7;
+                    const rr = s.orbitR * shrink;
+                    tx = attract.x + Math.cos(a) * rr;
+                    ty = attract.y + Math.sin(a) * rr * 0.8;
+                } else if (repel) {
+                    // Anything inside the exclusion bubble is shoved out to a fuzzy rim
+                    // a little beyond the visible red field.
+                    const R = 30 + Math.sin(s.orbitPhase * 3.1) * 2.5;
+                    const dx = dustPositions[i * 3] - repel.x;
+                    const dy = dustPositions[i * 3 + 1] - repel.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d < R) {
+                        const push = R / Math.max(d, 0.001);
+                        tx = repel.x + dx * push;
+                        ty = repel.y + dy * push;
+                    }
+                }
+                if (blasting) {
+                    // Release: the whole ambient layer is thrown outward, then drifts back.
+                    const bl = Math.hypot(s.bx, s.by) || 1;
+                    tx = (s.bx / bl) * 70;
+                    ty = (s.by / bl) * 70;
+                }
+                const k = 1 - Math.exp(-dtSec / s.tau);
+                dustPositions[i * 3] += (tx - dustPositions[i * 3]) * k;
+                dustPositions[i * 3 + 1] += (ty - dustPositions[i * 3 + 1]) * k;
+                dustPositions[i * 3 + 2] += (s.bz - dustPositions[i * 3 + 2]) * k;
+            }
+            dustMaterial.opacity = blasting ? 0.9 : (attract ? 0.85 : 0.65);
+            dustGeometry.attributes.position.needsUpdate = true;
         }
         const explosionTimeLeftMs = fieldIdle ? 0 : purpleExplosionUntilMs - nowMs;
         if (explosionTimeLeftMs > 0) {

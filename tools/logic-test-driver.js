@@ -176,32 +176,39 @@
             step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
             step([], 10); mark('end', null);
 
-            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red
             const endMode = new URLSearchParams(location.search).get('end');
-            if (endMode === 'charge' || endMode === 'blue') {
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red') {
                 step([], 200);
-                step(open1(0.5), 8);
-                step(fist1(0.5), 6);
-                step(open1(0.5), 6);
-                if (blueCharge) {
-                    // Center the orb and pretend the construction has converged.
-                    blueCharge.x = 0.5;
-                    blueCharge.y = 0.52;
-                    blueCharge.startedMs = performance.now() - 2200;
-                    if (endMode === 'blue') drift(0.5, 0.09, 3);
-                    if (endMode === 'charge') {
-                        // Slow orbit so the screenshot shows the swarm trailing behind the orb.
-                        const t0 = performance.now();
-                        (function wiggle() {
-                            if (!blueCharge) return;
-                            const sec = (performance.now() - t0) / 1000;
-                            blueCharge.x = 0.5 + Math.sin(sec * 2.2) * 0.08;
-                            blueCharge.y = 0.52 + Math.cos(sec * 1.7) * 0.05;
-                            requestAnimationFrame(wiggle);
-                        })();
+                if (endMode === 'red') {
+                    // Hold the gun form so the red core sits on the synthetic hand and the
+                    // ambient dust gets pushed into a ring around it (repulsion demo).
+                    step(gun1(0.5), 30);
+                    document.title = 'RED DEMO';
+                } else {
+                    step(open1(0.5), 8);
+                    step(fist1(0.5), 6);
+                    step(open1(0.5), 6);
+                    if (blueCharge) {
+                        // Center the orb and pretend the construction has converged.
+                        blueCharge.x = 0.5;
+                        blueCharge.y = 0.52;
+                        blueCharge.startedMs = performance.now() - 2200;
+                        if (endMode === 'blue') drift(0.5, 0.09, 3);
+                        if (endMode === 'charge') {
+                            // Slow orbit so the screenshot shows the swarm trailing behind the orb.
+                            const t0 = performance.now();
+                            (function wiggle() {
+                                if (!blueCharge) return;
+                                const sec = (performance.now() - t0) / 1000;
+                                blueCharge.x = 0.5 + Math.sin(sec * 2.2) * 0.08;
+                                blueCharge.y = 0.52 + Math.cos(sec * 1.7) * 0.05;
+                                requestAnimationFrame(wiggle);
+                            })();
+                        }
                     }
+                    document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
                 }
-                document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
             }
         } catch (err) {
             log.push('EXCEPTION -> ' + (err && err.message ? err.message : String(err)));
