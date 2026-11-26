@@ -1,7 +1,7 @@
 # 技术架构 · SAT0RU
 
 单文件 Three.js 应用（`index.html`，约 2100 行）+ MediaPipe Hands 手部识别。
-本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式、环境尘埃、渲染性能、参数速查、已知限制。
+本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式、無量空処、环境尘埃、渲染性能、参数速查、已知限制。
 改代码前先看 §去哪改，别凭感觉动阈值。
 
 ## 1. 数据流总览
@@ -27,11 +27,11 @@
 
 | 参数 | 作用 |
 |---|---|
-| 无 | 默认 `MODE='gojo'`：只启用 `GOJO_GESTURES = ['blue','red']`（苍/赫），其余技法不接手势 |
+| 无 | 默认 `MODE='gojo'`：只启用 `GOJO_GESTURES = ['blue','red','void']`（苍/赫/無量空処），其余技法不接手势 |
 | `?mode=all` | 恢复全套 15 技法（`SCORE_GESTURES` + 语音），指南同步切换 `GUIDE_ALL` |
 | `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。id 见 README |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 |
 
 按键：`D` 调试面板、`M` 音乐、`H` 指南、`V` 语音、`T` 轮换、`N` 回识别、`K` 按键表、`C` 纯净模式、`O` 开场页。
 `T/N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
@@ -55,9 +55,9 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 | `indexUp/middleUp/ringUp/pinkyUp/thumbUp` | 指尖 y < PIP y | 单指/枪形/组合判定 |
 | `fourUp/fourDown` | 四指全伸/全收 | 张开/握拳类技法 |
 | `pinchScore` | 拇指-食指距离 < 0.04 | 虚式「茈」 |
-| `fingerGap` | 食指-中指指尖距离 | 四指并拢 vs 张开；枪形要求 < 0.065 |
+| `fingerGap` | 食指-中指指尖距离 | 四指并拢 vs 张开；枪形 < 0.065；無量空処 < 0.075 |
 | `thumbOut` | 拇指尖离手腕 > 0.25 | 平掌+拇指技法 |
-| `thumbGapRatio` | 拇指尖→食指 MCP 距离 ÷ 掌长（腕→中指 MCP） | **枪形**要求 > 0.75（区分拇指外张 vs 压在掌心） |
+| `thumbGapRatio` | 拇指尖→食指 MCP 距离 ÷ 掌长（腕→中指 MCP） | **枪形/赫** > 0.75（拇指外张）；**無量空処** < 0.75（拇指内扣）；茈的拇指外弹也看这个值的跳变 |
 | `handAngle` | 腕→中指 MCP 的倾角 | 备用 |
 | `isOpen` / `isFist` | 四指指尖-腕距离 > PIP×1.12 / < ×0.92 | 苍的时序手势（不依赖手掌朝向） |
 
@@ -67,12 +67,15 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 - 五条悟模式（`MODE==='gojo'`，`computeFrameScores` 内）：
   - **赫**：`indexUp=1 且中/无名/小指全收`，**或枪形** `indexUp+middleUp=1、ring/pinky=0、fingerGap<0.065、thumbGapRatio>0.75`。
     任一手满足即 `frameScores.red=1`，并记 `redFormSeen=true`。
+  - **無量空処**：`indexUp+middleUp=1、ring/pinky=0、fingerGap<0.075、thumbGapRatio<0.75`。
+    与赫枪形是同一对伸出的手指，靠拇指外张/内扣区分（见 §7）；任一手满足即 `frameScores.void=1`。
   - **苍**：`updateBlueSequences()` 时序状态机（见 §4.1），完成后 `armBlueCharge()`。手别 key 用 handedness，
     标签翻转按 0.30 邻域重捕获（清速度历史与腕旋基准）。
   - **互斥**：`blueCharge` 存在 → `resetBlueHandStates()`；`gojoLocked`（释放锁）或 `techCoolingDown` 或
     `redFormSeen` 或已处于 red → 清零苍时序。`currentTech==='red'` 时若本帧无赫形态且距 `lastRedSeenMs` < 350ms
     仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。
-  - 反向：非 red 状态下 `blueCharge || gojoLocked || techCoolingDown` 时赫分强制 0。
+  - 反向：非 red 状态下 `blueCharge || gojoLocked || techCoolingDown` 时赫分强制 0；非 void 状态下同样的
+    条件把 void 分强制 0（蓄势/释放锁/2s 冷却期间不能新开领域，但已展开的领域可继续持有）。
 
 ### 3.4 平滑与裁决（`TUNING`）
 
@@ -126,7 +129,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
   （拖动时球拖在手掌后，停下追上）。
 - `orbSpinPhase`：用腕部朝向（lm0→lm9 角度）差分累加，乘 1.6；因为画面镜像，取负号。
   球整体绕自身轴加减旋转，环带相位全体共享。
-- 尘埃（§8）围绕 `chargeVisual` 旋转并随它移动。
+- 尘埃（§9）围绕 `chargeVisual` 旋转并随它移动。
 
 ### 4.5 释放触发（`releaseBlueCharge`）
 
@@ -143,8 +146,8 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 连续增长链是关键：单帧关键点跳变（手指/手型变化）会在下一样本因不再增长而断链，绝不可能凑满
 3 个采样 + 110ms。慢速平移、横向快挥、转腕、指赫都只让球跟手，不释放。参数全在 `CHARGE.*`。
 
-释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §7 爆炸），
-尘埃层同步炸开（§8），随后 2.5s 演出 + 2s 触发锁/全局冷却。
+释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §8 爆炸），
+尘埃层同步炸开（§9），随后 2.5s 演出 + 2s 触发锁/全局冷却。
 
 ## 5. 虚式「茈」· 投射模式（顶部按钮）
 
@@ -153,10 +156,13 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 顶部正中 `#purple-mode-btn`（「茈」）是**模式开关，不是施法按钮**。点击开启后：
 
 - 苍/赫全部暂停：`computeFrameScores` 在 `purpleMode` 时把 blue/red 分归零，枪形不再触发赫；
-- 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）或捏合（`pinchScore=1`）连续 3 帧 → 构筑紫色小球；
-- 小球跟随手部（阻尼 90ms）；松手或姿势丢失超过 280ms 取消，不进入冷却；
-- 前推（复用 `CHARGE.pushMinGrowth/pushMinRate/pushMinMs/pushMinSamples`）或
-  「食指+中指并拢、拇指在下向外弹」（该手 flick 分 ≥ `FLICK.triggerScore`）→ 发射；
+- 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）、捏合（`pinchScore=1`）或拇指内扣的待发姿势连续 3 帧 → 构筑紫色小球；
+- 小球跟随手部（阻尼 90ms）；松手或姿势丢失通常 280ms 取消；拇指内扣后进入「待发」，
+  宽限升到 500ms（`PURPLE_CAST.readyGraceMs`），因为快速弹指常会丢 1~3 帧追踪；
+- 前推（复用 `CHARGE.pushMinGrowth/pushMinRate/pushMinMs/pushMinSamples`）或**拇指外弹** → 发射。
+  拇指外弹不依赖食指指尖位移：从拇指内扣帧记录 `thumbUnderAtMs/thumbUnderRatio`，500ms 内
+  `thumbGapRatio` 跳升 ≥0.15（`snapJump`）且回到外张枪形就发射，丢帧后重现也算；
+  旧的指尖上挑 FLICK（`FLICK.triggerScore`）仍保留为第二条路径；
 - 飞行 380ms 到世界 `(0,0,0)`（屏幕正中心），命中后从中心点爆开；
 - 释放后 **2 秒**冷却；按钮外圈 conic-gradient 显示剩余冷却（`updatePurpleButton`）；
   开/关切换会取消当前蓄势与飞行。
@@ -164,8 +170,8 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 ### 5.2 状态与关键代码
 
 - `purpleMode`、`setPurpleMode()`：模式开关、`aria-pressed`、按钮 `active/cooling`。
-- `purpleCharge`：`{ key, x, y, size, startedMs, lastSeenMs, poseSeenMs, prevSize, growSamples, ... }`；
-  `createPurpleCharge` / `cancelPurpleCharge` / `updatePurpleMode`。
+- `purpleCharge`：`{ key, x, y, size, startedMs, lastSeenMs, poseSeenMs, prevSize, growSamples,
+  thumbUnderAtMs, thumbUnderRatio, ... }`；`createPurpleCharge` / `cancelPurpleCharge` / `updatePurpleMode`。
 - `purpleShot`：`{ startX, startY, startMs, durationMs }`；`firePurpleCharge` 记录起点并设 2s 冷却，
   `impactPurpleShot` 在 `(0,0,0)` 触发 `forceTechnique('purple', 1600ms)` 与点爆炸。
 - 蓄势锚点 `purpleWorldAnchor()`：捏合点或双指尖中点，沿腕→指尖方向外推 2.0 / 3.5 世界单位。
@@ -179,11 +185,12 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 
 - 茈模式开启时：`bluePulse`、苍蓄势、赫枪形/红场/评分全部旁路；茈模式关闭后恢复。
 - 2s 冷却同时写 `purpleCooldownUntilMs` 与 `techCooldownUntilMs`，所以茈之后也不能立刻苍/赫。
-- 拇指在下的弹指只在**已有蓄势**且该手 `thumbUnder` 时算发射；拇指外张的枪形弹指不会误触。
+- 拇指外弹只在**已有蓄势**且最近一次姿势是拇指内扣时算发射；拇指一直外张的枪形不会被当成弹指。
+- 無量空処的手势同样是「两指 + 拇指内扣」，但它只在普通模式生效；茈模式开启时普通管线整体旁路，不会打架。
 
 ## 6. 「赫」排斥 · 红场
 
-### 5.1 手势与锚点
+### 6.1 手势与锚点
 
 | 形态 | 判定 | 锚点 |
 |---|---|---|
@@ -193,7 +200,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 外推距离 `min(9, max(3, 指节长*0.9))` 世界单位 ≈ **5~10cm**（即红点悬在指尖外一点）。
 两形态切换或短暂丢手（<350ms）由 `lastRedSeenMs` 桥接，不断档。
 
-### 5.2 跟随与渲染
+### 6.2 跟随与渲染
 
 - `redAnchor` → `redFollow`（阻尼 110ms）；每帧 `particles.position.set(redFollow.x, redFollow.y, 0)`，
   整个 20k 主粒子场（`getRed()` 目标形状）平移到手上。
@@ -201,7 +208,38 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
-## 7. 主粒子场与爆炸
+## 7. 領域展開「無量空処」 · 虚空
+
+### 7.1 参考视频的扫描结论
+
+用 MediaPipe Hands（与 app 同参数）扫了 `视频/领域展开，无量空处.mp4` 的 6 个清晰帧
+（t=5/7/9/11/13/15s）。结论：
+
+- 食指+中指举起、无名/小指收拢在所有帧稳定；`fingerGap` 0.016~0.048（<0.065）。
+- **食中指的交叉在关键点里不可靠**：逐帧的 `tipSide/pipSide` 在 -1.87~+0.70 间跳，
+  大部分帧（含视觉上明确交叉的 9/11/13/15s）被模型还原成平行两指。不能拿交叉与否当判据。
+- **拇指内扣是稳定特征**：`thumbGapRatio` 0.375~0.65，全部 <0.75；而赫的枪形要求 >0.75。
+  拇指尖到食指 PIP 的距离也在 0.28~0.74 之间，说明拇指压在掌心上。
+
+所以无量空处用「两指举起 + 指尖靠近 + 拇指内扣」判定；与赫枪形（拇指外张）互斥，与食指指赫（中指不举）
+也互斥。这个手势与茈的待发姿势同形，但茈模式开启时普通管线整体旁路，实际不会冲突。
+
+### 7.2 触发与状态
+
+- `computeHandScores().void`（单手，手掌朝向不限）：见 §3.3。
+- `GOJO_GESTURES` 含 `void`，走常规 EMA → `pickGestureFromScores`；进入 0.75、保持 0.50。
+- 展开期间可一直保持手势；松手退到 neutral。蓄势/释放锁/2s 冷却期间不能新开领域，
+  已展开的领域不受影响（否则自己的入场冷却会把领域掐断）。
+- `commitTransition('void')` 与其它技法一样起算 2s 冷却；`?tech=void` / T 轮换仍可手动预览。
+
+### 7.3 视觉
+
+- 复用原项目的 `getVoid(i)`：15% 点在半径 26 的白环上，其余 85% 在半径 30~120 的蓝色球壳里。
+- `updateState('void')`：pill 名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
+  `shakeIntensity 0.4`；主粒子场以慢速 `rotation.y += 0.005` 旋转。
+- 没有额外的界面/按钮；与 O 键打开的独立开场页（`DomainExpansion-infintevoid/`）互不影响。
+
+## 8. 主粒子场与爆炸
 
 - `COUNT = 20000`；`targetPositions/targetColors/targetSizes` 每帧由当前技法函数生成
   （`getShrine/getPurple/getVoid/.../getRed/getBlue...`），现场 `lerp 0.1` 追随 → 形状渐变过渡。
@@ -212,7 +250,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 茈的投射命中是**点爆炸**：`impactPurpleShot` 把 `purpleExplosionSourcePositions` 全写 `0.0001`（避免爆炸代码回退到目标形状），从世界 `(0,0,0)` 向外炸开。
 - 爆炸结束后 `postExplosionNeutralMs 400` 强制 neutral；茈的爆炸时长 `purpleExplosionDurationMs = 1600ms`，1600 + 400 = 2s 冷却。
 
-## 8. 环境尘埃（待机粒子 + 引/斥力）
+## 9. 环境尘埃（待机粒子 + 引/斥力）
 
 独立 `THREE.Points`：`DUST_COUNT = 1200`，灰蓝暗点（亮度 0.10~0.28 冷色），size 0.34，additive。
 **常驻可见**——这就是「待机粒子」；主粒子场待机仍隐藏，所以待机开销只有这 1200 点。
@@ -232,7 +270,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 位置更新逐粒子指数阻尼 `k = 1 - exp(-dt/tau)`（dt 封顶 0.1s），因此切换状态、跟手、回位都是平滑衔接。
 透明度：待机 0.65 / 引力 0.85 / 爆炸 0.9。
 
-## 9. 渲染与性能
+## 10. 渲染与性能
 
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
@@ -243,18 +281,19 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - fps 表：每 500ms 统计，D 面板 `fps` 行；低于 ~30 说明 GPU 吃紧（核显或浏览器退软渲）。
 - 软件渲染（llvmpipe）实测只有 1~3fps——验收时可以截图、可以看逻辑，但不能以帧率论成败。
 
-## 10. 界面层
+## 11. 界面层
 
 - Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏、暖金 `#D8A657` 强调、噪点纹理。
 - 顶部 pill = 当前技法**原版名**（`updateState`）：通常状態 / 術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/
   領域展開「伏魔御廚子」「無量空処」「嵌合暗翳庭」「坐殺博徒」「真贋相愛」「誅伏賜死」「時胞月宮殿」「自閉円頓裹」/
   黒閃 / 無為転変 / 十劃呪法「比率」/ 八握剣異戒神将魔虚羅。
+- 顶部正中「茈」按钮是模式开关（§5），开启时外圈显示 2s 冷却进度；普通模式（含無量空処）时按钮静默。
 - 左侧手势指南 `GUIDE_GOJO` / `GUIDE_ALL`；`C` 纯净模式全部隐藏；`D` 面板显示 raw/smoothed 分数、
   `fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
 - 语音（all 模式）：Web Speech API，`"don't move"` → 誅伏賜死，`"run away"` → 镜头拉远
   （`zoomUntilMs`，camera.z 55→120）。Firefox 不支持；Google 在线识别国内可能不通。
 
-## 11. 参数速查（改之前先读注释）
+## 12. 参数速查（改之前先读注释）
 
 | 位置（grep 锚点） | 参数 | 现值 | 说明 |
 |---|---|---|---|
@@ -276,17 +315,18 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `CHARGE.followTauMs` | 跟手阻尼 | 90ms | 大=拖尾更重 |
 | `CHARGE.pathMs` | 拖尾路径 | 320ms | |
 | `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
-| `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
+| `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
-| 枪形阈值 | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
+| 枪形阈值（赫） | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
+| 無量空処阈值 | `fingerGap<0.075` `thumbGapRatio<0.75` | `computeHandScores` 内 | 与枪形靠拇指内/外张互斥 |
 | 红点外推 | `min(9, max(3, 指节长*0.9))` | | ≈5~10cm |
 | 斥力泡半径 | `30 ± 2.5` | dust 块内 | |
 | 尘埃轨道半径 | `orbitR 9~17` × shrink 0.75~1 | 种子生成处 | |
 | 尘埃阻尼 | `tau 0.18~0.48s` | 种子生成处 | |
 
-## 12. 已知限制与升级路径
+## 13. 已知限制与升级路径
 
 - **MediaPipe Hands (legacy)** 是 2D 关键点逐帧检测：极端光照、逆光、手太远仍会丢；丢手由桥接/冷却兜底。
   升级路径：MediaPipe Tasks `HandLandmarker`（新模型、世界坐标、时序更稳）——替换 `hands` 初始化与
@@ -298,9 +338,11 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 无摄像头/拒绝授权时 MediaPipe 弹 "Failed to acquire camera"，**模态框会卡住页面 JS**——自动化验收必须
   覆写 `window.alert`（测试页已做）。
 - 语音依赖浏览器 Web Speech API。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **39 项断言**（含苍/赫/茈）。
+- **無量空処的食中指交叉不被 MediaPipe 解析**（扫描见 §7.1）：不要试图用「交叉」判定，用拇指内扣；
+  如果用户拇指只内扣到一半（`thumbGapRatio` 0.75~0.85），会落在赫枪形里，表现为展开领域失败。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **48 项断言**（含苍/赫/茈/無量空処）。
 
-## 13. 关键函数索引（`index.html`）
+## 14. 关键函数索引（`index.html`）
 
 | 函数 | 职责 |
 |---|---|
@@ -310,7 +352,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `computeFrameScores` | 双手 → 组合技法 + 五条悟互斥/桥接 |
 | `smoothScores` / `pickGestureFromScores` | EMA + 进入/保持/切换裁决 |
 | `setPurpleMode` | 「茈」模式开关（苍/赫旁路、按钮状态） |
-| `updatePurpleMode` | 茈的枪形/捏合蓄势、前推/弹指发射、冷却 |
+| `updatePurpleMode` | 茈的枪形/捏合蓄势、前推/拇指外弹（拇指内扣→外张跳变）/指尖 flick 发射、冷却 |
 | `firePurpleCharge` / `impactPurpleShot` | 射出与中心点爆炸 |
 | `updatePurpleButton` | 按钮 2s 冷却环 |
 | `commitTransition` | 切换时起算 2s 冷却 |
@@ -320,3 +362,4 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（all 模式 15 个） |
+| `getVoid` | 無量空処的白环 + 蓝色球壳目标形状 |

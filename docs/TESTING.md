@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，39 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，48 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 39 项断言（按顺序）
+### 1.4 48 项断言（按顺序）
 
 1. neutral 初始
 2. 枪形动作不误触苍（张开→收指→张开恰好凑成蓝时序的回归）
@@ -63,43 +63,69 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 25. 合掌释放（blue）
 26. 只张开不触发
 27. 握拳→张开不触发
-28. 顶部「茈」按钮存在
-29. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
-30. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
-31. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
-32. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
-33. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
-34. 捏合蓄势出小球
-35. 前推发射（`purpleShot` 非空）
-36. 飞行 380ms 后命中，`currentTech=purple`
-37. 命中后 2s 冷却内不能再蓄势
-38. 2s 冷却结束后恢复蓄势
-39. 拇指在下的向外弹指发射（该手 flick + `thumbUnder`）
+28. 赫枪形仍是赫、不是無量空処（拇指外张）
+29. 無量空処手势触发（两指举起 + 拇指内扣）
+30. 無量空処保持（手势持续）
+31. 無量空処松手退场
+32. 顶部「茈」按钮存在
+33. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
+34. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
+35. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
+36. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
+37. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
+38. 捏合蓄势出小球
+39. 拇指内扣的待发姿势本身也能蓄势出小球
+40. 前推发射（`purpleShot` 非空）
+41. 飞行 380ms 后命中，`currentTech=purple`
+42. 命中后 2s 冷却内不能再蓄势
+43. 2s 冷却结束后恢复蓄势
+44. 拇指在下、指尖上挑的 flick 发射（旧路径仍保留）
+45. 重新蓄势（为拇指外弹用例准备）
+46. 拇指**慢慢**外张（~660ms）不发射，蓄势保持
+47. 拇指内扣 → 快速外张（指尖不动）发射
+48. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
 
-### 1.5 加用例的三个坑
+### 1.5 加用例的四个坑
 
-- **2 秒冷却**：赫/茈触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
+- **2 秒冷却**：赫/茈/無量空処触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
   需要 ~140~180 帧。现有用例习惯多 drain 到 180~260 帧，稳。参考红冷却的 9→10→11 节奏。
 - **EMA 与帧数**：进入要 smoothed ≥0.75，姿势切换给足 20~25 帧；`redFormSeen` 这类「立即清零」的逻辑
   在单帧上生效，不需要长窗口。
 - **前推链**：`scaledOpen1` / `scaledGun1` 的缩放必须逐帧递增且持续 ≥110ms、累计 ≥24% 才会释放；
   中间一帧不涨即断链。写「应该释放」的用例时给足 5 帧以上；写「不该释放」的用例时，
   一个 2~3 帧的尺寸跳变即可复现旧版误触。
+- **拇指外弹**：用 `thumbUnder1`（拇指内扣）+ `gun1`（拇指外张）模拟跳变；`thumbLerp1` 做慢速外张的
+  反例。跳变必须在 `PURPLE_CAST.snapWindowMs`（500ms）内且 `thumbGapRatio` 增幅 ≥0.15 才发射；
+  用例之间重新蓄势要 drain 上一发的 2s 冷却（`step(gun1, 70)` 足够）。
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst`（加 `&nobanner=1` 可隐藏左上角测试横幅）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void`（加 `&nobanner=1` 可隐藏左上角测试横幅）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
 - `red`：合成枪形手保持 30 帧（看红场 + 尘埃被排开成净空）；
 - `purplecharge`：开启茈模式、合成枪形蓄势，球钉在世界原点轻微摆动（看顶部按钮激活 + 小紫球 + 拖尾）；
 - `purpleburst`：发射后把爆炸**钉在 94% 剩余时长**（约 100ms 处的早期爆心），避免软件渲染低帧率
-  错过 1.6s 的爆炸；按钮冷却环同时保持可见。
+  错过 1.6s 的爆炸；按钮冷却环同时保持可见；
+- `void`：`forceTechnique('void')` + `updateState('void', true)`，直接展示白环 + 蓝色球壳的领域场
+  （不需要摄像头）。
 
 演示在真实时钟（`performance.now()`）上跑，但回归本身用合成时钟；驱动里的 `resetRealClockFx()`
 会在演示前清掉合成时钟遗留的 `purpleExplosionUntilMs`/震动/冷却，否则 canvas 会被巨大的
 `translate` 偏移，截图里的球会跑到屏幕外（排查时踩过）。
+
+### 1.7 無量空処手势的参考视频扫描
+
+临时用与 app 相同参数的 MediaPipe Hands 跑了 `视频/领域展开，无量空处.mp4` 的 6 个清晰帧
+（t=5/7/9/11/13/15s），逐帧打印 `fingerGap`、`thumbGapRatio` 和食中指交叉的横向序。结论：
+
+- 食中指交叉**不可靠**：`tipSide/pipSide` 在 -1.87~+0.70 间跳，多帧被模型还原成平行两指；
+- 拇指内扣稳定：`thumbGapRatio` 0.375~0.65（全部 <0.75），`fingerGap` 0.016~0.048；
+- 因此判定用「两指举起 + 指尖靠近 + 拇指内扣」，与赫枪形的「拇指外张 >0.75」互补。
+
+重扫时建议用临时页 + 视频抽帧 + 相同的 `maxNumHands/modelComplexity/minDetectionConfidence`，
+扫完删掉临时文件；不要把视频帧或扫描页留在仓库。
 
 ## 2. 视觉验收（Xvfb + 有头 Firefox）
 
@@ -155,6 +181,8 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=purplecharge&nobanner=1" /tmp/shot-purplecharge.png 26
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=purpleburst&nobanner=1" /tmp/shot-purpleburst.png 26
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=void&nobanner=1" /tmp/shot-void.png 26
 ```
 
 `nobanner=1` 只影响测试横幅；页面标题仍是 `LOGICTEST PASS`，也可以从窗口标题
@@ -200,8 +228,8 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（39 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst`（或相应态）确认无穿帮
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（48 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void`（或相应态）确认无穿帮
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

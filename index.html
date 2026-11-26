@@ -74,7 +74,7 @@
         #left-rail { position: fixed; top: 68px; left: 16px; z-index: 90; display: flex; flex-direction: column; gap: 12px; width: 300px; max-height: calc(100vh - 84px); pointer-events: none; }
         #keybind-menu, #gesture-guide, #debug-panel { background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border: 1px solid var(--stroke); border-top-color: var(--stroke-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
         #keybind-menu { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; }
-        #gesture-guide { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; overflow: hidden; }
+        #gesture-guide { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; overflow-y: auto; pointer-events: auto; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
         #debug-panel { position: fixed; top: 68px; right: 16px; z-index: 90; display: none; box-sizing: border-box; width: 300px; max-height: calc(100vh - 84px); padding: 12px 14px; color: var(--text-secondary); font: 12px/1.45 var(--mono); white-space: pre; overflow: hidden; pointer-events: none; }
 
         .panel-title { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 8px; }
@@ -930,6 +930,9 @@
     const PURPLE_CAST = {
         poseHoldFrames: 3, // consecutive gun/pinch frames before the orb appears
         poseGraceMs: 280, // a momentary pose drop (e.g. thumb-under transition) keeps the charge
+        readyGraceMs: 500, // longer grace once the thumb is tucked: the snap may lose tracking
+        snapWindowMs: 500, // window for the thumb-under -> thumb-out snap
+        snapJump: 0.15, // minimum thumbGapRatio increase that counts as a deliberate snap
         followTauMs: 90, // damped follow, same feel as the blue orb
         shotMs: 380, // projectile flight from the hand to screen center
         pathMs: 260, // recent positions the projectile's tail trails over
@@ -968,12 +971,13 @@
     ];
     const VOICE_GESTURES = ['sentence'];
     const GESTURES = ['neutral', ...SCORE_GESTURES, ...VOICE_GESTURES];
-    // Gojo mode (default): only Gojo's four techniques respond to gestures.
+    // Gojo mode (default): only Gojo's techniques respond to gestures.
     // ?mode=all restores the full 15-technique set (kept as backup).
     const MODE = new URLSearchParams(window.location.search).get('mode') === 'all' ? 'all' : 'gojo';
-    // Working set: Blue (open>fist>open sequence) and Red (index finger pointing up) respond
-    // to gestures; Purple/Void stay unwired (code kept for later).
-    const GOJO_GESTURES = ['blue', 'red'];
+    // Working set: Blue (open>fist>open sequence), Red (index pointing / flared-thumb gun),
+    // and Void (the reference video's two raised fingers with the thumb tucked under).
+    // 茈 is not in this list: it is a top-button mode with its own gesture space.
+    const GOJO_GESTURES = ['blue', 'red', 'void'];
     const ACTIVE_GESTURES = MODE === 'gojo' ? GOJO_GESTURES : SCORE_GESTURES;
     const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
     const rawScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
@@ -1141,7 +1145,13 @@
             perfection: shape.fourUp && shape.thumbUp === 1 ? 1 : 0,
             blackflash: shape.fourDown ? 1 : 0,
             love: shape.indexUp === 1 && shape.pinkyUp === 1 && shape.middleUp === 0 && shape.ringUp === 0 && shape.thumbOut ? 1 : 0,
-            void: shape.indexUp === 1 && shape.middleUp === 1 && shape.ringUp === 0 && shape.pinkyUp === 0 ? 1 : 0,
+            // 無量空処: the reference video's two raised fingers with the thumb tucked under.
+            // MediaPipe does not resolve the crossed index/middle (the scan reports them as
+            // parallel); the stable separator from Red's gun is the thumb: flared = Red,
+            // tucked = Void. Both also require the fingertips close together.
+            void: shape.indexUp === 1 && shape.middleUp === 1
+                && shape.ringUp === 0 && shape.pinkyUp === 0
+                && shape.fingerGap < 0.075 && shape.thumbGapRatio < 0.75 ? 1 : 0,
             red: shape.indexUp === 1 && shape.middleUp === 0 && shape.ringUp === 0 && shape.pinkyUp === 0 ? 1 : 0,
             ratio: shape.fourUp && shape.fingerGap >= 0.05 && shape.fingerGap <= 0.10 && shape.handAngle > 0.5 && shape.handAngle < 2.5 ? 0.8 : 0
         };
@@ -1431,6 +1441,7 @@
 
     function createPurpleCharge(key, lm, shape, nowMs) {
         const p = palmState(lm);
+        const ready = purplePoseInfo(shape).thumbUnder;
         purpleCharge = {
             key,
             x: p.cx,
@@ -1444,7 +1455,9 @@
             growSamples: 0,
             growStartMs: nowMs,
             growStartSize: p.size,
-            lastGrowth: 0
+            lastGrowth: 0,
+            thumbUnderAtMs: ready ? nowMs : 0, // last frame the thumb was tucked under the two fingers
+            thumbUnderRatio: ready ? shape.thumbGapRatio : 0 // ...and its ratio, for the snap jump test
         };
         purpleVisual.init = false;
         purplePrevAngle = null;
@@ -1521,7 +1534,12 @@
         if (landmarks.length === 0) {
             purplePoseRun = 0;
             purplePoseKey = null;
-            if (purpleCharge && (nowMs - purpleCharge.lastSeenMs) > PURPLE_CAST.poseGraceMs) {
+            // Once the thumb is tucked the user is ready to snap; a fast flick can briefly
+            // lose the hand, so keep the charge a little longer before giving up on it.
+            const readyGrace = purpleCharge
+                && (nowMs - purpleCharge.thumbUnderAtMs) <= PURPLE_CAST.snapWindowMs;
+            const graceMs = readyGrace ? PURPLE_CAST.readyGraceMs : PURPLE_CAST.poseGraceMs;
+            if (purpleCharge && (nowMs - purpleCharge.lastSeenMs) > graceMs) {
                 cancelPurpleCharge();
             }
             return;
@@ -1531,7 +1549,9 @@
             let chargeIdx = -1;
             for (let i = 0; i < shapes.length; i++) {
                 const info = purplePoseInfo(shapes[i]);
-                if (info.gun || info.pinch) {
+                // The tucked-thumb ready pose can arm the orb directly; the user can then
+                // snap the thumb out to fire without first forming the flared gun.
+                if (info.gun || info.pinch || info.thumbUnder) {
                     chargeIdx = i;
                     break;
                 }
@@ -1582,9 +1602,16 @@
         const holding = info.gun || info.pinch || info.thumbUnder;
         if (holding) {
             c.poseSeenMs = nowMs;
-        } else if ((nowMs - c.poseSeenMs) > PURPLE_CAST.poseGraceMs) {
-            cancelPurpleCharge();
-            return;
+        } else {
+            const readyGrace = (nowMs - c.thumbUnderAtMs) <= PURPLE_CAST.snapWindowMs;
+            if ((nowMs - c.poseSeenMs) > (readyGrace ? PURPLE_CAST.readyGraceMs : PURPLE_CAST.poseGraceMs)) {
+                cancelPurpleCharge();
+                return;
+            }
+        }
+        if (info.thumbUnder) {
+            c.thumbUnderAtMs = nowMs;
+            c.thumbUnderRatio = shape.thumbGapRatio;
         }
 
         const p = palmState(lm);
@@ -1603,6 +1630,16 @@
         }
         purplePrevAngle = palmAngle;
         updatePurpleVisual(lm, shape, nowMs);
+        // The user's real firing motion: thumb tucked under, then a quick outward swing.
+        // The fingertip FLICK path cannot see this (the index tip barely moves), and tracking
+        // often drops a frame mid-snap, so detect the thumbGapRatio jump over the ready window.
+        const snappedOut = info.gun
+            && (nowMs - c.thumbUnderAtMs) <= PURPLE_CAST.snapWindowMs
+            && (shape.thumbGapRatio - c.thumbUnderRatio) >= PURPLE_CAST.snapJump;
+        if (snappedOut) {
+            firePurpleCharge(nowMs);
+            return;
+        }
         if (flicks && flicks[c.key] === nowMs && info.thumbUnder) {
             firePurpleCharge(nowMs);
             return;
@@ -1801,6 +1838,10 @@
             // the charge owns the interaction until it releases. An ACTIVE Red is exempt
             // (otherwise its own trigger cooldown would cut the field off mid-hold).
             if (currentTech !== 'red' && (blueCharge || gojoLocked || techCoolingDown)) frameScores.red = 0;
+            // The Blue charge owns the interaction; a new Void cannot start during its release
+            // lock or another technique's 2s cooldown. An already-active Void is exempt so the
+            // domain can be held for as long as the sign is maintained.
+            if (currentTech !== 'void' && (blueCharge || gojoLocked || techCoolingDown)) frameScores.void = 0;
         } else if (results.multiHandLandmarks.length === 2) {
             const a = results.multiHandLandmarks[0];
             const b = results.multiHandLandmarks[1];
@@ -1874,10 +1915,14 @@
 
     const GUIDE_GOJO = [
         { sep: '虚式「茈」 · Imaginary: Purple' },
-        { gesture: '点顶部「茈」→ 枪形 / 捏合蓄势', tech: '构筑' },
-        { foot: '模式开关：开启后苍/赫暂停；枪形与捏合改为构筑紫色小球' },
-        { gesture: '前推，或食指+中指并拢、拇指在下向外弹', tech: '发射' },
-        { foot: '小球射向屏幕正中心并爆开；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
+        { gesture: '点顶部「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
+        { foot: '模式开关：开启后苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
+        { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
+        { foot: '小球射向屏幕正中心并爆开；拇指外弹比指尖上挑更易触发；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
+        { sep: '領域展開「無量空処」 · Domain Expansion' },
+        { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
+        { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
+        { foot: '与赫区分：拇指外张的枪形＝赫；拇指内扣＝無量空処' },
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
         { foot: '引力：构筑时四周待机粒子被吸过来，绕着蓝球旋绕；蓝球从小球展开成大片粒子，呼吸浮动、随手旋转' },
@@ -1890,13 +1935,13 @@
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
         { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）' },
-        { foot: '任何术式触发后 2 秒冷却，防甩手连锁误触；手势模式启用苍/赫/茈，T 可预览其余' }
+        { foot: '任何术式触发后 2 秒冷却，防甩手连锁误触；手势模式启用苍/赫/茈/无量空处，T 可预览其余' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },
         { gesture: '拇指+食指捏合', tech: '虚式「茈」' },
         { gesture: '食指伸出', tech: '術式反転「赫」' },
-        { gesture: '食指+中指', tech: '領域展開「無量空処」' },
+        { gesture: '食指+中指并拢、拇指内扣', tech: '領域展開「無量空処」' },
         { gesture: '四指并拢', tech: '領域展開「伏魔御廚子」' },
         { gesture: '四指张开', tech: '術式順転「蒼」' },
         { gesture: '握拳', tech: '黒閃' },

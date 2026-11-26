@@ -63,6 +63,23 @@
             return pts;
         };
         const thumbUnder1 = (x, lift = 0, y = 0.75) => [mkHand(x, y, thumbUnderPts(lift))];
+        // Thumb snap: keep the two fingers still and swing only the thumb from under the
+        // palm (f=0) out to the flared gun position (f=1). This is the gesture the user
+        // actually makes to fire 茈; it does not move the index fingertip much.
+        const thumbLerpPts = (f) => {
+            const under = thumbUnderPts(0);
+            const out = GUN_PTS;
+            const pts = under.map((p) => p.slice());
+            pts[4] = [
+                under[4][0] + (out[4][0] - under[4][0]) * f,
+                under[4][1] + (out[4][1] - under[4][1]) * f
+            ];
+            return pts;
+        };
+        const thumbLerp1 = (x, f, y = 0.75) => [mkHand(x, y, thumbLerpPts(f))];
+        // 無量空処: the reference video's crossed two-finger sign. MediaPipe does not resolve
+        // the crossing reliably, but the tucked thumb (thumbGapRatio < 0.75) is stable.
+        const void1 = (x, y = 0.75) => [mkHand(x, y, thumbUnderPts(0))];
 
         let t = 1000;
         // Visual-check hook: the module scope is closed, so expose the 茈 state for
@@ -140,7 +157,7 @@
             step(open1(x), 6);
             return !!blueCharge;
         };
-        // A test failure may leave a blast + 8s cooldown behind; clear it so the next
+        // A test failure may leave a blast + 2s cooldown behind; clear it so the next
         // assertion starts from a fresh idle state instead of cascading.
         const recoverBlue = (x = 0.5) => {
             if (blueCharge) return x;
@@ -284,6 +301,19 @@
             step(FIST2, 8);
             step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
 
+            // --- 無量空処: two fingers raised, thumb tucked under (the video's crossed sign).
+            // The flared-thumb gun is Red; the tucked thumb is the separator MediaPipe resolves
+            // reliably (the index/middle crossing itself is not visible in its landmarks).
+            step(gun1(0.5), 20);
+            mark('red gun is not void', 'red');
+            step([], 100);
+            step(void1(0.5), 20);
+            mark('void gesture triggers', 'void');
+            step(void1(0.5), 20);
+            mark('void holds while gesture held', 'void');
+            step([], 30);
+            mark('void releases when gesture drops', 'neutral');
+
             // --- 茈 mode: the top button is a mode switch, not a cast button ---
             const purpleBtn = document.getElementById('purple-mode-btn');
             markState('purple mode button exists', 'yes', purpleBtn ? 'yes' : 'no');
@@ -307,6 +337,12 @@
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
             step(PURPLE1, 8);
             markState('purple pinch arms orb', 'charge',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            // The ready pose itself (two fingers + thumb tucked) also arms the orb, so the
+            // user can go straight from the ready sign to the outward snap.
+            step([], 20);
+            step(thumbUnder1(0.5), 8);
+            markState('purple thumb-under arms orb', 'charge',
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
             setPurpleMode(false);
             step([], 10);
@@ -337,16 +373,52 @@
             step(gun1(0.5), 15);
             setPurpleMode(false);
             step([], 10);
+            setPurpleMode(true);
+
+            // --- 茈 thumb snap (the user's real firing motion) ---
+            // Re-arm after the previous shot's 2s cooldown.
+            step(gun1(0.5), 70);
+            markState('purple rearmed for snap tests', 'charge',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            // Slowly swinging the thumb out over ~660ms is not a snap: the charge must stay.
+            step(thumbUnder1(0.5), 3);
+            for (let i = 1; i <= 20; i++) { runFrame(thumbLerp1(0.5, i / 20), t); t += 33; }
+            markState('purple slow thumb-out stays charging', 'charge',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : (purpleShot ? 'shot' : 'idle'));
+            // A quick under->out thumb snap fires, even though the fingertips barely move.
+            step(thumbUnder1(0.5), 3);
+            runFrame(gun1(0.5), t); t += 33;
+            markState('purple thumb-out snap fires', 'shot',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step(gun1(0.5), 15);
+            step([], 60);
+            // Same snap with two frames of lost tracking in the middle: the charge must not
+            // cancel, and the snap still fires when the hand reappears thumb-out.
+            step(gun1(0.5), 70);
+            step(thumbUnder1(0.5), 3);
+            step([], 2);
+            step(gun1(0.5), 2);
+            markState('purple snap survives tracking gap', 'shot',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step(gun1(0.5), 15);
+            setPurpleMode(false);
+            step([], 10);
 
             step([], 10); mark('end', null);
 
-            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || isPurpleDemo) {
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo) {
                 step([], 200);
                 resetRealClockFx();
-                if (endMode === 'red') {
+                if (endMode === 'void') {
+                    // 無量空処: pin the domain field without needing the camera. The white
+                    // inner ring + blue shell + slow rotation are the ported getVoid() effect.
+                    forceTechnique('void', 999999999);
+                    updateState('void', true);
+                    document.title = 'VOID DEMO';
+                } else if (endMode === 'red') {
                     // Hold the gun form so the red core sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).
                     step(gun1(0.5), 30);

@@ -8,8 +8,10 @@
 
 - **術式順転「蒼」**（引力）：张开→握拳→张开 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场
-- **虚式「茈」**（投射）：点顶部正中「茈」开关 → 苍/赫暂停；枪形或捏合构筑紫色小球 →
-  前推或「食指+中指并拢、拇指在下向外弹」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
+- **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
+  保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）
+- **虚式「茈」**（投射）：点顶部正中「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
+  前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
 
@@ -30,7 +32,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 39 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 48 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -46,7 +48,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
-| `docs/CHANGELOG.md` | 十二次改造史（含每轮为什么改） |
+| `docs/CHANGELOG.md` | 改造史（含每轮为什么改） |
 
 ## 去哪改（grep 锚点）
 
@@ -55,12 +57,15 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`
 - 茈的模式/蓄势/发射/视觉 → `purpleMode`、`setPurpleMode`、`PURPLE_CAST`、`updatePurpleMode`、
   `purplePoseInfo`、`purpleWorldAnchor`、`firePurpleCharge`、`impactPurpleShot`、`purpleOrb`、
-  `fillPurpleOrbPositions`、`updatePurpleButton`
+  `fillPurpleOrbPositions`、`updatePurpleButton`；拇指外弹看 `PURPLE_CAST.snapWindowMs/snapJump`、
+  `thumbUnderAtMs/thumbUnderRatio`
+- 無量空処的判定/视觉 → `computeHandScores()` 的 `void` 分支、`GOJO_GESTURES`、`getVoid()`；
+  阈值 `fingerGap<0.075`、`thumbGapRatio<0.75`（拇指内扣，避开赫枪形的 >0.75）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
 - 技法名/指南 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`GUIDE_ALL`
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 39/39 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 48/48 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。
