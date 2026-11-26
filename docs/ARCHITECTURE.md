@@ -1,7 +1,7 @@
 # 技术架构 · SAT0RU
 
 单文件 Three.js 应用（`index.html`，约 2100 行）+ MediaPipe Hands 手部识别。
-本文覆盖：数据流、识别管线、苍/赫状态机、环境尘埃、渲染性能、参数速查、已知限制。
+本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式、环境尘埃、渲染性能、参数速查、已知限制。
 改代码前先看 §去哪改，别凭感觉动阈值。
 
 ## 1. 数据流总览
@@ -83,8 +83,8 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 
 ### 3.5 冷却与锁定
 
-- `commitTransition(next, now)`：进入任何非 `neutral`/`flick` 的技法 → `techCooldownUntilMs = now + 8000`。
-- 苍释放后还有自己的锁定：演出 2.5s（`BLUE_SEQ.animMs`）+ 触发锁 2.5s（`cooldownMs`），期间手势全忽略。
+- `commitTransition(next, now)`：进入任何非 `neutral`/`flick` 的技法 → `techCooldownUntilMs = now + 2000`。
+- 苍释放后还有自己的锁定：演出 2.5s（`BLUE_SEQ.animMs`）+ 触发锁 2s（`cooldownMs`），期间手势全忽略。
 - 赫激活期间不受冷却影响（持续），但冷却期内不能再触发苍/赫。
 
 ## 4. 「蒼」引力 · 构筑态
@@ -126,7 +126,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
   （拖动时球拖在手掌后，停下追上）。
 - `orbSpinPhase`：用腕部朝向（lm0→lm9 角度）差分累加，乘 1.6；因为画面镜像，取负号。
   球整体绕自身轴加减旋转，环带相位全体共享。
-- 尘埃（§5）围绕 `chargeVisual` 旋转并随它移动。
+- 尘埃（§8）围绕 `chargeVisual` 旋转并随它移动。
 
 ### 4.5 释放触发（`releaseBlueCharge`）
 
@@ -143,10 +143,45 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 连续增长链是关键：单帧关键点跳变（手指/手型变化）会在下一样本因不再增长而断链，绝不可能凑满
 3 个采样 + 110ms。慢速平移、横向快挥、转腕、指赫都只让球跟手，不释放。参数全在 `CHARGE.*`。
 
-释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §6 爆炸），
-尘埃层同步炸开（§5），随后 2.5s 触发锁 + 8s 全局冷却。
+释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §7 爆炸），
+尘埃层同步炸开（§8），随后 2.5s 演出 + 2s 触发锁/全局冷却。
 
-## 5. 「赫」排斥 · 红场
+## 5. 虚式「茈」· 投射模式（顶部按钮）
+
+### 5.1 交互模型
+
+顶部正中 `#purple-mode-btn`（「茈」）是**模式开关，不是施法按钮**。点击开启后：
+
+- 苍/赫全部暂停：`computeFrameScores` 在 `purpleMode` 时把 blue/red 分归零，枪形不再触发赫；
+- 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）或捏合（`pinchScore=1`）连续 3 帧 → 构筑紫色小球；
+- 小球跟随手部（阻尼 90ms）；松手或姿势丢失超过 280ms 取消，不进入冷却；
+- 前推（复用 `CHARGE.pushMinGrowth/pushMinRate/pushMinMs/pushMinSamples`）或
+  「食指+中指并拢、拇指在下向外弹」（该手 flick 分 ≥ `FLICK.triggerScore`）→ 发射；
+- 飞行 380ms 到世界 `(0,0,0)`（屏幕正中心），命中后从中心点爆开；
+- 释放后 **2 秒**冷却；按钮外圈 conic-gradient 显示剩余冷却（`updatePurpleButton`）；
+  开/关切换会取消当前蓄势与飞行。
+
+### 5.2 状态与关键代码
+
+- `purpleMode`、`setPurpleMode()`：模式开关、`aria-pressed`、按钮 `active/cooling`。
+- `purpleCharge`：`{ key, x, y, size, startedMs, lastSeenMs, poseSeenMs, prevSize, growSamples, ... }`；
+  `createPurpleCharge` / `cancelPurpleCharge` / `updatePurpleMode`。
+- `purpleShot`：`{ startX, startY, startMs, durationMs }`；`firePurpleCharge` 记录起点并设 2s 冷却，
+  `impactPurpleShot` 在 `(0,0,0)` 触发 `forceTechnique('purple', 1600ms)` 与点爆炸。
+- 蓄势锚点 `purpleWorldAnchor()`：捏合点或双指尖中点，沿腕→指尖方向外推 2.0 / 3.5 世界单位。
+- 视觉：独立 `THREE.Points` `purpleOrb`（`PURPLE_ORB_COUNT = 700`，8% 核 / 58% 环 / 34% 雾）。
+  蓄势半径 `(0.5 + 0.7*grow)*breathe`（700ms 展开 + 双频呼吸）；飞行时从起点加速到中心并缩到 60%；
+  只有雾层沿 `purplePath`（260ms）拖尾。紫色爆炸复用主粒子场，源位置写 `0.0001` 以避免目标形状回退，
+  从中心点向四周炸开；尘埃层在爆炸期间同步径向炸开。
+- 茈模式待机时 `baseBloomStrength = 0.35`；命中后 `updateState('purple')` 把 base 提到 4.0，爆炸结束回 neutral。
+
+### 5.3 与既有技法的边界
+
+- 茈模式开启时：`bluePulse`、苍蓄势、赫枪形/红场/评分全部旁路；茈模式关闭后恢复。
+- 2s 冷却同时写 `purpleCooldownUntilMs` 与 `techCooldownUntilMs`，所以茈之后也不能立刻苍/赫。
+- 拇指在下的弹指只在**已有蓄势**且该手 `thumbUnder` 时算发射；拇指外张的枪形弹指不会误触。
+
+## 6. 「赫」排斥 · 红场
 
 ### 5.1 手势与锚点
 
@@ -166,7 +201,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
-## 6. 主粒子场与爆炸
+## 7. 主粒子场与爆炸
 
 - `COUNT = 20000`；`targetPositions/targetColors/targetSizes` 每帧由当前技法函数生成
   （`getShrine/getPurple/getVoid/.../getRed/getBlue...`），现场 `lerp 0.1` 追随 → 形状渐变过渡。
@@ -174,9 +209,10 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - **爆炸**（紫/蓝共用）：`purpleExplosionUntilMs` 期间每点从形状位置向外飞 `purpleExplosionMaxDistance 100`
   × 个体差异 0.84~1.12，颜色固定爆炸色，bloom 临时 +3（`purpleExplosionBloomBoost`），
   画面震动（renderer canvas transform 随机位移）。
-- 爆炸结束后 `postExplosionNeutralMs 1000` 强制 neutral。
+- 茈的投射命中是**点爆炸**：`impactPurpleShot` 把 `purpleExplosionSourcePositions` 全写 `0.0001`（避免爆炸代码回退到目标形状），从世界 `(0,0,0)` 向外炸开。
+- 爆炸结束后 `postExplosionNeutralMs 400` 强制 neutral；茈的爆炸时长 `purpleExplosionDurationMs = 1600ms`，1600 + 400 = 2s 冷却。
 
-## 7. 环境尘埃（待机粒子 + 引/斥力）
+## 8. 环境尘埃（待机粒子 + 引/斥力）
 
 独立 `THREE.Points`：`DUST_COUNT = 1200`，灰蓝暗点（亮度 0.10~0.28 冷色），size 0.34，additive。
 **常驻可见**——这就是「待机粒子」；主粒子场待机仍隐藏，所以待机开销只有这 1200 点。
@@ -196,18 +232,18 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 位置更新逐粒子指数阻尼 `k = 1 - exp(-dt/tau)`（dt 封顶 0.1s），因此切换状态、跟手、回位都是平滑衔接。
 透明度：待机 0.65 / 引力 0.85 / 爆炸 0.9。
 
-## 8. 渲染与性能
+## 9. 渲染与性能
 
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
-  （blue 3.0、red 2.5、purple 4.0、shrine 2.5、blackflash 5.0…），爆炸期间临时加。
+  （blue 3.0、red 2.5、purple 4.0、shrine 2.5、blackflash 5.0…），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
 - **`fieldIdle`**：`currentTech==='neutral' && now > neutralSettledAtMs && 无紫爆炸`
   → 主粒子场 `particles.visible=false`，且跳过 20k 的 lerp/上传/旋转/爆炸计算。
   `neutralSettledAtMs = now + 700`（进入 neutral 后留 700ms 淡出时间）。**这是最大的性能闸门**。
 - fps 表：每 500ms 统计，D 面板 `fps` 行；低于 ~30 说明 GPU 吃紧（核显或浏览器退软渲）。
 - 软件渲染（llvmpipe）实测只有 1~3fps——验收时可以截图、可以看逻辑，但不能以帧率论成败。
 
-## 9. 界面层
+## 10. 界面层
 
 - Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏、暖金 `#D8A657` 强调、噪点纹理。
 - 顶部 pill = 当前技法**原版名**（`updateState`）：通常状態 / 術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/
@@ -218,7 +254,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 语音（all 模式）：Web Speech API，`"don't move"` → 誅伏賜死，`"run away"` → 镜头拉远
   （`zoomUntilMs`，camera.z 55→120）。Firefox 不支持；Google 在线识别国内可能不通。
 
-## 10. 参数速查（改之前先读注释）
+## 11. 参数速查（改之前先读注释）
 
 | 位置（grep 锚点） | 参数 | 现值 | 说明 |
 |---|---|---|---|
@@ -232,21 +268,25 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `TUNING.sustainedSwitchMs` | 定时切换 | 300ms | 领先只需 0.03 |
 | `BLUE_SEQ.stageWindowMs` | 苍时序段间隔 | 1200ms | 每段内完成 |
 | `BLUE_SEQ.openFrames/fistFrames` | 苍帧数 | 3/2 | 帧 ≈ 33ms |
-| `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2500ms | |
+| `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
 | `CHARGE.growMs` | 球展开时长 | 2000ms | 越快越大越快 |
 | `CHARGE.followTauMs` | 跟手阻尼 | 90ms | 大=拖尾更重 |
 | `CHARGE.pathMs` | 拖尾路径 | 320ms | |
-| `TECH_COOLDOWN_MS` | 全局冷却 | 8000ms | 任何术式触发后 |
+| `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
+| `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
+| `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
+| `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
+| `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
 | 枪形阈值 | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
 | 红点外推 | `min(9, max(3, 指节长*0.9))` | | ≈5~10cm |
 | 斥力泡半径 | `30 ± 2.5` | dust 块内 | |
 | 尘埃轨道半径 | `orbitR 9~17` × shrink 0.75~1 | 种子生成处 | |
 | 尘埃阻尼 | `tau 0.18~0.48s` | 种子生成处 | |
 
-## 11. 已知限制与升级路径
+## 12. 已知限制与升级路径
 
 - **MediaPipe Hands (legacy)** 是 2D 关键点逐帧检测：极端光照、逆光、手太远仍会丢；丢手由桥接/冷却兜底。
   升级路径：MediaPipe Tasks `HandLandmarker`（新模型、世界坐标、时序更稳）——替换 `hands` 初始化与
@@ -258,9 +298,9 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 无摄像头/拒绝授权时 MediaPipe 弹 "Failed to acquire camera"，**模态框会卡住页面 JS**——自动化验收必须
   覆写 `window.alert`（测试页已做）。
 - 语音依赖浏览器 Web Speech API。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **39 项断言**（含苍/赫/茈）。
 
-## 12. 关键函数索引（`index.html`）
+## 13. 关键函数索引（`index.html`）
 
 | 函数 | 职责 |
 |---|---|
@@ -269,9 +309,14 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `computeHandScores` | 单手 → 技法分 |
 | `computeFrameScores` | 双手 → 组合技法 + 五条悟互斥/桥接 |
 | `smoothScores` / `pickGestureFromScores` | EMA + 进入/保持/切换裁决 |
-| `commitTransition` | 切换时起算 8s 冷却 |
+| `setPurpleMode` | 「茈」模式开关（苍/赫旁路、按钮状态） |
+| `updatePurpleMode` | 茈的枪形/捏合蓄势、前推/弹指发射、冷却 |
+| `firePurpleCharge` / `impactPurpleShot` | 射出与中心点爆炸 |
+| `updatePurpleButton` | 按钮 2s 冷却环 |
+| `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → pill 名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：时序 → 构筑 → 释放 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
+| `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（all 模式 15 个） |

@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，25 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，39 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 25 项断言（按顺序）
+### 1.4 39 项断言（按顺序）
 
 1. neutral 初始
 2. 枪形动作不误触苍（张开→收指→张开恰好凑成蓝时序的回归）
@@ -44,40 +44,62 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 6. 两形态互换不断档
 7. 短暂丢手（8 帧）桥接仍红
 8. 收手退场
-9. 冷却期重指不触发
-10. 冷却期回摆不误触苍
-11. 冷却结束赫恢复
-12. 苍1 构筑武装（open 8 → fist 6 → open 6），同一断言确认仍未绽放（currentTech 仍 neutral）
-13. 慢速拖动 ~0.36/s 不打断，球只跟手
-14. 手指/掌尺寸抖动不打断（交替 ±8% 缩放 + 3 帧 +24% 关键点跳变）
-15. 快速横向挥手 ~1.8/s 不打断
-16. 构筑期指赫不打断
-17. 持续前推释放（掌尺寸 1.0→1.5，连续增长 ≥110ms、累计 ≥24%，blue）
-18. 动画中其他手势被忽略
-19. 冷却期赫被忽略
-20. 苍2 双手构筑
-21. 丢追踪释放（丢手 34 帧 ≈1.1s 后，blue）
-22. 合掌构筑武装
-23. 合掌释放（blue）
-24. 只张开不触发
-25. 握拳→张开不触发
+9. 2s 后赫恢复（旧的 8s 锁已废）
+10. 2s 冷却内重指不触发
+11. 2s 冷却结束赫恢复
+12. 冷却期回摆不误触苍
+13. 冷却结束双手指赫恢复
+14. 苍1 构筑武装（open 8 → fist 6 → open 6），同一断言确认仍未绽放（currentTech 仍 neutral）
+15. 慢速拖动 ~0.36/s 不打断，球只跟手
+16. 手指/掌尺寸抖动不打断（交替 ±8% 缩放 + 3 帧 +24% 关键点跳变）
+17. 快速横向挥手 ~1.8/s 不打断
+18. 构筑期指赫不打断
+19. 持续前推释放（掌尺寸 1.0→1.5，连续增长 ≥110ms、累计 ≥24%，blue）
+20. 动画中其他手势被忽略
+21. 冷却期赫被忽略
+22. 苍2 双手构筑
+23. 丢追踪释放（丢手 34 帧 ≈1.1s 后，blue）
+24. 合掌构筑武装
+25. 合掌释放（blue）
+26. 只张开不触发
+27. 握拳→张开不触发
+28. 顶部「茈」按钮存在
+29. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
+30. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
+31. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
+32. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
+33. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
+34. 捏合蓄势出小球
+35. 前推发射（`purpleShot` 非空）
+36. 飞行 380ms 后命中，`currentTech=purple`
+37. 命中后 2s 冷却内不能再蓄势
+38. 2s 冷却结束后恢复蓄势
+39. 拇指在下的向外弹指发射（该手 flick + `thumbUnder`）
 
-### 1.5 加用例的两个坑
+### 1.5 加用例的三个坑
 
-- **8 秒冷却**：任何一次 blue/red 触发后，后续用例必须先空步 drain（约 180~260 帧 × 33ms ≈ 6~8.6s），
-  否则测的是冷却而不是你想测的东西。参考用例 9→10→11 的节奏。
+- **2 秒冷却**：赫/茈触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
+  需要 ~140~180 帧。现有用例习惯多 drain 到 180~260 帧，稳。参考红冷却的 9→10→11 节奏。
 - **EMA 与帧数**：进入要 smoothed ≥0.75，姿势切换给足 20~25 帧；`redFormSeen` 这类「立即清零」的逻辑
   在单帧上生效，不需要长窗口。
-- **前推链**：`scaledOpen1` 的缩放必须逐帧递增且持续 ≥110ms、累计 ≥24% 才会释放；中间一帧不涨即断链。
-  写「应该释放」的用例时给足 5 帧以上；写「不该释放」的用例时，一个 2~3 帧的尺寸跳变即可复现旧版误触。
+- **前推链**：`scaledOpen1` / `scaledGun1` 的缩放必须逐帧递增且持续 ≥110ms、累计 ≥24% 才会释放；
+  中间一帧不涨即断链。写「应该释放」的用例时给足 5 帧以上；写「不该释放」的用例时，
+  一个 2~3 帧的尺寸跳变即可复现旧版误触。
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red`：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst`（加 `&nobanner=1` 可隐藏左上角测试横幅）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
-- `red`：合成枪形手保持 30 帧（看红场 + 尘埃被排开成净空）。
+- `red`：合成枪形手保持 30 帧（看红场 + 尘埃被排开成净空）；
+- `purplecharge`：开启茈模式、合成枪形蓄势，球钉在世界原点轻微摆动（看顶部按钮激活 + 小紫球 + 拖尾）；
+- `purpleburst`：发射后把爆炸**钉在 94% 剩余时长**（约 100ms 处的早期爆心），避免软件渲染低帧率
+  错过 1.6s 的爆炸；按钮冷却环同时保持可见。
+
+演示在真实时钟（`performance.now()`）上跑，但回归本身用合成时钟；驱动里的 `resetRealClockFx()`
+会在演示前清掉合成时钟遗留的 `purpleExplosionUntilMs`/震动/冷却，否则 canvas 会被巨大的
+`translate` 偏移，截图里的球会跑到屏幕外（排查时踩过）。
 
 ## 2. 视觉验收（Xvfb + 有头 Firefox）
 
@@ -104,6 +126,8 @@ user_pref("gfx.webrender.software", true);
 user_pref("layers.acceleration.disabled", true);
 user_pref("media.navigator.permission.disabled", true);
 user_pref("browser.shell.checkDefaultBrowser", false);
+user_pref("browser.translations.enable", false);
+user_pref("browser.translations.automaticallyPopup", false);
 UJS
 export LIBGL_ALWAYS_SOFTWARE=1
 firefox --profile "$PROFILE" --new-instance --no-remote "$URL" &
@@ -116,18 +140,25 @@ EOF
 chmod +x /tmp/ffshot.sh
 ```
 
-调用（等 16~18s 让 llvmpipe 把粒子跑起来）：
+调用（等 **20~28s** 让 llvmpipe 把粒子跑起来；机器忙时 18s 可能还在加载）：
 
 ```bash
 cd /home/lain/sat0ru
 python3 tools/serve.py . 8787 &   # 或 systemctl --user start sat0ru
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1" /tmp/shot-test.png 16
+  "http://127.0.0.1:8787/logic-test.html?logictest=1" /tmp/shot-test.png 22
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=charge" /tmp/shot-charge.png 18
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=charge&nobanner=1" /tmp/shot-charge.png 26
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=red" /tmp/shot-red.png 18
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=red&nobanner=1" /tmp/shot-red.png 26
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=purplecharge&nobanner=1" /tmp/shot-purplecharge.png 26
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=purpleburst&nobanner=1" /tmp/shot-purpleburst.png 26
 ```
+
+`nobanner=1` 只影响测试横幅；页面标题仍是 `LOGICTEST PASS`，也可以从窗口标题
+（`xwininfo -root -tree`）确认结果。
 
 ### 2.3 验证「动画真的在动」
 
@@ -150,6 +181,11 @@ EOF
 - **强杀 Firefox 会弄坏 profile**：每次都 `mktemp -d` 新 profile，别复用。
 - **等久一点**：llvmpipe 首帧要几秒，粒子收敛（尘埃吸附/斥开）也是秒级。
 - **llvmpipe 的 dt 封顶**：尘埃用真实 dt（封顶 0.1s）做阻尼，低帧率下收敛慢，截图可能看到中间态——这是环境问题，不是代码问题。
+- **合成时钟 vs 真实时钟**：回归用合成 `t`（33ms/帧），`animate()` 用 `performance.now()`。
+  测试里触发的爆炸/冷却会留下一个远在合成未来的 `purpleExplosionUntilMs`，于是 animate 里的
+  `life` 可能 >1，把 renderer canvas 用 `translate` 甩出屏幕（表现为紫球失踪、只剩边缘光）。
+  演示前调 `resetRealClockFx()`；自己加演示态时也要先清。
+- **冷启动**：先确认没有上次遗留的无头 Chromium/Firefox 在烧 CPU，否则软件渲染页面可能 30s 都加载不完。
 - **node 语法检查**：模块脚本要先抽出来再查，直接 `node --check` HTML 不行：
   ```bash
   python3 -I - <<'EOF'
@@ -164,8 +200,8 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（25 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red`（或相应态）确认无穿帮
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（39 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst`（或相应态）确认无穿帮
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

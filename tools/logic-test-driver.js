@@ -46,8 +46,63 @@
             const w = hand[0];
             return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
         };
+        const scaledGun1 = (x, y, f) => {
+            const hand = mkHand(x, y, GUN_PTS);
+            const w = hand[0];
+            return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
+        };
+        // 茈's second firing pose: same raised index+middle, thumb tucked under, then a quick
+        // outward lift of the two fingertips. `lift` is the outward displacement for the flick.
+        const thumbUnderPts = (lift = 0) => {
+            const pts = GUN_PTS.map((p) => p.slice());
+            pts[4] = [pts[5][0] + 0.005, pts[5][1] + 0.015]; // thumb below the index MCP
+            if (lift) {
+                pts[8][1] -= lift;
+                pts[12][1] -= lift;
+            }
+            return pts;
+        };
+        const thumbUnder1 = (x, lift = 0, y = 0.75) => [mkHand(x, y, thumbUnderPts(lift))];
 
         let t = 1000;
+        // Visual-check hook: the module scope is closed, so expose the 茈 state for
+        // screenshot tooling to assert where the ball is and whether it is visible.
+        window.__chargeState = () => {
+            const v = chargeOrb.position.clone().project(camera);
+            return {
+                blue: !!blueCharge,
+                visual: { x: chargeVisual.x, y: chargeVisual.y, init: chargeVisual.init },
+                orb: { x: chargeOrb.position.x, y: chargeOrb.position.y, visible: chargeOrb.visible },
+                screen: { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight },
+                dims: {
+                    iw: window.innerWidth, ih: window.innerHeight, dpr: window.devicePixelRatio,
+                    vw: videoElement.videoWidth, vh: videoElement.videoHeight,
+                    cw: renderer.domElement.width, ch: renderer.domElement.height,
+                    fov: camera.fov, aspect: camera.aspect, camZ: camera.position.z
+                }
+            };
+        };
+        window.__purpleState = () => ({
+            mode: purpleMode,
+            charge: !!purpleCharge,
+            shot: !!purpleShot,
+            visual: { x: purpleVisual.x, y: purpleVisual.y, init: purpleVisual.init },
+            orb: {
+                x: purpleOrb.position.x,
+                y: purpleOrb.position.y,
+                z: purpleOrb.position.z,
+                visible: purpleOrb.visible,
+                size: purpleOrbMaterial.size
+            },
+            path: purplePath.length,
+            screen: (() => {
+                const v = purpleOrb.position.clone().project(camera);
+                return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+            })(),
+            chargeStartedMs: purpleCharge ? purpleCharge.startedMs : 0,
+            now: performance.now(),
+            viewport: { w: window.innerWidth, h: window.innerHeight }
+        });
         const runFrame = (hands, ms) => {
             const results = {
                 multiHandLandmarks: hands,
@@ -60,7 +115,12 @@
             GESTURES.forEach((tech) => { rawScores[tech] = scores[tech]; });
             smoothScores(scores);
             if (pendingBlueInstant) { smoothedScores.blue = 1; pendingBlueInstant = false; }
-            const next = pickGestureFromScores(ms);
+            let next = pickGestureFromScores(ms);
+            // Mirror onResults' forced-technique wrapper (T/N preview and 茈's impact lock).
+            if (forcedTech) {
+                if (ms < forcedUntilMs) next = forcedTech;
+                else forcedTech = null;
+            }
             maybeTriggerPurpleExitExplosion(next, ms);
             updateState(next);
         };
@@ -87,6 +147,23 @@
             step([], 280);
             armBlue1(x);
             return x;
+        };
+
+        // The regression runs on a synthetic clock, but animate() reads performance.now().
+// Leftover synthetic explosion/cooldown values would otherwise shake or hide the
+// real-clock scene in the screenshot demos. Clear them before the visual setup.
+        const resetRealClockFx = () => {
+            purpleExplosionUntilMs = 0;
+            neutralLockUntilMs = 0;
+            lastPurpleExplosionMs = -Infinity;
+            shakeIntensity = 0;
+            forcedTech = null;
+            forcedUntilMs = 0;
+            gestureLockUntilMs = 0;
+            flickLockUntilMs = 0;
+            flickPulseUntilMs = 0;
+            techCooldownUntilMs = 0;
+            renderer.domElement.style.transform = 'translate(0,0)';
         };
 
         const log = [];
@@ -123,8 +200,14 @@
             step(red1(0.5), 6);
             markState('red survives brief pose gap', 'red', currentTech);
             step([], 24); mark('red releases on drop', 'neutral');
-            // The anti-chain cooldown blocks an immediate re-trigger.
-            step(red1(0.5), 20); mark('red cooldown blocks retrigger', 'neutral');
+            // The old 8s lock is gone: by now >2s has passed, so Red re-triggers.
+            step(red1(0.5), 10); mark('red recovers after 2s', 'red');
+            step([], 80); // drop + drain the 2s cooldown
+            // Dedicated 2s window: trigger, drop, then re-present before and after the boundary.
+            step(red1(0.5), 25);
+            step([], 24);
+            step(red1(0.5), 8); mark('red 2s cooldown blocks retrigger', 'neutral');
+            step(red1(0.5), 30); mark('red 2s cooldown recovers', 'red');
             // The reported bug: the return swing after a Red fling must not arm Blue either.
             step(open1(0.5), 8);
             step(fist1(0.5), 6);
@@ -200,17 +283,112 @@
             step([], 60);
             step(FIST2, 8);
             step(OPEN2, 20); mark('fist>open alone no trigger', 'neutral');
+
+            // --- 茈 mode: the top button is a mode switch, not a cast button ---
+            const purpleBtn = document.getElementById('purple-mode-btn');
+            markState('purple mode button exists', 'yes', purpleBtn ? 'yes' : 'no');
+            if (purpleBtn) {
+                purpleBtn.click();
+                markState('purple mode button toggles on', 'on',
+                    (purpleMode && purpleBtn.getAttribute('aria-pressed') === 'true') ? 'on' : 'off');
+                purpleBtn.click();
+                markState('purple mode button toggles off', 'off',
+                    (!purpleMode && purpleBtn.getAttribute('aria-pressed') === 'false') ? 'off' : 'on');
+            }
+
+            // --- 茈 mode routing: the gun/pinch poses arm a purple charge; Red is paused ---
+            setPurpleMode(true);
+            step(gun1(0.5), 8);
+            markState('purple gun arms orb', 'charge',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            markState('purple mode blocks red gun', 'neutral', currentTech);
+            step([], 20);
+            markState('purple pose drop cancels', 'idle',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            step(PURPLE1, 8);
+            markState('purple pinch arms orb', 'charge',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            setPurpleMode(false);
+            step([], 10);
+
+            // --- 茈 forward push: fire, impact at center, 2s cooldown ---
+            setPurpleMode(true);
+            step(scaledGun1(0.5, 0.75, 1.0), 8);
+            for (let f = 1.0; f <= 1.5; f += 0.07) {
+                runFrame(scaledGun1(0.5, 0.75, f), t);
+                t += 33;
+            }
+            markState('purple forward push fires', 'shot',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step(gun1(0.5), 15);
+            mark('purple shot impacts', 'purple');
+            step(gun1(0.5), 20);
+            markState('purple 2s cooldown blocks recharge', 'idle', purpleCharge ? 'charge' : 'idle');
+            step(gun1(0.5), 45);
+            markState('purple cooldown recovers', 'charge', purpleCharge ? 'charge' : 'idle');
+
+            // Thumb-under outward flick: the charge is already armed; tuck the thumb and snap
+            // the two fingertips outward over two frames.
+            step(thumbUnder1(0.5), 1);
+            runFrame(thumbUnder1(0.5, 0.06), t); t += 33;
+            runFrame(thumbUnder1(0.5, 0.12), t); t += 33;
+            markState('purple thumb-under flick fires', 'shot',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step(gun1(0.5), 15);
+            setPurpleMode(false);
+            step([], 10);
+
             step([], 10); mark('end', null);
 
-            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst
             const endMode = new URLSearchParams(location.search).get('end');
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red') {
+            const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || isPurpleDemo) {
                 step([], 200);
+                resetRealClockFx();
                 if (endMode === 'red') {
                     // Hold the gun form so the red core sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).
                     step(gun1(0.5), 30);
                     document.title = 'RED DEMO';
+                } else if (isPurpleDemo) {
+                    // 茈 mode: gun pose arms the violet ball. Visual timers use performance.now()
+                    // because the synthetic test clock and the animate loop's clock differ.
+                    setPurpleMode(true);
+                    step(gun1(0.5), 8);
+                    if (purpleCharge) {
+                        const chargeRef = purpleCharge;
+                        chargeRef.startedMs = performance.now() - 2200; // fully grown ball
+                        // Put the demo ball at world center: the synthetic hand's mapping depends
+                        // on the browser's viewport metrics, which vary under Xvfb.
+                        purpleVisual.x = 0;
+                        purpleVisual.y = 0;
+                        const baseX = 0;
+                        const baseY = 0;
+                        const t0 = performance.now();
+                        (function wiggle() {
+                            if (!purpleCharge || purpleCharge !== chargeRef) return;
+                            const sec = (performance.now() - t0) / 1000;
+                            purpleVisual.x = baseX + Math.sin(sec * 1.6) * 1.1;
+                            purpleVisual.y = baseY + Math.cos(sec * 1.2) * 0.8;
+                            requestAnimationFrame(wiggle);
+                        })();
+                        if (endMode === 'purpleburst') {
+                            firePurpleCharge(performance.now());
+                            impactPurpleShot(performance.now());
+                            // Software WebGL under Xvfb can render at 1-3fps, so a real-time
+                            // 1.6s blast may fall between frames. Hold it at mid-progress for
+                            // the screenshot; also keep the button's cooldown ring populated.
+                            (function burstLoop() {
+                                if (!purpleMode) return;
+                                const now = performance.now();
+                                purpleExplosionUntilMs = now + TUNING.purpleExplosionDurationMs * 0.94;
+                                purpleCooldownUntilMs = now + PURPLE_CAST.cooldownMs;
+                                requestAnimationFrame(burstLoop);
+                            })();
+                        }
+                    }
+                    document.title = endMode === 'purplecharge' ? 'PURPLE CHARGE DEMO' : 'PURPLE BURST DEMO';
                 } else {
                     step(open1(0.5), 8);
                     step(fist1(0.5), 6);
@@ -253,6 +431,6 @@
         banner.id = 'logictest-banner';
         banner.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:' + (fails.length ? '#a00' : '#080') + ';color:#fff;font:13px/1.5 monospace;padding:10px 14px;white-space:pre;border-radius:6px';
         banner.textContent = 'LOGICTEST ' + (fails.length ? 'FAIL' : 'PASS') + '\n' + log.join('\n');
-        document.body.appendChild(banner);
-        document.title = 'LOGICTEST ' + (fails.length ? 'FAIL' : 'PASS');
+        if (!new URLSearchParams(location.search).has('nobanner')) document.body.appendChild(banner);
+        document.title = 'LOGICTEST ' + (fails.length ? 'FAIL ' + fails.slice(0, 4).join(' | ') : 'PASS');
     }

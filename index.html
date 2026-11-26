@@ -36,6 +36,39 @@
         #ui h1 { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .02em; color: var(--text-primary); }
         #ui h1 .sub { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
         #technique-name { font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(216,166,87,.28); border-radius: var(--radius-pill); padding: 6px 12px; white-space: nowrap; }
+        /* 虚式「茈」 mode switch: centered in the top bar, deliberately clickable while the rest of #ui is not. */
+        #purple-mode-btn {
+            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+            width: 38px; height: 38px; padding: 0; z-index: 2;
+            display: grid; place-items: center;
+            font-family: var(--font); font-size: 18px; font-weight: 600; line-height: 1;
+            color: var(--text-secondary); cursor: pointer; pointer-events: auto;
+            background: rgba(20,16,28,.58); border: 1px solid rgba(187,0,255,.26);
+            border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,.04);
+            backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+            transition: color .2s, background .2s, border-color .2s, box-shadow .2s;
+        }
+        #purple-mode-btn:hover { color: #e9d5ff; border-color: rgba(187,0,255,.6); background: rgba(45,24,60,.68); }
+        #purple-mode-btn.active {
+            color: #f3e8ff; background: rgba(88,28,135,.38);
+            border-color: rgba(187,0,255,.88);
+            box-shadow: 0 0 18px rgba(187,0,255,.38), inset 0 0 12px rgba(187,0,255,.18);
+        }
+        #purple-mode-btn.active::before {
+            content: ''; position: absolute; inset: -5px; border-radius: 50%;
+            border: 1px solid rgba(187,0,255,.3); pointer-events: none;
+            animation: purpleModePulse 2.4s ease-in-out infinite;
+        }
+        #purple-mode-btn.cooling::after {
+            content: ''; position: absolute; inset: -5px; border-radius: 50%; pointer-events: none;
+            background: conic-gradient(rgba(187,0,255,.92) calc(var(--cd, 0) * 1turn), rgba(255,255,255,.07) 0);
+            -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+            mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+        }
+        @keyframes purpleModePulse {
+            0%, 100% { opacity: .35; transform: scale(1); }
+            50% { opacity: .9; transform: scale(1.08); }
+        }
 
         /* Left rail: keybinds + gesture guide */
         #left-rail { position: fixed; top: 68px; left: 16px; z-index: 90; display: flex; flex-direction: column; gap: 12px; width: 300px; max-height: calc(100vh - 84px); pointer-events: none; }
@@ -114,6 +147,7 @@
 
     <header id="ui">
         <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
+        <button id="purple-mode-btn" type="button" aria-pressed="false" title="虚式「茈」">茈</button>
         <div id="technique-name">NEUTRAL STATE</div>
     </header>
     <div id="trigger-word-text"></div>
@@ -249,6 +283,73 @@
     chargeOrb.frustumCulled = false;
     scene.add(chargeOrb);
 
+    // --- Purple charge orb (虚式「茈」): a small violet ball that becomes the projectile ---
+    // Smaller and denser than Blue's orb: a bright core, two/three ring arcs, and a haze.
+    // The same buffer is reused while charging and while flying to the screen center.
+    const PURPLE_ORB_COUNT = 700;
+    const purpleOrbGeometry = new THREE.BufferGeometry();
+    const purpleOrbPositions = new Float32Array(PURPLE_ORB_COUNT * 3);
+    const purpleOrbColors = new Float32Array(PURPLE_ORB_COUNT * 3);
+    const purpleOrbSeeds = [];
+    for (let i = 0; i < PURPLE_ORB_COUNT; i++) {
+        const frac = i / PURPLE_ORB_COUNT;
+        let c;
+        if (frac < 0.08) {
+            purpleOrbSeeds.push({
+                type: 'core',
+                r: 0.05 + Math.random() * 0.2,
+                phi: Math.acos(2 * Math.random() - 1),
+                theta: Math.random() * Math.PI * 2,
+                spin: 2.4 + Math.random() * 2.6,
+                wobble: 0.4 + Math.random() * 1.2,
+                phase: Math.random() * Math.PI * 2
+            });
+            c = { r: 0.7, g: 0.42, b: 1.0 };
+        } else if (frac < 0.66) {
+            const k = i % 3;
+            purpleOrbSeeds.push({
+                type: 'ring',
+                k,
+                r: Math.min(1, ORB_RINGS[k].scale),
+                theta0: ORB_ARC_BASE[(i * 7) % 4] + (Math.random() + Math.random() + Math.random() - 1.5) * 0.35,
+                rj: 1 + (Math.random() - 0.5) * 0.12
+            });
+            c = k === 0 ? { r: 0.56, g: 0.26, b: 0.96 }
+                : k === 1 ? { r: 0.46, g: 0.16, b: 0.86 }
+                : { r: 0.32, g: 0.07, b: 0.66 };
+        } else {
+            purpleOrbSeeds.push({
+                type: 'haze',
+                r: 0.3 + Math.random() * 1.2,
+                phi: Math.acos(2 * Math.random() - 1),
+                theta: Math.random() * Math.PI * 2,
+                spin: 1.9 + Math.random() * 0.9,
+                wobble: 0.5 + Math.random() * 1.5,
+                phase: Math.random() * Math.PI * 2
+            });
+            c = Math.random() < 0.35 ? { r: 0.4, g: 0.13, b: 0.78 } : { r: 0.16, g: 0.03, b: 0.45 };
+        }
+        purpleOrbColors[i * 3] = c.r;
+        purpleOrbColors[i * 3 + 1] = c.g;
+        purpleOrbColors[i * 3 + 2] = c.b;
+    }
+    purpleOrbGeometry.setAttribute('position', new THREE.BufferAttribute(purpleOrbPositions, 3));
+    purpleOrbGeometry.setAttribute('color', new THREE.BufferAttribute(purpleOrbColors, 3));
+    const purpleOrbMaterial = new THREE.PointsMaterial({
+        size: 0.28,
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0.9,
+        depthWrite: false
+    });
+    const purpleOrb = new THREE.Points(purpleOrbGeometry, purpleOrbMaterial);
+    purpleOrb.visible = false;
+    purpleOrb.frustumCulled = false;
+    scene.add(purpleOrb);
+    let purpleSpinPhase = 0;
+    let purplePrevAngle = null;
+
     // --- Ambient dust: the standby particles, and proof of Blue's pull / Red's push ---
     // Idle they drift like dust in the room. While Blue charges they spiral inward and orbit
     // the blue ball (following the hand); while Red is out they get shoved into a clean rim
@@ -338,6 +439,51 @@
             orbPositions[i * 3 + 2] = z;
         }
         orbGeometry.attributes.position.needsUpdate = true;
+    }
+
+    // Same geometry as Blue's orb, but violet, smaller, and only the haze layer trails along
+    // the recent path so the core and rings stay a readable ball while it moves or flies.
+    function fillPurpleOrbPositions(nowSec, radius, path, cx, cy) {
+        const n = path ? path.length : 0;
+        for (let i = 0; i < PURPLE_ORB_COUNT; i++) {
+            const s = purpleOrbSeeds[i];
+            let x;
+            let y;
+            let z;
+            if (s.type === 'ring') {
+                const R = ORB_RINGS[s.k];
+                const theta = s.theta0 + nowSec * R.spin + purpleSpinPhase;
+                const rad = radius * R.scale * s.rj;
+                const ct = Math.cos(theta);
+                const st = Math.sin(theta);
+                x = (R.u[0] * ct + R.w[0] * st) * rad;
+                y = (R.u[1] * ct + R.w[1] * st) * rad;
+                z = (R.u[2] * ct + R.w[2] * st) * rad;
+            } else {
+                const theta = s.theta + nowSec * s.spin + purpleSpinPhase;
+                const wob = Math.sin(nowSec * s.wobble + s.phase) * (s.type === 'core' ? 0.08 : 0.26);
+                const rr = radius * s.r * (1 + wob);
+                x = rr * Math.sin(s.phi) * Math.cos(theta);
+                y = rr * Math.cos(s.phi) * 0.82;
+                z = rr * Math.sin(s.phi) * Math.sin(theta);
+            }
+            let ox = 0;
+            let oy = 0;
+            if (s.type === 'haze' && n > 1) {
+                const idx = Math.max(0, Math.min(n - 1, Math.floor((1 - s.r) * (n - 1))));
+                ox = path[idx].x - cx;
+                oy = path[idx].y - cy;
+                const ol = Math.hypot(ox, oy);
+                if (ol > 6) {
+                    ox *= 6 / ol;
+                    oy *= 6 / ol;
+                }
+            }
+            purpleOrbPositions[i * 3] = x + ox;
+            purpleOrbPositions[i * 3 + 1] = y + oy;
+            purpleOrbPositions[i * 3 + 2] = z;
+        }
+        purpleOrbGeometry.attributes.position.needsUpdate = true;
     }
 
     function handPointToWorld(nx, ny) {
@@ -725,10 +871,10 @@
         sustainedSwitchMs: 300, // Timed switch: if a challenger stays stronger for this long, it can override.
         sustainedSwitchMargin: 0.03, // Minimum lead required for the timed override path.
 
-        purpleExplosionDurationMs: 4000, // How long the Purple explosion impulse lasts.
+        purpleExplosionDurationMs: 1600, // Purple blast duration; 1600 + 400 keeps the 2s cooldown clean.
         purpleExplosionMaxDistance: 100, // Total outward travel from the live Purple target shape.
         purpleExplosionBloomBoost: 3, // Temporary extra bloom added on top of base technique bloom.
-        postExplosionNeutralMs: 1000 // Force neutral for this long after the explosion completes.
+        postExplosionNeutralMs: 400 // Force neutral after the blast; total 2000ms.
     };
 
     // --- Hand Tracking Core (avoid changing unless logic changes are intended) ---
@@ -742,7 +888,7 @@
     let lastRedSeenMs = 0;
     // After any technique fires, new triggers are locked out for a few seconds so the return
     // swing of a fling can't chain straight into the next technique (Red -> Blue double fire).
-    const TECH_COOLDOWN_MS = 8000;
+    const TECH_COOLDOWN_MS = 2000;
     let techCooldownUntilMs = 0;
     // Gojo Blue (苍) detector: per-hand open -> fist -> open cycles.
     // Completing the cycle on either hand (one or both) arms a charge: a blue orb shrinks into a
@@ -755,7 +901,7 @@
     let pendingBlueInstant = false;
     let lastHandShapes = [];
     const blueHandStates = {};
-    const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
+    const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2000 };
     let blueCharge = null; // active construction: { key, x, y, size, growSamples, startedMs, lastSeenMs, ... }
     const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
     let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
@@ -779,6 +925,23 @@
         followTauMs: 90, // damped follow time constant (drag feel)
         pathMs: 320 // how much of the orb's recent path the swarm trails over
     };
+    // 虚式「茈」 mode: a top-bar switch, not a cast button. While ON, Blue/Red are paused and
+    // the gun/pinch poses arm a small purple charge; the charge fires on a push or thumb-under flick.
+    const PURPLE_CAST = {
+        poseHoldFrames: 3, // consecutive gun/pinch frames before the orb appears
+        poseGraceMs: 280, // a momentary pose drop (e.g. thumb-under transition) keeps the charge
+        followTauMs: 90, // damped follow, same feel as the blue orb
+        shotMs: 380, // projectile flight from the hand to screen center
+        pathMs: 260, // recent positions the projectile's tail trails over
+        cooldownMs: 2000 // release-to-release cooldown, as requested
+    };
+    let purpleCharge = null;
+    let purpleShot = null;
+    let purpleCooldownUntilMs = 0;
+    let purplePoseRun = 0;
+    let purplePoseKey = null;
+    const purpleVisual = { x: 0, y: 0, t: 0, init: false };
+    const purplePath = []; // recent orb positions, shared by the charge ball and the projectile
     const FLICK = {
         purpleArmMs: 1000,
         flickOnlyWindowMs: 280,
@@ -835,9 +998,11 @@
     let pendingPurpleExitFlick = false;
     let neutralLockUntilMs = 0;
     let baseBloomStrength = 1.0;
-    const PURPLE_EXPLOSION_COLOR = { r: 0.6, g: 0.5, b: 1.0 };
+    const PURPLE_EXPLOSION_COLOR = { r: 0.62, g: 0.38, b: 1.0 };
     const flickDetectorByHand = {};
     const debugPanel = document.getElementById('debug-panel');
+    const purpleModeBtn = document.getElementById('purple-mode-btn');
+    let purpleMode = false; // top-center 「茈」 switch: the button selects the technique, it does not cast
     const keybindMenu = document.getElementById('keybind-menu');
     const musicAudio = document.getElementById('bg-audio');
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -875,9 +1040,60 @@
         triggerWordEl.style.animation = `flicker ${durationMs / 1000}s forwards`;
     }
 
-    function forceTechnique(tech, durationMs = 15000) {
+    function forceTechnique(tech, durationMs = 15000, nowMs = performance.now()) {
         forcedTech = tech;
-        forcedUntilMs = performance.now() + durationMs;
+        forcedUntilMs = nowMs + durationMs;
+    }
+
+    function setPurpleMode(on) {
+        if (MODE !== 'gojo') return;
+        const next = !!on;
+        if (purpleMode === next) return;
+        purpleMode = next;
+        purpleModeBtn.classList.toggle('active', purpleMode);
+        purpleModeBtn.setAttribute('aria-pressed', purpleMode ? 'true' : 'false');
+        if (purpleMode) {
+            if (blueCharge) cancelBlueCharge();
+            resetBlueHandStates();
+            bluePulseUntilMs = 0;
+            gestureLockUntilMs = 0;
+            forcedTech = null;
+            forcedUntilMs = 0;
+            pendingBlueInstant = false;
+            pendingPurpleExitFlick = false;
+            purpleFlickEligibleUntilMs = 0;
+            purplePoseRun = 0;
+            purplePoseKey = null;
+            purplePrevAngle = null;
+            purplePath.length = 0;
+            if (purpleCharge) cancelPurpleCharge();
+            if (purpleShot) purpleShot = null;
+            updateState('neutral', true);
+        } else {
+            if (purpleCharge) cancelPurpleCharge();
+            if (purpleShot) purpleShot = null;
+            purplePoseRun = 0;
+            purplePoseKey = null;
+            purplePrevAngle = null;
+            purplePath.length = 0;
+            purpleModeBtn.classList.remove('cooling');
+            updateState('neutral', true);
+        }
+    }
+
+    if (MODE !== 'gojo') purpleModeBtn.style.display = 'none';
+    purpleModeBtn.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        setPurpleMode(!purpleMode);
+    });
+
+    // Drives the 2s cooldown ring on the mode button (conic-gradient --cd in the CSS).
+    function updatePurpleButton(nowMs) {
+        const leftMs = Math.max(0, purpleCooldownUntilMs - nowMs);
+        const cooling = purpleMode && leftMs > 0;
+        purpleModeBtn.classList.toggle('cooling', cooling);
+        purpleModeBtn.style.setProperty('--cd', cooling ? (leftMs / PURPLE_CAST.cooldownMs).toFixed(3) : '0');
     }
 
     function pinchDistance(lm) {
@@ -1061,6 +1277,32 @@
         chargeOrb.visible = false;
     }
 
+    // Sustained forward push: palm scale must grow for consecutive samples, long enough and
+    // far enough to be a deliberate push. Shared by Blue and 茈.
+    function updatePushTracker(t, size, nowMs) {
+        const growRatio = size / Math.max(t.prevSize, 0.001);
+        if (growRatio > 1 + CHARGE.growTolerance) {
+            if (t.growSamples === 0) {
+                t.growStartSize = t.prevSize;
+                t.growStartMs = t.prevSizeMs;
+            }
+            t.growSamples += 1;
+        } else {
+            t.growSamples = 0;
+        }
+        const growMs = nowMs - t.growStartMs;
+        let pushNow = false;
+        t.lastGrowth = 0;
+        if (t.growSamples >= CHARGE.pushMinSamples && growMs >= CHARGE.pushMinMs) {
+            const growth = (size - t.growStartSize) / Math.max(t.growStartSize, 0.001);
+            t.lastGrowth = growth / Math.max(growMs / 1000, 0.001);
+            pushNow = growth >= CHARGE.pushMinGrowth && t.lastGrowth >= CHARGE.pushMinRate;
+        }
+        t.prevSize = size;
+        t.prevSizeMs = nowMs;
+        return pushNow;
+    }
+
     // Tracks the anchored hand while charging. Returns 'charge' to keep constructing,
     // 'release' to fire the blast. Dragging and wrist rotation just carry the orb along;
     // only a sustained forward push (palm scale growing toward the camera), leaving the
@@ -1132,28 +1374,8 @@
         }
         c.prevAngle = palmAngle;
 
-        // Forward-push detector: require consecutive growing palm-scale samples. A single
-        // landmark jump resets on the next sample, so it can never satisfy the streak.
-        const growRatio = p.size / Math.max(c.prevSize, 0.001);
-        if (growRatio > 1 + CHARGE.growTolerance) {
-            if (c.growSamples === 0) {
-                c.growStartSize = c.prevSize;
-                c.growStartMs = c.prevSizeMs;
-            }
-            c.growSamples += 1;
-        } else {
-            c.growSamples = 0;
-        }
-        const growMs = nowMs - c.growStartMs;
-        let pushNow = false;
-        c.lastGrowth = 0;
-        if (c.growSamples >= CHARGE.pushMinSamples && growMs >= CHARGE.pushMinMs) {
-            const growth = (p.size - c.growStartSize) / Math.max(c.growStartSize, 0.001);
-            c.lastGrowth = growth / Math.max(growMs / 1000, 0.001);
-            pushNow = growth >= CHARGE.pushMinGrowth && c.lastGrowth >= CHARGE.pushMinRate;
-        }
-        c.prevSize = p.size;
-        c.prevSizeMs = nowMs;
+        // Shared sustained-forward-push detector. Blue and 茈 both use this exact chain.
+        const pushNow = updatePushTracker(c, p.size, nowMs);
 
         c.x = p.cx;
         c.y = p.cy;
@@ -1164,16 +1386,249 @@
             || c.palmFrames >= CHARGE.palmGapFrames || tooLong) ? 'release' : 'charge';
     }
 
+    // 茈's two ready poses plus the thumb-under firing form. The gun form (thumb flared) is
+    // Red's second pose in normal mode; the mode switch decides which technique owns it.
+    function purplePoseInfo(shape) {
+        const twoFingers = shape.indexUp === 1 && shape.middleUp === 1
+            && shape.ringUp === 0 && shape.pinkyUp === 0 && shape.fingerGap < 0.065;
+        return {
+            gun: twoFingers && shape.thumbGapRatio > 0.75,
+            thumbUnder: twoFingers && shape.thumbGapRatio <= 0.75,
+            pinch: shape.pinchScore === 1
+        };
+    }
+
+    // The orb sits just past the gun fingertips, or just past a pinch. The offset keeps it
+    // visually in front of the hand instead of inside the palm.
+    function purpleWorldAnchor(lm, shape) {
+        const pinch = shape.pinchScore === 1;
+        const nx = pinch ? (lm[4].x + lm[8].x) / 2 : (lm[8].x + lm[12].x) / 2;
+        const ny = pinch ? (lm[4].y + lm[8].y) / 2 : (lm[8].y + lm[12].y) / 2;
+        const tip = handPointToWorld(nx, ny);
+        const wrist = handPointToWorld(lm[0].x, lm[0].y);
+        const dx = tip.x - wrist.x;
+        const dy = tip.y - wrist.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const gap = pinch ? 2.0 : 3.5;
+        return { x: tip.x + (dx / len) * gap, y: tip.y + (dy / len) * gap };
+    }
+
+    function updatePurpleVisual(lm, shape, nowMs) {
+        const anchor = purpleWorldAnchor(lm, shape);
+        if (!purpleVisual.init) {
+            purpleVisual.x = anchor.x;
+            purpleVisual.y = anchor.y;
+            purpleVisual.t = nowMs;
+            purpleVisual.init = true;
+            return;
+        }
+        const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - purpleVisual.t) / 1000));
+        const k = 1 - Math.exp(-dtSec / (PURPLE_CAST.followTauMs / 1000));
+        purpleVisual.x += (anchor.x - purpleVisual.x) * k;
+        purpleVisual.y += (anchor.y - purpleVisual.y) * k;
+        purpleVisual.t = nowMs;
+    }
+
+    function createPurpleCharge(key, lm, shape, nowMs) {
+        const p = palmState(lm);
+        purpleCharge = {
+            key,
+            x: p.cx,
+            y: p.cy,
+            size: p.size,
+            startedMs: nowMs,
+            lastSeenMs: nowMs,
+            poseSeenMs: nowMs,
+            prevSize: p.size,
+            prevSizeMs: nowMs,
+            growSamples: 0,
+            growStartMs: nowMs,
+            growStartSize: p.size,
+            lastGrowth: 0
+        };
+        purpleVisual.init = false;
+        purplePrevAngle = null;
+        updatePurpleVisual(lm, shape, nowMs);
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl) nameEl.innerText = '虚式「茈」 · 構築中';
+    }
+
+    function cancelPurpleCharge() {
+        purpleCharge = null;
+        purpleVisual.init = false;
+        purplePrevAngle = null;
+        purplePath.length = 0;
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl && purpleMode) nameEl.innerText = '虚式「茈」';
+    }
+
+    function firePurpleCharge(nowMs) {
+        if (!purpleCharge) return;
+        const start = purpleVisual.init
+            ? { x: purpleVisual.x, y: purpleVisual.y }
+            : handPointToWorld(purpleCharge.x, purpleCharge.y);
+        purpleCharge = null;
+        purpleVisual.init = false;
+        purpleShot = {
+            startX: start.x,
+            startY: start.y,
+            startMs: nowMs,
+            durationMs: PURPLE_CAST.shotMs
+        };
+        purpleCooldownUntilMs = nowMs + PURPLE_CAST.cooldownMs;
+        techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl) nameEl.innerText = '虚式「茈」 · 射出';
+        shakeIntensity = Math.max(shakeIntensity, 0.5);
+    }
+
+    function impactPurpleShot(nowMs) {
+        purpleShot = null;
+        forceTechnique('purple', TUNING.purpleExplosionDurationMs, nowMs);
+        updateState('purple', true);
+        // A projectile hit is a point blast, not the full Purple field shell. Tiny non-zero
+        // sources avoid the explosion code's target-shape fallback while still reading as center.
+        for (let i = 0; i < COUNT; i++) {
+            purpleExplosionSourcePositions[i * 3] = 0.0001;
+            purpleExplosionSourcePositions[i * 3 + 1] = 0.0001;
+            purpleExplosionSourcePositions[i * 3 + 2] = 0.0001;
+            purpleExplosionSourceSizes[i] = targetSizes[i];
+        }
+        triggerPurpleExplosion(nowMs);
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl) nameEl.innerText = '虚式「茈」';
+    }
+
+    // Runs only while the 茈 switch is ON. It owns the gun/pinch charge; firing triggers are
+    // added by the push/flick tasks. No Blue/Red score ever escapes this mode.
+    function updatePurpleMode(landmarks, shapes, keys, nowMs, flicks = null) {
+        if (!purpleMode) return;
+        const keyOf = (i) => keys[i] || `hand_${i}`;
+
+        // The projectile keeps flying during the cooldown it just started.
+        if (purpleShot) {
+            if ((nowMs - purpleShot.startMs) >= purpleShot.durationMs) impactPurpleShot(nowMs);
+            return;
+        }
+
+        if (nowMs < techCooldownUntilMs) {
+            if (purpleCharge) cancelPurpleCharge();
+            purplePoseRun = 0;
+            purplePoseKey = null;
+            return;
+        }
+
+        if (landmarks.length === 0) {
+            purplePoseRun = 0;
+            purplePoseKey = null;
+            if (purpleCharge && (nowMs - purpleCharge.lastSeenMs) > PURPLE_CAST.poseGraceMs) {
+                cancelPurpleCharge();
+            }
+            return;
+        }
+
+        if (!purpleCharge) {
+            let chargeIdx = -1;
+            for (let i = 0; i < shapes.length; i++) {
+                const info = purplePoseInfo(shapes[i]);
+                if (info.gun || info.pinch) {
+                    chargeIdx = i;
+                    break;
+                }
+            }
+            if (chargeIdx >= 0 && keyOf(chargeIdx) === purplePoseKey) {
+                purplePoseRun += 1;
+            } else {
+                purplePoseKey = chargeIdx >= 0 ? keyOf(chargeIdx) : null;
+                purplePoseRun = chargeIdx >= 0 ? 1 : 0;
+            }
+            if (chargeIdx >= 0 && purplePoseRun >= PURPLE_CAST.poseHoldFrames) {
+                createPurpleCharge(keyOf(chargeIdx), landmarks[chargeIdx], shapes[chargeIdx], nowMs);
+                purplePoseRun = 0;
+                purplePoseKey = null;
+            }
+            return;
+        }
+
+        // The charge owns one hand. Re-anchor by handedness label, then by nearby palm.
+        const c = purpleCharge;
+        let idx = -1;
+        for (let i = 0; i < keys.length; i++) {
+            if (keyOf(i) === c.key) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx < 0) {
+            let best = 0.30;
+            for (let i = 0; i < landmarks.length; i++) {
+                const p = palmState(landmarks[i]);
+                const d = Math.hypot(p.cx - c.x, p.cy - c.y);
+                if (d < best) {
+                    best = d;
+                    idx = i;
+                }
+            }
+            if (idx >= 0) c.key = keyOf(idx);
+        }
+        if (idx < 0) {
+            if ((nowMs - c.lastSeenMs) > PURPLE_CAST.poseGraceMs) cancelPurpleCharge();
+            return;
+        }
+
+        const lm = landmarks[idx];
+        const shape = shapes[idx];
+        const info = purplePoseInfo(shape);
+        const holding = info.gun || info.pinch || info.thumbUnder;
+        if (holding) {
+            c.poseSeenMs = nowMs;
+        } else if ((nowMs - c.poseSeenMs) > PURPLE_CAST.poseGraceMs) {
+            cancelPurpleCharge();
+            return;
+        }
+
+        const p = palmState(lm);
+        c.x = p.cx;
+        c.y = p.cy;
+        c.size = p.size;
+        c.lastSeenMs = nowMs;
+        // Wrist roll spins the violet rings, matching the hand's rotation on the mirrored feed.
+        const palmAngle = Math.atan2(lm[9].y - lm[0].y, lm[9].x - lm[0].x);
+        if (purplePrevAngle !== null) {
+            let dA = palmAngle - purplePrevAngle;
+            if (dA > Math.PI) dA -= Math.PI * 2;
+            else if (dA < -Math.PI) dA += Math.PI * 2;
+            dA = Math.max(-0.8, Math.min(0.8, dA));
+            purpleSpinPhase -= dA * 1.6;
+        }
+        purplePrevAngle = palmAngle;
+        updatePurpleVisual(lm, shape, nowMs);
+        if (flicks && flicks[c.key] === nowMs && info.thumbUnder) {
+            firePurpleCharge(nowMs);
+            return;
+        }
+        if (updatePushTracker(c, p.size, nowMs)) {
+            firePurpleCharge(nowMs);
+        }
+    }
+
     function computeFrameScores(results, nowMs) {
         const frameScores = Object.fromEntries(GESTURES.map((tech) => [tech, 0]));
         frameScores.neutral = 1;
         frameFlickScore = 0;
+        const purpleFlicks = {};
         lastHandShapes = [];
         let redFormSeen = false;
+        if (MODE === 'gojo' && purpleMode) {
+            // The 茈 switch owns the interaction; Blue and Red are paused.
+            if (blueCharge) cancelBlueCharge();
+            frameScores.blue = 0;
+            frameScores.red = 0;
+        }
         // Keep an already-triggered Blue playing even if the hands leave the frame mid-animation.
-        if (MODE === 'gojo' && nowMs <= bluePulseUntilMs) frameScores.blue = 1;
+        if (MODE === 'gojo' && !purpleMode && nowMs <= bluePulseUntilMs) frameScores.blue = 1;
         // Charge updates even with zero hands so losing tracking releases the blast.
-        if (MODE === 'gojo' && blueCharge) {
+        if (MODE === 'gojo' && !purpleMode && blueCharge) {
             const lms = results.multiHandLandmarks || [];
             const hk = lms.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
             if (updateBlueCharge(lms, hk, nowMs) === 'release') {
@@ -1183,6 +1638,10 @@
             }
         }
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+            if (MODE === 'gojo' && purpleMode) {
+                updatePurpleMode([], [], [], nowMs);
+                return frameScores;
+            }
             // No hands: an active Red bridges a short tracking dropout, then lets go.
             if (MODE === 'gojo' && currentTech === 'red' && (nowMs - lastRedSeenMs) < 350) {
                 frameScores.red = 1;
@@ -1203,35 +1662,37 @@
 
             // Red's second Gojo form (枪形): index+middle raised together, thumb flared out,
             // ring and pinky curled. Both forms anchor the field past the fingertips.
-            const gunForm = MODE === 'gojo'
+            const gunForm = MODE === 'gojo' && !purpleMode
                 && shape.indexUp === 1 && shape.middleUp === 1
                 && shape.ringUp === 0 && shape.pinkyUp === 0
                 && shape.fingerGap < 0.065 && shape.thumbGapRatio > 0.75;
-            if (gunForm) frameScores.red = 1;
-            if (gunForm || handScores.red >= 1) redFormSeen = true;
-            if (handScores.red >= 1 || gunForm) {
-                // Single index: its own tip; gun form: the midpoint of the two fingers.
-                const tipX = gunForm ? (lm[8].x + lm[12].x) / 2 : lm[8].x;
-                const tipY = gunForm ? (lm[8].y + lm[12].y) / 2 : lm[8].y;
-                const baseX = gunForm ? (lm[5].x + lm[9].x) / 2 : lm[5].x;
-                const baseY = gunForm ? (lm[5].y + lm[9].y) / 2 : lm[5].y;
-                const tip = handPointToWorld(tipX, tipY);
-                const base = handPointToWorld(baseX, baseY);
-                const dx = tip.x - base.x;
-                const dy = tip.y - base.y;
-                const len = Math.hypot(dx, dy);
-                if (len > 0.001) {
-                    const gap = Math.min(9, Math.max(3, len * 0.9)); // finger length ≈ 7cm
-                    redAnchor.x = tip.x + (dx / len) * gap;
-                    redAnchor.y = tip.y + (dy / len) * gap;
-                    redAnchor.valid = true;
+            if (!purpleMode) {
+                if (gunForm) frameScores.red = 1;
+                if (gunForm || handScores.red >= 1) redFormSeen = true;
+                if (handScores.red >= 1 || gunForm) {
+                    // Single index: its own tip; gun form: the midpoint of the two fingers.
+                    const tipX = gunForm ? (lm[8].x + lm[12].x) / 2 : lm[8].x;
+                    const tipY = gunForm ? (lm[8].y + lm[12].y) / 2 : lm[8].y;
+                    const baseX = gunForm ? (lm[5].x + lm[9].x) / 2 : lm[5].x;
+                    const baseY = gunForm ? (lm[5].y + lm[9].y) / 2 : lm[5].y;
+                    const tip = handPointToWorld(tipX, tipY);
+                    const base = handPointToWorld(baseX, baseY);
+                    const dx = tip.x - base.x;
+                    const dy = tip.y - base.y;
+                    const len = Math.hypot(dx, dy);
+                    if (len > 0.001) {
+                        const gap = Math.min(9, Math.max(3, len * 0.9)); // finger length ≈ 7cm
+                        redAnchor.x = tip.x + (dx / len) * gap;
+                        redAnchor.y = tip.y + (dy / len) * gap;
+                        redAnchor.valid = true;
+                    }
                 }
-            }
 
-            ACTIVE_GESTURES.forEach((tech) => {
-                if (!Object.prototype.hasOwnProperty.call(handScores, tech)) return;
-                frameScores[tech] = Math.max(frameScores[tech], handScores[tech]);
-            });
+                ACTIVE_GESTURES.forEach((tech) => {
+                    if (!Object.prototype.hasOwnProperty.call(handScores, tech)) return;
+                    frameScores[tech] = Math.max(frameScores[tech], handScores[tech]);
+                });
+            }
 
             // Flick detection: wrist-relative motion over a short window with straightness filtering.
             const handLabel = results.multiHandedness?.[handIdx]?.label ?? `hand_${handIdx}`;
@@ -1287,13 +1748,25 @@
                     lastFlickTriggerMs = nowMs;
                     flickPulseUntilMs = nowMs + FLICK.pulseMs;
                 }
+                // The 茈 firing snap is a flick made while the thumb is tucked under the two
+                // raised fingers. Other flick poses must not fire the purple charge.
+                if (purpleMode && flickTriggered && purplePoseInfo(shape).thumbUnder) {
+                    purpleFlicks[handLabel] = nowMs;
+                }
             }
             flickDetectorByHand[handLabel] = detector;
         });
 
         lastHandShapes = handShapes;
+        const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
 
         if (MODE === 'gojo') {
+            if (purpleMode) {
+                frameScores.blue = 0;
+                frameScores.red = 0;
+                updatePurpleMode(results.multiHandLandmarks, handShapes, handKeys, nowMs, purpleFlicks);
+                return frameScores;
+            }
             // Gojo pass: Blue's per-hand open>fist>open cycle arms a charge (orb follows the
             // completing hand) and the charge itself decides when to release; Red is the
             // plain index-up rule from computeHandScores(), gated off while Blue is active.
@@ -1307,7 +1780,6 @@
                 // gun sign must never satisfy Blue's open>fist>open chain.
                 resetBlueHandStates();
             } else {
-                const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
                 const completedKey = updateBlueSequences(handShapes, handKeys, nowMs);
                 if (completedKey) {
                     const ci = handKeys.indexOf(completedKey);
@@ -1401,12 +1873,16 @@
     }
 
     const GUIDE_GOJO = [
+        { sep: '虚式「茈」 · Imaginary: Purple' },
+        { gesture: '点顶部「茈」→ 枪形 / 捏合蓄势', tech: '构筑' },
+        { foot: '模式开关：开启后苍/赫暂停；枪形与捏合改为构筑紫色小球' },
+        { gesture: '前推，或食指+中指并拢、拇指在下向外弹', tech: '发射' },
+        { foot: '小球射向屏幕正中心并爆开；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
-        { foot: '引力：构筑时四周待机粒子被吸过来，绕着蓝球旋绕并随手动' },
-        { foot: '蓝球从小球展开成环绕手心的大片粒子状态，呼吸浮动、随手旋转' },
+        { foot: '引力：构筑时四周待机粒子被吸过来，绕着蓝球旋绕；蓝球从小球展开成大片粒子，呼吸浮动、随手旋转' },
         { foot: '用力前推（手掌压向镜头）/ 合掌 / 手出画面 / 丢失追踪 → 释放（粒子被炸开）' },
-        { foot: '释放后演出约 2.5 秒，随后 8 秒内不触发任何术式' },
+        { foot: '释放后演出约 2.5 秒，随后 2 秒内不触发任何术式' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '食指向上指，其余三指收拢', tech: '赫' },
         { gesture: '食指+中指并拢、拇指外张（枪形）', tech: '赫' },
@@ -1414,8 +1890,7 @@
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
         { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）' },
-        { foot: '任何术式触发后 8 秒冷却，防甩手回来时连锁误触' },
-        { foot: '目前启用苍与赫；其余术式暂停触发，T 可手动预览' }
+        { foot: '任何术式触发后 2 秒冷却，防甩手连锁误触；手势模式启用苍/赫/茈，T 可预览其余' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },
@@ -1821,7 +2296,7 @@
         else if(tech === 'palace') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「時胞月宮殿」"; baseBloomStrength = 2.5; }
         else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "領域展開「自閉円頓裹」"; baseBloomStrength = 2.5; }
         else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "虚式「茈」· 放出"; baseBloomStrength = 1.4; }
-        else { glowColor = '#00ffff'; nameEl.innerText = "通常状態"; baseBloomStrength = 1.0; }
+        else { glowColor = purpleMode ? '#bb00ff' : '#00ffff'; nameEl.innerText = purpleMode ? "虚式「茈」" : "通常状態"; baseBloomStrength = purpleMode ? 0.35 : 1.0; }
         idleFlash.classList.toggle('active', tech === 'idlegamble');
         bloomPass.strength = baseBloomStrength;
 
@@ -1953,6 +2428,35 @@
             chargeOrb.visible = false;
             orbPathHistory.length = 0;
         }
+        // 茈's charge ball / projectile. Charging: a small violet ball breathing at the
+        // fingertips. Firing: a comet that accelerates from the hand to world center, then
+        // hands off to the point explosion at (0,0,0).
+        if (purpleMode && purpleCharge && purpleVisual.init) {
+            const ageMs = Math.max(0, nowMs - purpleCharge.startedMs);
+            const grow = Math.min(1, ageMs / 700);
+            const breathe = 1 + 0.09 * Math.sin(nowMs * 0.006) + 0.04 * Math.sin(nowMs * 0.013 + 1.1);
+            const radius = (0.5 + 0.7 * grow) * breathe;
+            purplePath.push({ x: purpleVisual.x, y: purpleVisual.y, t: nowMs });
+            while (purplePath.length > 1 && (nowMs - purplePath[0].t) > PURPLE_CAST.pathMs) purplePath.shift();
+            purpleOrb.position.set(purpleVisual.x, purpleVisual.y, 0);
+            purpleOrb.visible = true;
+            purpleOrbMaterial.opacity = 0.95;
+            fillPurpleOrbPositions(nowMs / 1000, radius, purplePath, purpleVisual.x, purpleVisual.y);
+        } else if (purpleShot) {
+            const t = clamp01((nowMs - purpleShot.startMs) / purpleShot.durationMs);
+            const p = t * t; // accelerate out of the hand, arriving fast at center
+            const x = purpleShot.startX * (1 - p);
+            const y = purpleShot.startY * (1 - p);
+            purplePath.push({ x, y, t: nowMs });
+            while (purplePath.length > 1 && (nowMs - purplePath[0].t) > PURPLE_CAST.pathMs) purplePath.shift();
+            purpleOrb.position.set(x, y, 0);
+            purpleOrb.visible = true;
+            purpleOrbMaterial.opacity = 0.95;
+            fillPurpleOrbPositions(nowMs / 1000, 1.0 * (1 - 0.4 * t), purplePath, x, y);
+        } else {
+            purpleOrb.visible = false;
+            purplePath.length = 0;
+        }
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a
         // clean rim around the red core; Blue's release blasts them outward.
@@ -1962,7 +2466,7 @@
             const tSec = nowMs / 1000;
             const attract = blueCharge ? chargeVisual : null;
             const repel = (!blueCharge && currentTech === 'red' && redFollow.init) ? redFollow : null;
-            const blasting = nowMs <= bluePulseUntilMs && !blueCharge;
+            const blasting = (nowMs <= bluePulseUntilMs && !blueCharge) || nowMs <= purpleExplosionUntilMs;
             const chargeAgeSec = blueCharge ? Math.max(0, (nowMs - blueCharge.startedMs) / 1000) : 0;
             const shrink = 0.75 + 0.25 * Math.min(1, chargeAgeSec / 1.2);
             for (let i = 0; i < DUST_COUNT; i++) {
@@ -2124,6 +2628,7 @@
         }
         particles.position.set(redFollow.x, redFollow.y, 0);
 
+        updatePurpleButton(nowMs);
         composer.render();
     }
     animate();
