@@ -4,6 +4,8 @@
 
 > 仅个人拍摄/娱乐使用。原仓库未附 LICENSE，请勿公开分发。
 
+**文档**：`AGENTS.md`（工作区入口/铁律）· `docs/ARCHITECTURE.md`（技术全貌/参数表）· `docs/TESTING.md`（回归+截图验收）· `docs/CHANGELOG.md`（十二次改造史）
+
 ## 相比原版改了什么
 
 ### 1. 识别引擎重写（解决「手势不灵」的根因）
@@ -98,17 +100,26 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 
 ## 运行
 
+- 项目根目录 `/home/lain/sat0ru`，常驻服务 `sat0ru.service`（systemd 用户级，只监听 `127.0.0.1:8787`）：
+  ```
+  systemctl --user status sat0ru      # 状态
+  systemctl --user restart sat0ru     # 改了代码不用重启，刷新页面即可；服务挂了用这个
+  ```
+  手动起（临时调试）：
+  ```
+  cd /home/lain/sat0ru && python3 tools/serve.py . 8787
+  ```
+  打开 `http://127.0.0.1:8787`；外网访问走 SSH 隧道。
 - 需要摄像头；浏览器只在 `localhost` / HTTPS 下允许取摄像头
-- 任意静态服务器均可，需正确 MIME（`.wasm` → `application/wasm`，`.data` / `.tflite` → `application/octet-stream`），仓库外的 `serve.py` 已配置好：
-  ```
-  python3 serve.py /path/to/sat0ru-final 8787
-  ```
-  打开 `http://127.0.0.1:8787`
+- `tools/serve.py` 已配好 MIME（`.wasm` → `application/wasm`，`.data` / `.tflite` → `application/octet-stream`），换别的静态服务器也要保证这两条
 - 全部依赖已本地化在 `vendor/`（MediaPipe Hands、three.js、字体），**零外网请求**
 
 ## 目录
 
-- `index.html` — 主页面（手势识别 + 粒子演出）
+- `index.html` — 主页面（手势识别 + 粒子演出，全部逻辑）
+- `AGENTS.md` — 工作区入口：铁律、目录、去哪改（新会话先读这个）
+- `docs/` — `ARCHITECTURE.md` 技术全貌 / `TESTING.md` 验收菜谱 / `CHANGELOG.md` 改造史
+- `tools/` — `serve.py`（静态服务器）、`make-logic-test.py` + `logic-test-driver.js`（无摄像头回归）
 - `DomainExpansion-infintevoid/` — PR #7 独立开场页（手势 splash → 無量空処 → Enter）
 - `vendor/` — MediaPipe / three.js / 字体
 - `ost.mp3` — 原仓库音乐

@@ -1,0 +1,11 @@
+[Unit]
+Description=SAT0RU static server (127.0.0.1:8787)
+
+[Service]
+WorkingDirectory=/home/lain/sat0ru
+ExecStart=/usr/bin/python3 /home/lain/sat0ru/tools/serve.py /home/lain/sat0ru 8787
+Restart=on-failure
+RestartSec=1
+
+[Install]
+WantedBy=default.target
