@@ -27,14 +27,13 @@
 
 | 参数 | 作用 |
 |---|---|
-| 无 | 默认 `MODE='gojo'`：只启用 `GOJO_GESTURES = ['blue','red','void']`（苍/赫/無量空処），其余技法不接手势 |
-| `?mode=all` | 恢复全套 15 技法（`SCORE_GESTURES` + 语音），指南同步切换 `GUIDE_ALL` |
-| `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。id 见 README |
+| 无 | `MODE` 固定 `'gojo'`：只保留本作的苍 / 赫 / 無量空処 / 黒閃（+ 茈按钮模式与双手契印、flick 尾巴） |
+| `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。可用 id：`neutral void purple red blue blackflash flick` |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 無量空処开场（成型中/换环中）/ 双手契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|claspbuild\|claspburst\|blackcharge\|blackburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 契印构建 / 契印爆发 / 黒閃蓄势 / 黒閃爆发（`&noui=1` 隐藏侧栏） |
 
-按键：`D` 调试面板、`M` 音乐、`H` 指南、`V` 语音、`T` 轮换、`N` 回识别、`K` 按键表、`C` 纯净模式、`O` 开场页。
-`T/N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
+按键：`D` 调试面板、`H` 指南分区、`V` 语音、`N` 回识别模式（音乐 / 按键表 / 纯净模式 / 技法轮换 / 独立开场页已删）。
+`N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
 
 ## 3. 识别管线
 
@@ -59,7 +58,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 | `thumbOut` | 拇指尖离手腕 > 0.25 | 平掌+拇指技法 |
 | `thumbGapRatio` | 拇指尖→食指 MCP 距离 ÷ 掌长（腕→中指 MCP） | **枪形/赫** > 0.75（拇指外张）；**無量空処** < 0.75（拇指内扣）；茈的拇指外弹也看这个值的跳变 |
 | `handAngle` | 腕→中指 MCP 的倾角 | 备用 |
-| `isOpen` / `isFist` | 四指指尖-腕距离 > PIP×1.12 / < ×0.92 | 苍的时序手势（不依赖手掌朝向） |
+| `isOpen` / `isFist` | 四指指尖-腕距离 > PIP×1.12 / < ×0.92 | 苍的持掌判定 / 黒閃的开掌→握拳链（不依赖手掌朝向） |
 
 ### 3.3 `computeHandScores()` → `computeFrameScores()`
 
@@ -69,11 +68,15 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
     任一手满足即 `frameScores.red=1`，并记 `redFormSeen=true`。
   - **無量空処**：`indexUp+middleUp=1、ring/pinky=0、fingerGap<0.075、thumbGapRatio<0.75`。
     与赫枪形是同一对伸出的手指，靠拇指外张/内扣区分（见 §7）；任一手满足即 `frameScores.void=1`。
-  - **苍**：`updateBlueSequences()` 时序状态机（见 §4.1），完成后 `armBlueCharge()`。手别 key 用 handedness，
+  - **苍**：`updateBlueSequences()` 持掌状态机（见 §4.1），完成后 `armBlueCharge()`。手别 key 用 handedness，
     标签翻转按 0.30 邻域重捕获（清速度历史与腕旋基准）。
-  - **互斥**：`blueCharge` 存在 → `resetBlueHandStates()`；`gojoLocked`（释放锁）或 `techCoolingDown` 或
-    `redFormSeen` 或已处于 red → 清零苍时序。`currentTech==='red'` 时若本帧无赫形态且距 `lastRedSeenMs` < 350ms
-    仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。
+  - **黒閃**：`updateBlackFlashSequences()` 链（张开 ≥3 帧 → 5s 内握拳 ≥2 帧，见 §6.5）命中后
+    `armBlackFlashCharge()`；蓄势期间 `updateBlackFlashCharge()` 独占该手，握拳前推（掌尺寸增长链）→
+    `startBlackFlashBurst()`，开掌/丢失 700ms → 取消。爆发窗口 `bfBurstUntilMs` 内 `frameScores.blackflash=1`。
+  - **互斥**：`blueCharge` 存在 → `resetBlueHandStates()` + `resetBlackFlashHandStates()`；`gojoLocked`（释放锁）或
+    `techCoolingDown` 或 `redFormSeen` 或已处于 red → 清零苍/黒閃时序（`currentTech==='red'` 时只清苍，不清黒閃链）。
+    `currentTech==='red'` 时若本帧无赫形态且距 `lastRedSeenMs` < 350ms
+    仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。`bfCharge` 或爆发窗口内苍/赫/void 分清零并早退。
   - 反向：非 red 状态下 `blueCharge || gojoLocked || techCoolingDown` 时赫分强制 0；非 void 状态下同样的
     条件把 void 分强制 0（蓄势/释放锁/2s 冷却期间不能新开领域，但已展开的领域可继续持有）。
   - **双手契印互斥**：`claspPoseInfo()` 命中（双手食指朝上 + 至少一只手中指朝上 + 双拇指内扣 + 腕距/食指尖距
@@ -84,7 +87,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 - EMA：`smoothed = smoothed + (raw - smoothed) * 0.20`，每帧每技法。
 - 进入需要 smoothed ≥ **0.75**；当前技法保持只要 ≥ **0.50**。
 - 切换挑战者需领先 **0.12**（立即）或持续领先 ≥0.03 达 **300ms**（定时路径）。
-- 裁决结果进入 `updateState()`；`purple` 有额外的 flick 退出窗口逻辑（all 模式用）。
+- 裁决结果进入 `updateState()`；`purple` 有额外的 flick 退出窗口逻辑（茈发射尾巴用）。
 
 ### 3.5 冷却与锁定
 
@@ -94,11 +97,12 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 
 ## 4. 「蒼」引力 · 构筑态
 
-### 4.1 时序手势（`updateBlueSequences`）
+### 4.1 持掌手势（`updateBlueSequences`）
 
-单手或双手各自独立：**张开 ≥3 帧 → 握拳 ≥2 帧 → 再张开 ≥3 帧**，每段间隔 ≤`stageWindowMs 1200ms`，
-手短暂丢失有 `handGraceMs 500` 宽限。先完成的手成为锚（返回 hand key）。
-任一帧出现赫形态（`redFormSeen`）立即清零——做枪形时「张开→收指→张开」不会被误读。
+单手或双手各自独立：**张开手掌对着镜头，连续保持 `BLUE_SEQ.holdMs = 3000ms`**（前 3 帧 `isOpen` 才开始计时，
+中途握拳或收手即清零）。手短暂丢失有 `handGraceMs 500` 宽限。先完成的手成为锚（返回 hand key）。
+任一帧出现赫形态（`redFormSeen`）立即清零——做枪形时手型过渡不会被误读。
+握拳会打断持掌计时，所以「张开→快速握拳」不会同时武装苍（那是黒閃的链，见 §6.5）。
 
 ### 4.2 `blueCharge` 数据
 
@@ -240,6 +244,28 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
+## 6.5 黒閃 · Black Flash（开掌→握拳蓄势 + 前推爆发）
+
+照着参考图（黑裂纹 + 红辉光 + 暗幕）新做的术式，配置在 `BLACK_FLASH`：
+
+- **武装（`updateBlackFlashSequences`）**：同一只手 **张开 ≥3 帧（`openFrames`）→ `openWindowMs 5000` 内
+  握拳 ≥2 帧（`fistFrames`）** → 返回 hand key，`armBlackFlashCharge()` 建立 `bfCharge`。
+  苍的 3 秒持掌链优先（先判苍的完成帧），所以老实的持掌不会被抢成黒閃；握拳会打断苍的计时。
+- **蓄势（`updateBlackFlashCharge`）**：`bfCharge` 拥有该手——跟手记录 `x/y/visX/visY`，握拳持续就保持；
+  **开掌立即取消**（`shape.isOpen`），手丢失超过 `lostMs 700` 也取消。蓄势中顶部显示「黒閃 · 構え」，
+  拳头处画一颗 1600 点的黑红球（`bfOrb`，`createClaspOrb` 的暗红/黑配色，随 `spin` 自转）。
+- **爆发（前推）**：与苍同款「掌尺寸持续增长」代理，阈值更松——连续增长 ≥2 采样、≥`punchMinMs 70`、
+  累计 ≥`punchMinGrowth 0.10`、平均增速 ≥`punchMinRate 1.2/s` → `startBlackFlashBurst()`：
+  2s 冷却、`bfBurstUntilMs = +1400ms`、`forceTechnique('blackflash')`、震屏 1.5。
+- **视觉**：爆发期间主粒子场整场改为**余烬**（`animate()` 的 bf 块）——从拳头点向外飞
+  （横向只到紫爆的 0.5 倍，v² 让核心更密），颜色白热→深红冷却。黑裂纹无法用 screen 混合画（黑会被抹掉），
+  所以另开一张 2D 画布 `#blackflash-overlay`（z-index 4，压在三件套 canvas 上）：
+  暗幕（径向 0.7）+ 暗红 bloom + `BF_CRACK_COUNT 22` 条从中心炸开的**黑裂纹（底下描一遍暗红边）**。
+  `startBlackFlashOverlay` 在爆发时播种裂纹，`drawBlackFlashOverlay` 每帧按 `life` 重画，播完自清。
+- **姿势锁**：爆发后 `bfPoseReleaseRequired = true`，握着拳不能立刻重新武装，必须先开掌；
+  配合 2s 冷却，连打需要「开掌→握拳」重新起势。
+- 与其它术式：`bfCharge`/爆发窗口内苍/赫/void 全清零并早退；契印/茈模式期间不判黒閃。
+
 ## 7. 領域展開「無量空処」 · 虚空
 
 ### 7.1 参考视频的扫描结论
@@ -292,15 +318,19 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - **结尾换环（`ringAtMs 4000`）**：星星转为向外溶解目标并整体淡出（1000ms），同时 20k 主场
   `particleMaterial.opacity` 0→1 淡入——中心就是 `getVoid()` 的白环 + 蓝色星云（「我们粒子效果的圆环」）。
   bloom 在星星阶段 2.4、换环时 2.7。
-- **收尾**：黑幕 5200ms 起 1000ms 淡出，6200ms `finishVoidCinematic()` 恢复 UI、尘埃与不透明度；
+- **长黑幕 + 环收尾（现行时间轴）**：换环后黑幕**保持 10s**（`blackHoldMs 10000`，环一直亮在黑底上）；
+  14000ms 起黑幕 1500ms 淡出 → **背景透明、环还在**；16300ms（`ringOutAtMs`）起环自身 1800ms 淡出，
+  18100ms（`endMs`）`finishVoidCinematic()` 恢复 UI、尘埃与不透明度；
   若手还保持着领域，领域场继续显示（`voidHoldAwarded` 阻止循环重播）。
-- 阈值全在 `VOID_CINEMA`（holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackFadeAtMs/blackFadeMs/endMs）；
-  演示态 `&end=voidform|voidring` 把相位冻结在「成型中」/「换环中」便于截图。
+- 阈值全在 `VOID_CINEMA`（holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackHoldMs/blackFadeMs/
+  ringOutDelayMs/ringOutMs，`blackFadeAtMs/ringOutAtMs/endMs` 是 getter 派生的绝对时刻）；
+  演示态 `&end=voidform|voidring|voidclear` 把相位冻结在「成型中」/「换环中」/「黑幕已淡出、只剩环」便于截图。
 
 ## 8. 主粒子场与爆炸
 
 - `COUNT = 20000`；`targetPositions/targetColors/targetSizes` 每帧由当前技法函数生成
-  （`getShrine/getPurple/getVoid/.../getRed/getBlue...`），现场 `lerp 0.1` 追随 → 形状渐变过渡。
+  （现在只剩 `getRed/getVoid/getPurple/getBlue`；`blackflash` 目标全零，爆发画面由余烬块整场覆写），
+  现场 `lerp 0.1` 追随 → 形状渐变过渡。
 - `PointsMaterial`：size 全局（attribute 不生效），additive，`mix-blend-mode: screen` 合成。
 - **爆炸**（紫/蓝共用）：`purpleExplosionUntilMs` 期间每点从形状位置向外飞 `purpleExplosionMaxDistance 100`
   × 个体差异 0.84~1.12，颜色固定爆炸色，bloom 临时 +3（`purpleExplosionBloomBoost`），
@@ -332,7 +362,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
-  （blue 3.0、red 2.5、purple 4.0、shrine 2.5、blackflash 5.0…），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
+  （blue 3.0、red 2.5、purple 4.0、void 2.0、blackflash 4.2），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
 - **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`，
   或「無量空処 cinematic 的星星阶段（`hideField`）」→ 主粒子场 `particles.visible=false`，
   且跳过 20k 的 lerp/上传/旋转/爆炸计算。
@@ -345,20 +375,18 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、暖金 `#D8A657` 强调、噪点纹理。
 - 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏；正中央
   `#technique-name` 用 22px 纯白字显示当前技法**原版名**（`updateState` → `setTechniqueName()`）：
-  術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「伏魔御廚子」「無量空処」「嵌合暗翳庭」
-  「坐殺博徒」「真贋相愛」「誅伏賜死」「時胞月宮殿」「自閉円頓裹」/ 黒閃 / 無為転変 /
-  十劃呪法「比率」/ 八握剣異戒神将魔虚羅。`neutral` 时清空文字并加 `.empty`（opacity 0），
-  不再显示「通常状態」；蓄势中可带「· 構築中 / 射出」后缀。
+  術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「無量空処」/ 黒閃。`neutral` 时清空文字并加
+  `.empty`（opacity 0），不再显示「通常状態」；蓄势中可带「· 構築中 / 射出 / 構え」后缀。
 - 右上 `#purple-hint` 一行提示（「点击开启虚式「茈」枪指模式」）+ `#purple-mode-btn` 模式开关（§5）。
   开启时按钮外圈显示 2s 冷却进度、提示改为「已开启 · 点击关闭」；普通模式（含無量空処）时按钮静默。
   双手契印不经按钮，状态名在 build/converge/burst 期间都显示「虚式「茈」」，结束后清空。
 - 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），内部三个分区：
-  **设置**（`#settings-list` 的 Win11 开关行：M/D/H/K/V/C 六项，点击即切换）、
-  **手势指南**（`GUIDE_GOJO` / `GUIDE_ALL`）、**按键**（T/N/O 动作行）。H/K 分别收起指南/按键分区。
-- `C` 纯净模式全部隐藏；`D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、
-  `gestureLock`、`cooldown`。
-- 语音（all 模式）：Web Speech API，`"don't move"` → 誅伏賜死，`"run away"` → 镜头拉远
-  （`zoomUntilMs`，camera.z 55→120）。Firefox 不支持；Google 在线识别国内可能不通。
+  **设置**（`#settings-list` 的 Win11 开关行：D/H/V 三项，点击即切换）、
+  **手势指南**（`GUIDE_GOJO`，H 收起）、**关于 · About**（`#about-section`：改版作者/网站/仓库、原项目、
+  开源依赖、本地化说明）。音乐、按键表、纯净模式、技法轮换、独立开场页入口均已按主人要求删除。
+- `D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
+- 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
+  Firefox 不支持；Google 在线识别国内可能不通。
 
 ## 12. 参数速查（改之前先读注释）
 
@@ -372,9 +400,11 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `TUNING.exitThreshold` | 保持阈值 | 0.50 | |
 | `TUNING.switchMargin` | 立即切换领先 | 0.12 | |
 | `TUNING.sustainedSwitchMs` | 定时切换 | 300ms | 领先只需 0.03 |
-| `BLUE_SEQ.stageWindowMs` | 苍时序段间隔 | 1200ms | 每段内完成 |
-| `BLUE_SEQ.openFrames/fistFrames` | 苍帧数 | 3/2 | 帧 ≈ 33ms |
+| `BLUE_SEQ.holdMs` | 苍持掌时长 | 3000ms | 张开手掌保持这么久即构筑 |
+| `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
+| `BLACK_FLASH.*` | 黒閃 | 见 §6.5 | open 3 帧 / fist 2 帧 / openWindow 5000ms / lost 700ms / punch 70ms·0.10·1.2/s / burst 1400ms / 冷却 2000ms |
+| `BF_CRACK_COUNT` | 黒閃裂纹条数 | 22 | 黑线 + 暗红描边，播完自清 |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -386,7 +416,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
 | `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
-| `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 收尾 5200+1000 / 全 6200ms |
+| `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
 | `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
@@ -415,7 +445,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **67 项断言**（含苍/赫/茈/無量空処/無量空処开场动画/双手契印）。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **82 项断言**
+  （含苍/赫/黒閃/茈/無量空処/無量空処开场动画/双手契印）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -432,12 +463,14 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `updatePurpleButton` | 按钮 2s 冷却环 |
 | `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
-| `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：时序 → 构筑 → 释放 |
+| `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 3s → 构筑 → 释放 |
+| `updateBlackFlashSequences` / `armBlackFlashCharge` / `updateBlackFlashCharge` / `startBlackFlashBurst` | 黒閃：开掌→握拳武装 → 蓄势跟手 → 前推爆发 |
+| `startBlackFlashOverlay` / `drawBlackFlashOverlay` / `clearBlackFlashOverlay` | 黒閃爆发 2D 叠层（暗幕 + 暗红 bloom + 黑裂纹） |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |
 | `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印动画状态机、中心紫色爆炸、2s 冷却 |
 | `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（1600 ×2） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
-| `getRed` 等 `get*` | 各技法的 20k 目标形状函数（all 模式 15 个） |
+| `getRed` 等 `get*` | 各技法的 20k 目标形状函数（现在只有 red/void/purple/blue 四个） |
 | `getVoid` | 無量空処的白环 + 蓝色球壳目标形状 |

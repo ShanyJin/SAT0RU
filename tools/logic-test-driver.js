@@ -51,6 +51,11 @@
             const w = hand[0];
             return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
         };
+        const scaledFist1 = (x, y, f) => {
+            const hand = mkHand(x, y, FIST_PTS);
+            const w = hand[0];
+            return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
+        };
         // 茈's second firing pose: same raised index+middle, thumb tucked under, then a quick
         // outward lift of the two fingertips. `lift` is the outward displacement for the flick.
         const thumbUnderPts = (lift = 0) => {
@@ -166,6 +171,15 @@
             overlay: voidCinemaEl ? Number(voidCinemaEl.style.opacity || 0) : null,
             now: performance.now()
         });
+        // Visual-check hook for 黒閃 (charge orb / burst overlay beats).
+        window.__bfState = () => ({
+            charge: !!bfCharge,
+            burstActive: bfBurstUntilMs > performance.now(),
+            overlayActive: bfOverlayActiveUntilMs > performance.now(),
+            orbVisible: bfOrb.points.visible,
+            name: document.getElementById('technique-name')?.innerText,
+            now: performance.now()
+        });
         const runFrame = (hands, ms) => {
             // Mirror onResults: the 無量空処 cinematic freezes the gesture pipeline.
             if (voidCinematic) return;
@@ -200,11 +214,16 @@
             for (let i = 0; i < n; i++) { x += dx; runFrame(open1(x), t); t += 33; }
             return x;
         };
+        // 蒼 arms by holding an open palm for BLUE_SEQ.holdMs (3 s) — no open>fist>open cycle.
         const armBlue1 = (x = 0.5) => {
+            step(open1(x), 100);
+            return !!blueCharge;
+        };
+        // 黒閃: flash an open palm, then a quick fist within BLACK_FLASH.openWindowMs.
+        const armBlackFlash1 = (x = 0.5) => {
             step(open1(x), 8);
             step(fist1(x), 6);
-            step(open1(x), 6);
-            return !!blueCharge;
+            return !!bfCharge;
         };
         // A test failure may leave a blast + 2s cooldown behind; clear it so the next
         // assertion starts from a fresh idle state instead of cascading.
@@ -235,6 +254,12 @@
             claspCooldownUntilMs = 0;
             claspPoseReleaseRequired = false;
             claspSuppressUntilMs = 0;
+            bfCharge = null;
+            bfBurstUntilMs = 0;
+            bfPoseReleaseRequired = false;
+            resetBlackFlashHandStates();
+            bfOrb.points.visible = false;
+            clearBlackFlashOverlay();
             voidCinematic = null;
             voidHoldAwarded = false;
             voidStreaks.visible = false;
@@ -258,13 +283,14 @@
         try {
             step([], 5); mark('neutral', 'neutral');
 
-            // The natural open>curl>open motion of making the gun sign must not arm Blue
-            // (reported bug: doing Red's second form fired Blue).
+            // Making the gun sign must not arm Blue. (The brief fist in this motion now arms
+            // a 黒閃 charge by design — the following open hand lets it go.)
             step(open1(0.5), 8);
             step(gun1(0.5), 3);
             step(fist1(0.5), 2);
             step(open1(0.5), 6);
             markState('gun motion does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
+            markState('gun motion leaves no black charge', 'idle', bfCharge ? 'charge' : 'idle');
             step([], 20);
 
             // --- 赫 form 2: gun (index+middle together, thumb flared) ---
@@ -299,7 +325,51 @@
             step(RED2, 25); mark('red after cooldown', 'red');
             step([], 260); // drain again before the Blue suite
 
-            // --- 苍1: single hand cycle arms a charge instead of blooming ---
+            // --- 黒閃: open palm -> quick fist arms a black/red charge on the fist ---
+            step([], 30);
+            markState('black flash arms on open->quick fist', 'charge', armBlackFlash1() ? 'charge' : 'idle');
+            markState('black flash charge shows no technique yet', 'neutral', currentTech);
+            // A steady fist just holds the charge; wobble must not read as a punch.
+            for (let i = 0; i < 10; i++) {
+                runFrame(scaledFist1(0.5, 0.75, i % 2 ? 1.05 : 0.98), t);
+                t += 33;
+            }
+            markState('fist wobble keeps black charge', 'charge', bfCharge ? 'charge' : 'idle');
+            // Opening the hand lets the charge go without a burst.
+            step(open1(0.5), 4);
+            markState('opening hand cancels black charge', 'idle', bfCharge ? 'charge' : 'idle');
+            step([], 20);
+
+            // Punch: the fist accelerates toward the camera -> burst + overlay.
+            armBlackFlash1();
+            for (let f = 1.0; f <= 1.4; f += 0.07) {
+                runFrame(scaledFist1(0.5, 0.75, f), t);
+                t += 33;
+            }
+            markState('black flash punch fires burst', 'yes', bfBurstUntilMs > t ? 'yes' : 'no');
+            mark('black flash burst shows its name', 'blackflash');
+            markState('black flash overlay active', 'yes', bfOverlayActiveUntilMs > t ? 'yes' : 'no');
+            step(gun1(0.5), 10);
+            mark('black flash owns the burst', 'blackflash');
+            // Within the 2 s cooldown an open->fist chain must not re-arm.
+            step(open1(0.5), 12);
+            step(fist1(0.5), 3);
+            markState('black flash cooldown blocks rearm', 'idle', bfCharge ? 'charge' : 'idle');
+            step([], 10);
+            // After the cooldown the same chain arms again (the open hand also releases the
+            // post-burst pose lock); the open stretch stays under 蒼's 3 s hold.
+            step(open1(0.5), 60);
+            step(fist1(0.5), 6);
+            markState('black flash rearms after cooldown', 'charge', bfCharge ? 'charge' : 'idle');
+            step(open1(0.5), 4); // cancel the charge again
+            step([], 20);
+
+            // --- 苍1: holding an open palm for 3 s arms a charge instead of blooming ---
+            // Shorter holds must not arm it.
+            step(open1(0.5), 40); // ~1.3 s
+            markState('short open hold does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
+            step(fist1(0.5), 2); // a fist breaks the hold (it arms 黒閃; the next open lets it go)
+            step([], 10);
             markState('blue1 charge armed (no bloom)', 'charge',
                 armBlue1() ? (currentTech === 'neutral' ? 'charge' : 'bloomed') : 'idle');
 
@@ -342,18 +412,14 @@
             step([], 190); // drain the post-release cooldown
 
             // --- 苍2: two hands arm one charge; losing tracking releases ---
-            step(OPEN2, 8);
-            step(FIST2, 6);
-            step(OPEN2, 6);
+            step(OPEN2, 100);
             markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
             step([], 34);
             mark('tracking loss releases', 'blue');
             step([], 250); // drain the post-release cooldown
 
             // --- 合掌: bringing the palms together releases ---
-            step(OPEN2, 8);
-            step(FIST2, 6);
-            step(OPEN2, 6);
+            step(OPEN2, 100);
             markState('palms charge armed', 'charge', blueCharge ? 'charge' : 'idle');
             step([mkHand(0.44, 0.75, OPEN_PTS), mkHand(0.56, 0.75, OPEN_PTS)], 6);
             mark('palms together releases', 'blue');
@@ -518,6 +584,25 @@
             markState('cinematic ring reveals void field', 'yes', particles.visible ? 'yes' : 'no');
             markState('cinematic field fades in', 'yes', particleMaterial.opacity > 0.4 ? 'yes' : 'no');
             markState('cinematic streaks dissolve', 'yes', voidStreakMaterial.opacity < 0.7 ? 'yes' : 'no');
+            // The black stage now holds for 10 s after the ring appears: the ring sits on
+            // black, fully lit, right up to the fade.
+            voidCinematic.startMs = t - (VOID_CINEMA.blackFadeAtMs - 500);
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('ring holds on black before fade', 'yes',
+                (particleMaterial.opacity > 0.95 && Number(voidCinemaEl.style.opacity) > 0.95) ? 'yes' : 'no');
+            // After the stage fades away the background is transparent and the ring is still
+            // there; only then does the ring itself fade out.
+            voidCinematic.startMs = t - (VOID_CINEMA.blackFadeAtMs + VOID_CINEMA.blackFadeMs + 200);
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('black stage fades, ring stays', 'yes',
+                (Number(voidCinemaEl.style.opacity) < 0.05 && particleMaterial.opacity > 0.95) ? 'yes' : 'no');
+            voidCinematic.startMs = t - (VOID_CINEMA.ringOutAtMs + VOID_CINEMA.ringOutMs * 0.5);
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('ring fades at the tail', 'yes',
+                (particleMaterial.opacity > 0.2 && particleMaterial.opacity < 0.8) ? 'yes' : 'no');
             // ...and the end must restore the app chrome and the field.
             voidCinematic.startMs = t - VOID_CINEMA.endMs - 1;
             voidCinematic.lastMs = t;
@@ -542,13 +627,19 @@
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
             const isClaspDemo = endMode === 'claspbuild' || endMode === 'claspburst';
-            const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
+            const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear';
+            const isBlackDemo = endMode === 'blackcharge' || endMode === 'blackburst';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isBlackDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
                 if (new URLSearchParams(location.search).has('noui')) {
-                    document.body.classList.add('clean-mode');
+                    // Screenshot helper for the test artifact only (never the app): hide the
+                    // rail and menu button. (The app's old clean-mode class is gone.)
+                    const rail = document.getElementById('left-rail');
+                    if (rail) rail.style.display = 'none';
+                    const menuBtn = document.getElementById('menu-btn');
+                    if (menuBtn) menuBtn.style.display = 'none';
                 }
                 if (isClaspDemo) {
                     // 虚式「茈」 two-hand clasp: trigger on synthetic hands, then retime the
@@ -605,7 +696,9 @@
                     if (voidCinematic) {
                         const freezeMs = endMode === 'voidform'
                             ? VOID_CINEMA.formDelayMs + VOID_CINEMA.formMs * 0.85
-                            : VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5;
+                            : endMode === 'voidclear'
+                                ? VOID_CINEMA.blackFadeAtMs + VOID_CINEMA.blackFadeMs + 300
+                                : VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5;
                         const baseUpdate = updateVoidCinematic;
                         updateVoidCinematic = (ms) => {
                             if (!voidCinematic) return;
@@ -615,7 +708,51 @@
                             baseUpdate(ms);
                         };
                     }
-                    document.title = endMode === 'voidform' ? 'VOID FORM DEMO' : 'VOID RING DEMO';
+                    document.title = endMode === 'voidform' ? 'VOID FORM DEMO'
+                        : endMode === 'voidclear' ? 'VOID CLEAR DEMO' : 'VOID RING DEMO';
+                } else if (isBlackDemo) {
+                    // 黒閃: arm the fist charge on synthetic hands, then ride the real clock so
+                    // animate() paints the black/red orb (charge) or the burst + overlay.
+                    step(open1(0.5), 8);
+                    step(fist1(0.5), 6);
+                    if (bfCharge) {
+                        const now = performance.now();
+                        bfCharge.startedMs = now - 2200; // fully grown ball
+                        bfCharge.visX = 0;
+                        bfCharge.visY = 0;
+                        if (endMode === 'blackcharge') {
+                            // Pin the charge at world centre and drift it a little.
+                            const t0 = now;
+                            (function wiggle() {
+                                if (!bfCharge) return;
+                                const sec = (performance.now() - t0) / 1000;
+                                bfCharge.visX = Math.sin(sec * 1.7) * 1.0;
+                                bfCharge.visY = Math.cos(sec * 1.3) * 0.7;
+                                requestAnimationFrame(wiggle);
+                            })();
+                        } else {
+                            startBlackFlashBurst(now, { x: 0, y: 0 });
+                            // Hold the blast mid-progress for the screenshot. The overlay freeze
+                            // is rewritten inside the draw call (same clock as animate); software
+                            // GL frames can be a second apart, so an rAF loop would go stale.
+                            const baseDraw = drawBlackFlashOverlay;
+                            drawBlackFlashOverlay = (ms) => {
+                                bfOverlayActiveUntilMs = ms + BLACK_FLASH.burstMs;
+                                bfOverlayBurstMs = ms - BLACK_FLASH.burstMs * 0.45;
+                                return baseDraw(ms);
+                            };
+                            // The ember field lives in animate()'s own block; keep its window
+                            // fresh on a timer so the frozen life stays near 0.45.
+                            setInterval(() => {
+                                const ms = performance.now();
+                                bfBurstUntilMs = ms + BLACK_FLASH.burstMs * 0.55;
+                                techCooldownUntilMs = ms + BLACK_FLASH.cooldownMs;
+                                forcedTech = 'blackflash';
+                                forcedUntilMs = ms + 400;
+                            }, 16);
+                        }
+                    }
+                    document.title = endMode === 'blackcharge' ? 'BLACK FLASH CHARGE DEMO' : 'BLACK FLASH BURST DEMO';
                 } else if (endMode === 'red') {
                     // Hold the gun form so the red core sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).

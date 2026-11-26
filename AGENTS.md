@@ -6,17 +6,20 @@
 
 主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），默认「五条悟模式」：
 
-- **術式順転「蒼」**（引力）：张开→握拳→张开 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）
+- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 3 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）
+- **黒閃**：张开手掌后 5 秒内迅速握拳 → 拳头处黑红交织粒子蓄势、跟手 → 握拳前推 → 黑裂纹+暗红辉光爆发
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场
 - **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
   保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；**定格 >3 秒**自动播开场动画
-  （旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场，一次保持只播一次）
+  （旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场；环出现后黑幕再保持 10 秒，
+  随后黑幕先淡出、背景透明环还在，最后环淡出；一次保持只播一次）
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
   前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮）：双手交叉扣住、食指朝上、拇指内扣 →
   左侧蓝球 + 右侧红球长大 → 向中心靠拢重叠 → 紫色大爆炸；单手同形仍是無量空処
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
+其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
 
 ## 跑起来
 
@@ -35,7 +38,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 67 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 82 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -55,8 +58,12 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 去哪改（grep 锚点）
 
-- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`
-- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块
+- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`、`BLACK_FLASH`
+- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`
+- 黒閃 → `BLACK_FLASH`、`bfHandStates`、`bfCharge`、`updateBlackFlashSequences`、`armBlackFlashCharge`、
+  `updateBlackFlashCharge`、`startBlackFlashBurst`、`bfOrb`、`fillClaspOrbPositions`（黒閃球复用）、
+  2D 叠层 `startBlackFlashOverlay`/`drawBlackFlashOverlay`/`#blackflash-overlay`、裂纹数 `BF_CRACK_COUNT`、
+  `animate()` 的 bf 余烬块；前推阈值 `punchMinGrowth/punchMinRate/punchMinMs`，姿势锁 `bfPoseReleaseRequired`
 - 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`
 - 茈的模式/蓄势/发射/视觉 → `purpleMode`、`setPurpleMode`、`PURPLE_CAST`、`updatePurpleMode`、
   `purplePoseInfo`、`purpleWorldAnchor`、`firePurpleCharge`、`impactPurpleShot`、`purpleOrb`、
@@ -70,14 +77,15 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 無量空処定格 3 秒开场动画 → `VOID_CINEMA`、`VOID_STREAK_COUNT`、`startVoidCinematic`、
   `finishVoidCinematic`、`maybeTriggerVoidCinematic`、`updateVoidCinematic`、`voidCinematic`、
   `voidHoldAwarded`、`voidStreaks`、`#void-cinema`；触发门槛 `voidEnteredAtMs`（`updateState` 写入）、
-  时间轴 `holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackFadeAtMs/endMs`
+  时间轴 `holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackHoldMs/blackFadeMs/ringOutDelayMs/ringOutMs`
+  （`blackFadeAtMs/ringOutAtMs/endMs` 为 getter 派生的绝对时刻）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
-- 技法名/指南 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`GUIDE_ALL`
+- 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-section`
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、
-  `updateKeybindMenu()`、`setRailOpen()`、`setGuideVisibility()`、`setKeybindMenuVisibility()`
+  `updateKeybindMenu()`（设置开关只剩 D/H/V）、`setRailOpen()`、`setGuideVisibility()`
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 67/67 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 82/82 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。
