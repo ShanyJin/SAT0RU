@@ -1262,20 +1262,13 @@
     // starts its own 31 s track together with the long cinematic instead.
     let voidVoicePlayed = false;
 
-    function blueHoldElapsedMs(nowMs) {
-        let best = -1;
-        for (const key of Object.keys(blueHandStates)) {
-            const st = blueHandStates[key];
-            if (st.stage === 1) best = Math.max(best, nowMs - st.atMs);
-        }
-        return best;
-    }
-
     // One place for all hold-to-voice triggers; called once per frame after updateState().
+    // Blue is the exception: its clip belongs to the charge, so it waits until the orb has
+    // existed for BLUE_SEQ.voiceDelayMs (2 s). Releasing/cancelling earlier never plays it.
     function updateTechniqueVoices(nowMs) {
-        const blueHeld = blueHoldElapsedMs(nowMs);
-        if (blueHeld < 0) blueVoicePlayed = false;
-        else if (!blueVoicePlayed && blueHeld >= VOICE_HOLD_MS) {
+        if (!blueCharge) {
+            blueVoicePlayed = false;
+        } else if (!blueVoicePlayed && (nowMs - blueCharge.startedMs) >= BLUE_SEQ.voiceDelayMs) {
             blueVoicePlayed = true;
             playAudioClip('blue');
         }
@@ -1297,7 +1290,7 @@
     // swing of a fling can't chain straight into the next technique (Red -> Blue double fire).
     const TECH_COOLDOWN_MS = 2000;
     let techCooldownUntilMs = 0;
-    // Gojo Blue (苍) detector: hold an open palm facing the camera for 3 s.
+    // Gojo Blue (苍) detector: hold an open palm facing the camera for 2 s.
     // Hitting the hold arms a charge: a blue orb forms in that palm and follows it. The blast
     // releases on a sustained forward push (palm growing toward the camera), when the hand
     // leaves the frame, or when tracking is lost. Slow drags and sideways swings just carry
@@ -1307,8 +1300,9 @@
     let pendingBlueInstant = false;
     let lastHandShapes = [];
     const blueHandStates = {};
-    // holdMs: how long the open palm must face the camera before 蒼 constructs (3 s).
-    const BLUE_SEQ = { openFrames: 3, holdMs: 3000, handGraceMs: 500, animMs: 2500, cooldownMs: 2000 };
+    // holdMs: how long the open palm must face the camera before 蒼 constructs (2 s).
+    // voiceDelayMs: after the charge forms, wait this long before playing the Blue clip (per charge).
+    const BLUE_SEQ = { openFrames: 3, holdMs: 2000, voiceDelayMs: 2000, handGraceMs: 500, animMs: 2500, cooldownMs: 2000 };
     let blueCharge = null; // active construction: { key, x, y, size, growSamples, startedMs, lastSeenMs, ... }
     const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
     let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
@@ -2494,11 +2488,11 @@
 
     const GUIDE_GOJO = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
-        { gesture: '张开手掌对着镜头，保持 3 秒', tech: '构筑' },
+        { gesture: '张开手掌对着镜头，保持 2 秒', tech: '构筑' },
         { foot: '引力：手心里聚起蓝球，四周待机粒子被吸过来、绕着球旋绕；蓝球呼吸浮动、随手旋转' },
         { gesture: '用力前推（手掌压向镜头）/ 手出画面 / 丢失追踪', tech: '释放' },
         { foot: '粒子在屏幕中央炸开；尽量单手使用，另一只手留空，避免双手同时比势被误读' },
-        { foot: '持掌满 1 秒先播苍的语音；满 3 秒才进入构筑（每次保持播一次）' },
+        { foot: '持掌满 2 秒进入构筑；构筑成型再满 2 秒才播苍的语音（每次构筑播一次）' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },

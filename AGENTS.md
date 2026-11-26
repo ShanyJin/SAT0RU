@@ -6,8 +6,8 @@
 
 主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），默认「五条悟模式」：
 
-- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 3 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）；
-  持掌满 1 秒先播苍语音（`audio/blue.mp3`）
+- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 2 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）；
+  构筑成型再满 2 秒才播苍语音（`audio/blue.mp3`，每次构筑一次；提前释放/取消不播）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场；
   任一赫手势保持 1 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
 - **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
@@ -43,7 +43,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 97 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 98 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -65,12 +65,14 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 ## 去哪改（grep 锚点）
 
 - 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`
-- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`（3 秒）
+- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`（2 秒）、
+  构筑后语音延迟 → `BLUE_SEQ.voiceDelayMs`（2 秒）
 - 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`；语音 → `VOICE_HOLD_MS`、`updateTechniqueVoices`、
   `redEnteredAtMs`（`updateState` 写入）、`audio/he-1|2.mp3`
 - 音频库/语音 → `AUDIO_TRACKS`、`playAudioClip`、`toggleAudioClip`、`stopAudioClip`、`primeAudio`、
-  `updateTechniqueVoices`、`blueHoldElapsedMs`、`audioPlayCounts`、`buildAudioLibrary`、
-  `#audio-section`/`#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`（1 秒）
+  `updateTechniqueVoices`、`blueCharge.startedMs`（苍语音计时）、`audioPlayCounts`、`buildAudioLibrary`、
+  `#audio-section`/`#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`（赫/無量空処 1 秒）、
+  `BLUE_SEQ.voiceDelayMs`（苍构筑后 2 秒）
 - 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
   `maybeTriggerVoidCinematic`、`startVoidCinematic(nowMs, true)`、`#settings-list` 的 `voidlong` 行（L 键）；
   正常时长轴仍是 `VOID_CINEMA`
@@ -96,5 +98,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 97/97 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 98/98 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

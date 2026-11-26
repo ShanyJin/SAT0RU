@@ -201,7 +201,7 @@
             for (let i = 0; i < n; i++) { x += dx; runFrame(open1(x), t); t += 33; }
             return x;
         };
-        // 蒼 arms by holding an open palm for BLUE_SEQ.holdMs (3 s) — no open>fist>open cycle.
+        // 蒼 arms by holding an open palm for BLUE_SEQ.holdMs (2 s) — no open>fist>open cycle.
         const armBlue1 = (x = 0.5) => {
             step(open1(x), 100);
             return !!blueCharge;
@@ -321,24 +321,29 @@
                 heCount() === he0 + 2 ? 'played' : 'silent');
             step([], 200); // drain before the Blue suite
 
-            // --- 苍1: holding an open palm for 3 s arms a charge instead of blooming ---
-            // Blue voice: the hold itself plays the 蒼 clip after 1 s, well before the charge.
+            // --- 苍1: holding an open palm for 2 s arms a charge instead of blooming ---
+            // Blue voice: nothing during the hold; the clip plays 2 s AFTER the charge forms.
             const bc0 = audioPlayCounts.blue;
             step([], 20);
-            step(open1(0.5), 22); // ~0.73 s; the 3-frame open confirmation shifts the timer
-            markState('blue voice waits for the 1 s hold', 'silent',
+            step(open1(0.5), 45); // ~1.5 s: still short of the 2 s charge trigger
+            markState('blue voice waits for the 2 s hold', 'silent',
                 audioPlayCounts.blue === bc0 ? 'silent' : 'played');
-            step(open1(0.5), 20); // crosses the 1 s hold
-            markState('blue voice fires after a 1 s hold', 'played',
+            step(open1(0.5), 30); // crosses the 2 s trigger; the charge now exists
+            step(open1(0.5), 44); // ~1.8 s after the charge formed: still inside the 2 s delay
+            markState('blue voice waits 2 s after the charge', 'silent',
+                (blueCharge && audioPlayCounts.blue === bc0) ? 'silent' : (blueCharge ? 'played' : 'idle'));
+            step(open1(0.5), 10); // crosses 2 s after the charge
+            markState('blue voice fires 2 s after the charge', 'played',
                 audioPlayCounts.blue === bc0 + 1 ? 'played' : 'silent');
             markState('blue voice picks the local clip', 'blue',
                 lastAudioKey === 'blue' ? 'blue' : (lastAudioKey || 'none'));
-            step(open1(0.5), 30); // still under 苍's 3 s charge threshold
-            markState('blue voice plays once per hold', 'once',
+            step(open1(0.5), 40); // a longer charge must not replay it
+            markState('blue voice plays once per charge', 'once',
                 audioPlayCounts.blue === bc0 + 1 ? 'once' : 'again');
-            step(fist1(0.5), 3); // break the hold so the next test starts fresh
+            cancelBlueCharge(); // drop the charge without firing, so the next test starts clean
+            step(fist1(0.5), 3);
             // Shorter holds must not arm the charge.
-            step(open1(0.5), 40); // ~1.3 s (the clip replays; the charge must stay idle)
+            step(open1(0.5), 40); // ~1.3 s, still under the 2 s trigger
             markState('short open hold does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
             step(fist1(0.5), 2); // a fist breaks the open-palm hold
             step([], 10);

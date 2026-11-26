@@ -95,7 +95,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 
 ### 4.1 持掌手势（`updateBlueSequences`）
 
-单手或双手各自独立：**张开手掌对着镜头，连续保持 `BLUE_SEQ.holdMs = 3000ms`**（前 3 帧 `isOpen` 才开始计时，
+单手或双手各自独立：**张开手掌对着镜头，连续保持 `BLUE_SEQ.holdMs = 2000ms`**（前 3 帧 `isOpen` 才开始计时，
 中途握拳或收手即清零）。手短暂丢失有 `handGraceMs 500` 宽限。先完成的手成为锚（返回 hand key）。
 任一帧出现赫形态（`redFormSeen`）立即清零——做枪形时手型过渡不会被误读。
 握拳会打断持掌计时，所以「张开→快速握拳」不会误武装苍。
@@ -105,6 +105,8 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 `{ key, x, y, size, prevSize, growSamples, growStartMs, growStartSize, startedMs, lastSeenMs, ... }`，
 `armBlueCharge()` 建立，`releaseBlueCharge()` 销毁。
 构筑中顶部状态显示 `術式順転「蒼」 · 構築中`；`CHARGE.maxChargeMs = 30000` 安全阀。
+苍语音绑定 `blueCharge.startedMs`：构筑成型后再等 `BLUE_SEQ.voiceDelayMs = 2000ms` 才播一次，
+提前释放/取消则不播（见 §11.1）。
 
 ### 4.3 构筑视觉（`chargeOrb`，4000 点）
 
@@ -385,16 +387,18 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 
 | key | 文件 | 用途 |
 |---|---|---|
-| `blue` | `audio/blue.mp3` | 苍持掌满 `VOICE_HOLD_MS = 1000ms`（`blueHoldElapsedMs` 读 `blueHandStates` stage=1 的时长） |
+| `blue` | `audio/blue.mp3` | 苍构筑成型后再满 `BLUE_SEQ.voiceDelayMs = 2000ms`（读 `blueCharge.startedMs`；提前释放/取消不播） |
 | `he-1` / `he-2` | `audio/he-1.mp3` / `he-2.mp3` | 任一赫手势进入满 1 秒随机播一条（`redEnteredAtMs` 由 `updateState` 写入，每次保持一次） |
 | `void` | `audio/void.mp3` | 普通無量空処保持满 1 秒播单人版；长版模式跳过 |
 | `void-long` | `audio/void-long.mp3` | 长版 cinematic 启动同帧播放（31.164s） |
 | `purple` | `audio/purple-2026.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
 | `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印专属语音，**待主人踩点接入**，目前仅音频库可试听 |
 
-- `updateTechniqueVoices(nowMs)` 在 `onResults` 每帧（以及回归驱动 `runFrame`）里跑三个 1 秒门槛：
-  苍（`blueVoicePlayed`）、赫（`redVoicePlayed`，离开 red 即复位）、無量空処（`voidVoicePlayed`，
-  长版模式下不播短语音）。松手/离开技法会把对应标志复位，所以「每次保持播一次」。
+- `updateTechniqueVoices(nowMs)` 在 `onResults` 每帧（以及回归驱动 `runFrame`）里检查语音门槛：
+  赫/普通無量空処是「进入技法满 `VOICE_HOLD_MS = 1000ms`」，苍是「构筑成型后满
+  `BLUE_SEQ.voiceDelayMs = 2000ms`」（`blueCharge` 消失即复位）。苍（`blueVoicePlayed`）、
+  赫（`redVoicePlayed`，离开 red 即复位）、無量空処（`voidVoicePlayed`，长版模式下不播短语音）
+  各自每次保持/每次构筑只播一次。
 - `playAudioClip(key)` 先暂停并归零其它所有轨道，再从头播目标轨道 → **同一时间只播一条**；
   `audioPlayCounts` 供回归断言。`toggleAudioClip`/`stopAudioClip` 服务侧栏按钮，`updateAudioRowState`
   负责 `.playing` 高亮与「■ 停止」文案。
@@ -414,7 +418,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `TUNING.exitThreshold` | 保持阈值 | 0.50 | |
 | `TUNING.switchMargin` | 立即切换领先 | 0.12 | |
 | `TUNING.sustainedSwitchMs` | 定时切换 | 300ms | 领先只需 0.03 |
-| `BLUE_SEQ.holdMs` | 苍持掌时长 | 3000ms | 张开手掌保持这么久即构筑 |
+| `BLUE_SEQ.holdMs` | 苍持掌时长 | 2000ms | 张开手掌保持这么久即构筑 |
+| `BLUE_SEQ.voiceDelayMs` | 苍语音延迟 | 2000ms | 构筑成型后再等这么久才播 `blue.mp3`；提前释放/取消不播 |
 | `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
 | `VOICE_HOLD_MS` | 术式语音门槛 | 1000ms | 苍/赫/普通無量空処保持满 1 秒播一次；见 §11.1 |
@@ -461,7 +466,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **97 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **98 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/無量空処开场动画/长时间无量空处/音频库）。
 
 ## 14. 关键函数索引（`index.html`）
@@ -479,12 +484,12 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `updatePurpleButton` | 按钮 2s 冷却环 |
 | `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
-| `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 3s → 构筑 → 释放 |
+| `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 2s → 构筑 → 释放 |
 | `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処定格开场动画（正常 3s / 长版 1s 触发，长版同帧播长语音） |
 | `setVoidLongMode` | 「长时间无量空处」开关（L 键/侧栏），切换 `VOID_CINEMA_LONG` 时间轴 |
 | `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：7 条本地语音的按钮、高亮与停止 |
 | `playAudioClip` / `primeAudio` | 单条播放（先停其它轨道）+ 首次点击/按键静音预热解锁自动播放 |
-| `updateTechniqueVoices` / `blueHoldElapsedMs` | 每帧检查苍/赫/無量空処的 1 秒保持门槛并触发语音 |
+| `updateTechniqueVoices` | 每帧检查语音门槛：赫/無量空処 1 秒保持、苍构筑后 2 秒延迟 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |
