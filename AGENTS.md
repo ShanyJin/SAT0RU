@@ -10,7 +10,7 @@
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场
 - **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
   保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）
-- **虚式「茈」**（投射）：点顶部正中「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
+- **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
   前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮）：双手交叉扣住、食指朝上、拇指内扣 →
   左侧蓝球 + 右侧红球长大 → 向中心靠拢重叠 → 紫色大爆炸；单手同形仍是無量空処
@@ -68,6 +68,8 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   阈值 `fingerGap<0.075`、`thumbGapRatio<0.75`（拇指内扣，避开赫枪形的 >0.75）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
 - 技法名/指南 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`GUIDE_ALL`
+- 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、
+  `updateKeybindMenu()`、`setRailOpen()`、`setGuideVisibility()`、`setKeybindMenuVisibility()`
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯

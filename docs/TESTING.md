@@ -67,7 +67,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 29. 無量空処手势触发（两指举起 + 拇指内扣）
 30. 無量空処保持（手势持续）
 31. 無量空処松手退场
-32. 顶部「茈」按钮存在
+32. 右上「茈」按钮存在
 33. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
 34. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
 35. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
@@ -119,13 +119,14 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
 - `red`：合成枪形手保持 30 帧（看红场 + 尘埃被排开成净空）；
-- `purplecharge`：开启茈模式、合成枪形蓄势，球钉在世界原点轻微摆动（看顶部按钮激活 + 小紫球 + 拖尾）；
+- `purplecharge`：开启茈模式、合成枪形蓄势，球钉在世界原点轻微摆动（看右上按钮激活 + 小紫球 + 拖尾）；
 - `purpleburst`：发射后把爆炸**钉在 94% 剩余时长**（约 100ms 处的早期爆心），避免软件渲染低帧率
   错过 1.6s 的爆炸；按钮冷却环同时保持可见；
 - `void`：`forceTechnique('void')` + `updateState('void', true)`，直接展示白环 + 蓝色球壳的领域场
   （不需要摄像头）；
 - `claspbuild`：合成双手扣合触发契印，把 build 冻结在 75%（左右蓝/红两球），用于构图验收；
-- `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持 pill 为「虚式「茈」」。
+- `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」。
+- 截 UI（顶栏/侧栏）时加 `&nobanner=1`：否则左上角的测试横幅会盖住菜单按钮；`&noui=1` 仍用于纯净构图。
 
 演示在真实时钟（`performance.now()`）上跑，但回归本身用合成时钟；驱动里的 `resetRealClockFx()`
 会在演示前清掉合成时钟遗留的 `purpleExplosionUntilMs`/震动/冷却，否则 canvas 会被巨大的
@@ -260,6 +261,7 @@ EOF
 - [ ] `node --check` 通过
 - [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（58 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
+- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置开关可切换、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

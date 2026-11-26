@@ -15,7 +15,7 @@
          ├→ computeFrameScores()   双手 → 组合技法 + 五条悟模式互斥/桥接/冷却
          ├→ smoothScores()         每技法 EMA α=0.20
          ├→ pickGestureFromScores() 进入 0.75 / 保持 0.50 / 切换领先 0.12 或持续 300ms
-         └→ updateState(tech)      设定目标形状/配色/pill 名称/bloom 强度
+         └→ updateState(tech)      设定目标形状/配色/顶部状态名/bloom 强度
               └→ animate() 每帧：主粒子场 20k lerp、光球 4k、尘埃 1.2k、爆炸、震动
                    └→ EffectComposer(RenderPass → UnrealBloomPass) → #three-canvas
 ```
@@ -104,7 +104,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 
 `{ key, x, y, size, prevSize, growSamples, growStartMs, growStartSize, startedMs, lastSeenMs, ... }`，
 `armBlueCharge()` 建立，`releaseBlueCharge()` 销毁。
-构筑中 pill 显示 `術式順転「蒼」 · 構築中`；`CHARGE.maxChargeMs = 30000` 安全阀。
+构筑中顶部状态显示 `術式順転「蒼」 · 構築中`；`CHARGE.maxChargeMs = 30000` 安全阀。
 
 ### 4.3 构筑视觉（`chargeOrb`，4000 点）
 
@@ -151,11 +151,11 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §8 爆炸），
 尘埃层同步炸开（§9），随后 2.5s 演出 + 2s 触发锁/全局冷却。
 
-## 5. 虚式「茈」· 投射模式（顶部按钮）
+## 5. 虚式「茈」· 投射模式（右上角按钮）
 
 ### 5.1 交互模型
 
-顶部正中 `#purple-mode-btn`（「茈」）是**模式开关，不是施法按钮**。点击开启后：
+右上角 `#purple-mode-btn`（「茈」）是**模式开关，不是施法按钮**。点击开启后：
 
 - 苍/赫全部暂停：`computeFrameScores` 在 `purpleMode` 时把 blue/red 分归零，枪形不再触发赫；
 - 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）、捏合（`pinchScore=1`）或拇指内扣的待发姿势连续 3 帧 → 构筑紫色小球；
@@ -193,7 +193,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 ### 5.4 双手契印（无需按钮）
 
 参考视频 `视频/虚式『茈』 2.mp4`：双手合拢、十指交叉扣住、两根食指并拢朝上、拇指内扣。
-与单手茈互相独立，**不经过顶部按钮**，也不分左右手。
+与单手茈互相独立，**不经过「茈」按钮**，也不分左右手。
 
 **扫描结论**（同参数 MediaPipe，13 帧，见 TESTING §1.8）：
 
@@ -267,7 +267,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 ### 7.3 视觉
 
 - 复用原项目的 `getVoid(i)`：15% 点在半径 26 的白环上，其余 85% 在半径 30~120 的蓝色球壳里。
-- `updateState('void')`：pill 名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
+- `updateState('void')`：顶部状态名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
   `shakeIntensity 0.4`；主粒子场以慢速 `rotation.y += 0.005` 旋转。
 - 没有额外的界面/按钮；与 O 键打开的独立开场页（`DomainExpansion-infintevoid/`）互不影响。
 
@@ -315,14 +315,21 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 
 ## 11. 界面层
 
-- Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏、暖金 `#D8A657` 强调、噪点纹理。
-- 顶部 pill = 当前技法**原版名**（`updateState`）：通常状態 / 術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/
-  領域展開「伏魔御廚子」「無量空処」「嵌合暗翳庭」「坐殺博徒」「真贋相愛」「誅伏賜死」「時胞月宮殿」「自閉円頓裹」/
-  黒閃 / 無為転変 / 十劃呪法「比率」/ 八握剣異戒神将魔虚羅。
-- 顶部正中「茈」按钮是模式开关（§5），开启时外圈显示 2s 冷却进度；普通模式（含無量空処）时按钮静默。
-  双手契印不经按钮，pill 在 build/converge/burst 期间都显示「虚式「茈」」，结束后回通常状態。
-- 左侧手势指南 `GUIDE_GOJO` / `GUIDE_ALL`；`C` 纯净模式全部隐藏；`D` 面板显示 raw/smoothed 分数、
-  `fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
+- Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、暖金 `#D8A657` 强调、噪点纹理。
+- 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏；正中央
+  `#technique-name` 用 22px 纯白字显示当前技法**原版名**（`updateState` → `setTechniqueName()`）：
+  術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「伏魔御廚子」「無量空処」「嵌合暗翳庭」
+  「坐殺博徒」「真贋相愛」「誅伏賜死」「時胞月宮殿」「自閉円頓裹」/ 黒閃 / 無為転変 /
+  十劃呪法「比率」/ 八握剣異戒神将魔虚羅。`neutral` 时清空文字并加 `.empty`（opacity 0），
+  不再显示「通常状態」；蓄势中可带「· 構築中 / 射出」后缀。
+- 右上 `#purple-hint` 一行提示（「点击开启虚式「茈」枪指模式」）+ `#purple-mode-btn` 模式开关（§5）。
+  开启时按钮外圈显示 2s 冷却进度、提示改为「已开启 · 点击关闭」；普通模式（含無量空処）时按钮静默。
+  双手契印不经按钮，状态名在 build/converge/burst 期间都显示「虚式「茈」」，结束后清空。
+- 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），内部三个分区：
+  **设置**（`#settings-list` 的 Win11 开关行：M/D/H/K/V/C 六项，点击即切换）、
+  **手势指南**（`GUIDE_GOJO` / `GUIDE_ALL`）、**按键**（T/N/O 动作行）。H/K 分别收起指南/按键分区。
+- `C` 纯净模式全部隐藏；`D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、
+  `gestureLock`、`cooldown`。
 - 语音（all 模式）：Web Speech API，`"don't move"` → 誅伏賜死，`"run away"` → 镜头拉远
   （`zoomUntilMs`，camera.z 55→120）。Firefox 不支持；Google 在线识别国内可能不通。
 
@@ -395,7 +402,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `firePurpleCharge` / `impactPurpleShot` | 射出与中心点爆炸 |
 | `updatePurpleButton` | 按钮 2s 冷却环 |
 | `commitTransition` | 切换时起算 2s 冷却 |
-| `updateState` | 技法 → pill 名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
+| `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：时序 → 构筑 → 释放 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |

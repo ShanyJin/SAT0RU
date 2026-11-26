@@ -31,15 +31,38 @@
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
         }
 
-        /* Top bar */
-        #ui { position: fixed; top: 0; left: 0; right: 0; height: 56px; box-sizing: border-box; z-index: 100; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 0 16px; background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border-bottom: 1px solid var(--stroke); box-shadow: var(--shadow-sm); pointer-events: none; }
+        /* Top bar: menu button left · technique name centered · 茈 switch + hint right */
+        #ui { position: fixed; top: 0; left: 0; right: 0; height: 56px; box-sizing: border-box; z-index: 100; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; padding: 0 16px; background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border-bottom: 1px solid var(--stroke); box-shadow: var(--shadow-sm); pointer-events: none; }
+        #ui .ui-group { display: flex; align-items: center; gap: 10px; min-width: 0; }
+        #ui .ui-left { justify-self: start; }
+        #ui .ui-right { justify-self: end; }
         #ui h1 { display: flex; align-items: baseline; gap: 10px; margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .02em; color: var(--text-primary); }
         #ui h1 .sub { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
-        #technique-name { font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border: 1px solid rgba(216,166,87,.28); border-radius: var(--radius-pill); padding: 6px 12px; white-space: nowrap; }
-        /* 虚式「茈」 mode switch: centered in the top bar, deliberately clickable while the rest of #ui is not. */
+        /* Menu button: toggles the left rail (Win11-style acrylic sidebar). */
+        #menu-btn {
+            width: 38px; height: 38px; padding: 0; display: grid; place-items: center; flex: none;
+            color: var(--text-secondary); cursor: pointer; pointer-events: auto;
+            background: rgba(20,20,22,.5); border: 1px solid var(--stroke);
+            border-radius: 10px; backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+            transition: color .18s, background .18s, border-color .18s;
+        }
+        #menu-btn:hover { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        #menu-btn.active { color: var(--text-primary); background: rgba(255,255,255,.07); }
+        #menu-btn svg { width: 18px; height: 18px; display: block; }
+        /* Technique name: plain white, enlarged, dead center of the bar; empty when idle. */
+        #technique-name {
+            justify-self: center; max-width: 46vw; overflow: hidden; text-overflow: ellipsis;
+            font-size: 22px; font-weight: 600; letter-spacing: .05em; line-height: 1.2;
+            color: #fff; white-space: nowrap; text-align: center;
+            text-shadow: 0 1px 14px rgba(0,0,0,.72), 0 0 32px rgba(0,0,0,.35);
+            transition: opacity .22s ease;
+        }
+        #technique-name.empty { opacity: 0; }
+        #purple-hint { max-width: 200px; font-size: 11px; font-weight: 500; line-height: 1.4; color: var(--text-secondary); text-align: right; text-shadow: 0 1px 8px rgba(0,0,0,.6); }
+        /* 虚式「茈」 mode switch: right end of the top bar, deliberately clickable while the rest of #ui is not. */
         #purple-mode-btn {
-            position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-            width: 38px; height: 38px; padding: 0; z-index: 2;
+            position: relative;
+            width: 38px; height: 38px; padding: 0; z-index: 2; flex: none;
             display: grid; place-items: center;
             font-family: var(--font); font-size: 18px; font-weight: 600; line-height: 1;
             color: var(--text-secondary); cursor: pointer; pointer-events: auto;
@@ -70,22 +93,44 @@
             50% { opacity: .9; transform: scale(1.08); }
         }
 
-        /* Left rail: keybinds + gesture guide */
-        #left-rail { position: fixed; top: 68px; left: 16px; z-index: 90; display: flex; flex-direction: column; gap: 12px; width: 300px; max-height: calc(100vh - 84px); pointer-events: none; }
-        #keybind-menu, #gesture-guide, #debug-panel { background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border: 1px solid var(--stroke); border-top-color: var(--stroke-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
-        #keybind-menu { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; }
-        #gesture-guide { display: block; box-sizing: border-box; width: 100%; padding: 12px 14px; overflow-y: auto; pointer-events: auto; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
-        #debug-panel { position: fixed; top: 68px; right: 16px; z-index: 90; display: none; box-sizing: border-box; width: 300px; max-height: calc(100vh - 84px); padding: 12px 14px; color: var(--text-secondary); font: 12px/1.45 var(--mono); white-space: pre; overflow: hidden; pointer-events: none; }
+        /* Left rail: one translucent Win11-style sidebar (menu button toggles it). */
+        #left-rail {
+            position: fixed; top: 68px; left: 16px; bottom: 16px; z-index: 90;
+            box-sizing: border-box; width: 320px; padding: 14px 16px 16px;
+            background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%);
+            border: 1px solid var(--stroke); border-top-color: var(--stroke-light);
+            border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
+            overflow-y: auto; overscroll-behavior: contain;
+            scrollbar-width: thin; scrollbar-color: var(--stroke) transparent;
+            pointer-events: auto;
+            transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
+        }
+        #left-rail.collapsed { transform: translateX(calc(-100% - 24px)); opacity: 0; pointer-events: none; }
+        .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 12px; }
+        .rail-title { font-size: 15px; font-weight: 600; letter-spacing: .02em; }
+        .rail-sub { font-size: 10px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--text-tertiary); }
+        .rail-section { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--stroke); }
+        .rail-section:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
+        .rail-foot { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--stroke); font-size: 10.5px; line-height: 1.6; color: var(--text-tertiary); }
+        #debug-panel { position: fixed; top: 68px; right: 16px; z-index: 90; display: none; box-sizing: border-box; width: 300px; max-height: calc(100vh - 84px); padding: 12px 14px; color: var(--text-secondary); font: 12px/1.45 var(--mono); white-space: pre; overflow: hidden; pointer-events: none; background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border: 1px solid var(--stroke); border-top-color: var(--stroke-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 
         .panel-title { font-size: 11px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin-bottom: 8px; }
         .kb-row { display: flex; align-items: center; gap: 8px; padding: 3px 0; font-size: 12px; }
         .kb-key { font: 500 11px/1 var(--mono); color: var(--text-secondary); background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: var(--radius-sm); padding: 3px 6px; min-width: 14px; text-align: center; }
         .kb-label { flex: 1; color: var(--text-secondary); }
         .kb-value { font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--text-tertiary); }
+        /* Win11-style settings rows with pill switches. */
+        .set-row { display: flex; width: 100%; align-items: center; gap: 8px; padding: 7px 0; background: none; border: 0; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
+        .set-label { flex: 1; font-size: 12.5px; color: var(--text-secondary); transition: color .15s; }
+        .set-row:hover .set-label { color: var(--text-primary); }
+        .set-track { position: relative; flex: none; width: 34px; height: 18px; box-sizing: border-box; border-radius: var(--radius-pill); background: rgba(255,255,255,.10); border: 1px solid var(--stroke); transition: background .18s, border-color .18s; }
+        .set-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .18s ease, background .18s; }
+        .set-row[aria-checked="true"] .set-track { background: var(--accent-soft); border-color: var(--accent); }
+        .set-row[aria-checked="true"] .set-track::after { transform: translateX(16px); background: var(--accent); }
         .guide-sep { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin: 8px 0 2px; }
         .guide-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
-        .guide-gesture { font-size: 12px; color: var(--text-secondary); }
-        .guide-tech { font-size: 12px; font-weight: 500; color: var(--text-primary); text-align: right; }
+        .guide-gesture { flex: 1; min-width: 0; font-size: 12px; color: var(--text-secondary); }
+        .guide-tech { flex: none; white-space: nowrap; font-size: 12px; font-weight: 500; color: var(--text-primary); text-align: right; }
         .guide-foot { margin-top: 8px; font-size: 11px; line-height: 1.5; color: var(--text-tertiary); }
 
         #idle-flash {
@@ -118,8 +163,11 @@
         body.clean-mode #ui, body.clean-mode #left-rail, body.clean-mode #debug-panel, body.clean-mode #trigger-word-text { display: none !important; }
 
         @media (max-width: 900px) {
+            #ui { gap: 10px; padding: 0 10px; }
             #ui h1 .sub { display: none; }
-            #left-rail { width: min(300px, 48vw); }
+            #purple-hint { display: none; }
+            #technique-name { font-size: 16px; max-width: 40vw; }
+            #left-rail { width: min(320px, 82vw); }
             #debug-panel { width: min(300px, 48vw); }
         }
     </style>
@@ -146,16 +194,43 @@
     <div id="idle-flash"></div>
 
     <header id="ui">
-        <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
-        <button id="purple-mode-btn" type="button" aria-pressed="false" title="虚式「茈」">茈</button>
-        <div id="technique-name">NEUTRAL STATE</div>
+        <div class="ui-group ui-left">
+            <button id="menu-btn" type="button" aria-label="收起控制栏" aria-expanded="true" aria-controls="left-rail" title="收起控制栏（菜单）">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                    <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
+                </svg>
+            </button>
+            <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
+        </div>
+        <div id="technique-name" class="empty" aria-live="polite"></div>
+        <div class="ui-group ui-right">
+            <span id="purple-hint">点击开启虚式「茈」枪指模式</span>
+            <button id="purple-mode-btn" type="button" aria-pressed="false" title="虚式「茈」">茈</button>
+        </div>
     </header>
     <div id="trigger-word-text"></div>
 
-    <div id="left-rail">
-        <div id="keybind-menu"></div>
-        <div id="gesture-guide"></div>
-    </div>
+    <aside id="left-rail" aria-label="控制栏">
+        <div class="rail-head">
+            <div>
+                <div class="rail-title">控制台</div>
+                <div class="rail-sub" id="rail-mode">SAT0RU · GOJO MODE</div>
+            </div>
+        </div>
+        <section class="rail-section" id="settings-section">
+            <div class="panel-title">设置 · Settings</div>
+            <div id="settings-list"></div>
+        </section>
+        <section class="rail-section" id="guide-section">
+            <div class="panel-title">手势指南 · Gesture Guide</div>
+            <div id="gesture-guide"></div>
+        </section>
+        <section class="rail-section" id="keybind-section">
+            <div class="panel-title">按键 · Keyboard</div>
+            <div id="keybind-menu"></div>
+        </section>
+        <div class="rail-foot">左上角菜单按钮可收起本栏 · C 隐藏全部 UI</div>
+    </aside>
     <div id="debug-panel"></div>
 
 <script type="module">
@@ -1138,8 +1213,15 @@
     const flickDetectorByHand = {};
     const debugPanel = document.getElementById('debug-panel');
     const purpleModeBtn = document.getElementById('purple-mode-btn');
-    let purpleMode = false; // top-center 「茈」 switch: the button selects the technique, it does not cast
+    const purpleHint = document.getElementById('purple-hint');
+    let purpleMode = false; // top-bar right 「茈」 switch: the button selects the technique, it does not cast
     const keybindMenu = document.getElementById('keybind-menu');
+    const settingsList = document.getElementById('settings-list');
+    const keybindSection = document.getElementById('keybind-section');
+    const guideSection = document.getElementById('guide-section');
+    const leftRail = document.getElementById('left-rail');
+    const menuBtn = document.getElementById('menu-btn');
+    let railOpen = true;
     const musicAudio = document.getElementById('bg-audio');
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
     let musicEnabled = false;
@@ -1158,6 +1240,14 @@
 
     function clamp01(v) {
         return Math.min(1, Math.max(0, v));
+    }
+
+    // The centered status shows the active technique only; idle means blank.
+    function setTechniqueName(text) {
+        const el = document.getElementById('technique-name');
+        if (!el) return;
+        el.innerText = text || '';
+        el.classList.toggle('empty', !text);
     }
 
     function maxActiveScore(frameScores) {
@@ -1181,11 +1271,19 @@
         forcedUntilMs = nowMs + durationMs;
     }
 
+    function updatePurpleHint() {
+        if (!purpleHint) return;
+        purpleHint.innerText = purpleMode
+            ? '虚式「茈」枪指模式已开启 · 点击关闭'
+            : '点击开启虚式「茈」枪指模式';
+    }
+
     function setPurpleMode(on) {
         if (MODE !== 'gojo') return;
         const next = !!on;
         if (purpleMode === next) return;
         purpleMode = next;
+        updatePurpleHint();
         purpleModeBtn.classList.toggle('active', purpleMode);
         purpleModeBtn.setAttribute('aria-pressed', purpleMode ? 'true' : 'false');
         if (purpleMode) {
@@ -1217,7 +1315,13 @@
         }
     }
 
-    if (MODE !== 'gojo') purpleModeBtn.style.display = 'none';
+    if (MODE !== 'gojo') {
+        purpleModeBtn.style.display = 'none';
+        if (purpleHint) purpleHint.style.display = 'none';
+    }
+    updatePurpleHint();
+    const railModeEl = document.getElementById('rail-mode');
+    if (railModeEl) railModeEl.innerText = `SAT0RU · ${MODE === 'gojo' ? 'GOJO MODE' : 'ALL MODE'}`;
     purpleModeBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
@@ -1396,8 +1500,7 @@
         chargeVisual.init = true;
         orbPathHistory.length = 0;
         resetBlueHandStates();
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl) nameEl.innerText = '術式順転「蒼」 · 構築中';
+        setTechniqueName('術式順転「蒼」 · 構築中');
     }
 
     function releaseBlueCharge(nowMs) {
@@ -1594,8 +1697,7 @@
         purpleVisual.init = false;
         purplePrevAngle = null;
         updatePurpleVisual(lm, shape, nowMs);
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl) nameEl.innerText = '虚式「茈」 · 構築中';
+        setTechniqueName('虚式「茈」 · 構築中');
     }
 
     function cancelPurpleCharge() {
@@ -1603,8 +1705,7 @@
         purpleVisual.init = false;
         purplePrevAngle = null;
         purplePath.length = 0;
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl && purpleMode) nameEl.innerText = '虚式「茈」';
+        setTechniqueName('');
     }
 
     function firePurpleCharge(nowMs) {
@@ -1622,8 +1723,7 @@
         };
         purpleCooldownUntilMs = nowMs + PURPLE_CAST.cooldownMs;
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl) nameEl.innerText = '虚式「茈」 · 射出';
+        setTechniqueName('虚式「茈」 · 射出');
         shakeIntensity = Math.max(shakeIntensity, 0.5);
     }
 
@@ -1640,8 +1740,7 @@
             purpleExplosionSourceSizes[i] = targetSizes[i];
         }
         triggerPurpleExplosion(nowMs);
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl) nameEl.innerText = '虚式「茈」';
+        setTechniqueName('虚式「茈」');
     }
 
     // --- 虚式「茈」 clasp cast (two hands, no top button) ---
@@ -1670,8 +1769,7 @@
         claspRunFrames = 0;
         claspPoseReleaseRequired = true; // holding the clasp after the blast must not recast
         if (purpleCharge) cancelPurpleCharge();
-        const nameEl = document.getElementById('technique-name');
-        if (nameEl) nameEl.innerText = '虚式「茈」';
+        setTechniqueName('虚式「茈」');
         return true;
     }
 
@@ -2160,32 +2258,89 @@
     }
 
     function updateKeybindMenu() {
-        if (!keybindMenuVisible) return;
-        const rows = [
-            [KEYBINDS.music, 'Soundtrack', musicEnabled ? 'ON' : 'OFF'],
-            [KEYBINDS.debug, 'Debug Panel', debugEnabled ? 'ON' : 'OFF'],
-            [KEYBINDS.guide, 'Gesture Guide', guideVisible ? 'ON' : 'OFF'],
-            [KEYBINDS.voice, 'Voice Cast', voiceStatus],
-            [KEYBINDS.cycle, 'Cycle Technique', '15s'],
-            [KEYBINDS.auto, 'Back to Gesture Mode', ''],
-            [KEYBINDS.opening, 'Void Opening Cutscene', ''],
-            [KEYBINDS.clean, 'Clean Mode', cleanMode ? 'ON' : 'OFF'],
-            [KEYBINDS.menu, 'This Menu', 'ON']
+        const settings = [
+            { action: 'music', key: KEYBINDS.music, label: '音乐 · Soundtrack', on: musicEnabled },
+            { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
+            { action: 'guide', key: KEYBINDS.guide, label: '手势指南 · Guide', on: guideVisible },
+            { action: 'keybinds', key: KEYBINDS.menu, label: '按键表 · Keys', on: keybindMenuVisible },
+            { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
+            { action: 'clean', key: KEYBINDS.clean, label: '纯净模式 · Clean', on: cleanMode }
         ];
-        keybindMenu.innerHTML = `<div class="panel-title">Keybinds · ${MODE === 'gojo' ? 'GOJO' : 'ALL'}</div>`
-            + rows.map(([key, label, value]) => `<div class="kb-row"><span class="kb-key">${key}</span><span class="kb-label">${label}</span>${value ? `<span class="kb-value">${value}</span>` : ''}</div>`).join('');
+        if (settingsList) {
+            settingsList.innerHTML = settings.map(({ action, key, label, on, note }) => `
+                <button class="set-row" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" data-action="${action}">
+                    <span class="kb-key">${key}</span>
+                    <span class="set-label">${label}</span>
+                    ${note ? `<span class="kb-value">${note}</span>` : ''}
+                    <span class="set-track" aria-hidden="true"></span>
+                </button>`).join('');
+        }
+        const rows = [
+            [KEYBINDS.cycle, '轮换技法 · Cycle', '15s'],
+            [KEYBINDS.auto, '回手势模式 · Gesture', ''],
+            [KEYBINDS.opening, '無量空処片头 · Opening', '']
+        ];
+        if (keybindMenu) {
+            keybindMenu.innerHTML = rows.map(([key, label, value]) => `<div class="kb-row"><span class="kb-key">${key}</span><span class="kb-label">${label}</span>${value ? `<span class="kb-value">${value}</span>` : ''}</div>`).join('');
+        }
+    }
+
+    function toggleDebug() {
+        debugEnabled = !debugEnabled;
+        setDebugVisibility();
+        if (debugEnabled) updateDebugPanel(currentTech);
+        updateKeybindMenu();
+    }
+
+    function toggleCleanMode() {
+        cleanMode = !cleanMode;
+        document.body.classList.toggle('clean-mode', cleanMode);
+        updateKeybindMenu();
+    }
+
+    function setRailOpen(open) {
+        railOpen = open;
+        if (leftRail) leftRail.classList.toggle('collapsed', !railOpen);
+        if (menuBtn) {
+            menuBtn.classList.toggle('active', railOpen);
+            menuBtn.setAttribute('aria-expanded', railOpen ? 'true' : 'false');
+            const label = railOpen ? '收起控制栏' : '打开控制栏';
+            menuBtn.setAttribute('aria-label', label);
+            menuBtn.title = `${label}（菜单）`;
+        }
+    }
+
+    if (menuBtn) {
+        menuBtn.addEventListener('click', (event) => {
+            event.preventDefault();
+            setRailOpen(!railOpen);
+        });
+    }
+    if (settingsList) {
+        settingsList.addEventListener('click', (event) => {
+            const row = event.target.closest('.set-row');
+            if (!row) return;
+            switch (row.dataset.action) {
+                case 'music': setMusicEnabled(!musicEnabled); break;
+                case 'debug': toggleDebug(); break;
+                case 'guide': setGuideVisibility(!guideVisible); break;
+                case 'keybinds': setKeybindMenuVisibility(!keybindMenuVisible); break;
+                case 'voice': setVoiceEnabled(!voiceEnabled); break;
+                case 'clean': toggleCleanMode(); break;
+            }
+        });
     }
 
     const GUIDE_GOJO = [
         { sep: '虚式「茈」 · Imaginary: Purple' },
-        { gesture: '点顶部「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
-        { foot: '模式开关：开启后苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
+        { gesture: '点右上「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
+        { foot: '点击右上角「茈」开启枪指模式：苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
         { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
         { foot: '小球射向屏幕正中心并爆开；拇指外弹比指尖上挑更易触发；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
         { sep: '虚式「茈」 · 双手契印' },
         { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
         { foot: '左侧蓝色粒子球 + 右侧红色粒子球同时变大，向中心靠拢重叠后炸成紫色大爆炸' },
-        { foot: '不需要点顶部「茈」；这是双手动作，单手无效（单手同形仍是無量空処）' },
+        { foot: '不需要点右上角「茈」；这是双手动作，单手无效（单手同形仍是無量空処）' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
@@ -2236,13 +2391,14 @@
             if (item.foot) return `<div class="guide-foot">${item.foot}</div>`;
             return `<div class="guide-row"><span class="guide-gesture">${item.gesture}</span><span class="guide-tech">${item.tech}</span></div>`;
         }).join('');
-        gestureGuide.innerHTML = `<div class="panel-title">手势指南 · Gesture Guide</div>${body}`;
+        gestureGuide.innerHTML = body;
     }
     buildGuide();
 
     function setGuideVisibility(visible) {
         guideVisible = visible;
-        gestureGuide.style.display = visible ? 'block' : 'none';
+        if (guideSection) guideSection.style.display = visible ? 'block' : 'none';
+        updateKeybindMenu();
     }
 
     function setVoiceEnabled(enabled) {
@@ -2332,8 +2488,8 @@
 
     function setKeybindMenuVisibility(visible) {
         keybindMenuVisible = visible;
-        keybindMenu.style.display = keybindMenuVisible ? 'block' : 'none';
-        if (keybindMenuVisible) updateKeybindMenu();
+        if (keybindSection) keybindSection.style.display = keybindMenuVisible ? 'block' : 'none';
+        updateKeybindMenu();
     }
 
     function updateDebugPanel(nextGesture) {
@@ -2482,16 +2638,14 @@
     setDebugVisibility();
     setKeybindMenuVisibility(true);
     setGuideVisibility(true);
+    setRailOpen(true);
     updateKeybindMenu();
     setMusicEnabled(false);
     window.addEventListener('keydown', (event) => {
         if (event.repeat) return;
         const key = event.key.toLowerCase();
         if (key === KEYBINDS.debug.toLowerCase()) {
-            debugEnabled = !debugEnabled;
-            setDebugVisibility();
-            if (debugEnabled) updateDebugPanel(currentTech);
-            updateKeybindMenu();
+            toggleDebug();
             return;
         }
         if (key === KEYBINDS.music.toLowerCase()) {
@@ -2529,9 +2683,7 @@
             return;
         }
         if (key === KEYBINDS.clean.toLowerCase()) {
-            cleanMode = !cleanMode;
-            document.body.classList.toggle('clean-mode', cleanMode);
-            updateKeybindMenu();
+            toggleCleanMode();
             return;
         }
         if (key === KEYBINDS.opening.toLowerCase()) {
@@ -2575,11 +2727,10 @@
     });
 
     function updateState(tech, force = false) {
-        const nameEl = document.getElementById('technique-name');
         if (claspCast) {
             // The clasp cinematic outranks the underlying (neutral) gesture state.
             glowColor = '#bb00ff';
-            if (nameEl) nameEl.innerText = '虚式「茈」';
+            setTechniqueName('虚式「茈」');
             baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
             bloomPass.strength = baseBloomStrength;
             if (!force && currentTech === tech) return;
@@ -2607,27 +2758,27 @@
         }
         shakeIntensity = tech === 'shrine' ? 1.5 : (tech !== 'neutral' ? 0.4 : 0);
 
-        if(tech === 'shrine') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「伏魔御廚子」"; baseBloomStrength = 2.5; }
-        else if(tech === 'purple') { glowColor = '#bb00ff'; nameEl.innerText = "虚式「茈」"; baseBloomStrength = 4.0; }
-        else if(tech === 'void') { glowColor = '#00ffff'; nameEl.innerText = "領域展開「無量空処」"; baseBloomStrength = 2.0; }
-        else if(tech === 'red') { glowColor = '#ff3333'; nameEl.innerText = "術式反転「赫」"; baseBloomStrength = 2.5; }
-        else if(tech === 'blue') { glowColor = '#4d7dff'; nameEl.innerText = "術式順転「蒼」"; baseBloomStrength = 3.0; }
-        else if(tech === 'blackflash') { glowColor = '#ff0044'; nameEl.innerText = "黒閃"; baseBloomStrength = 5.0; }
-        else if(tech === 'shadowgarden') { glowColor = '#4466ff'; nameEl.innerText = "領域展開「嵌合暗翳庭」"; baseBloomStrength = 1.5; }
-        else if(tech === 'transfiguration') { glowColor = '#ff9fcf'; nameEl.innerText = "無為転変"; baseBloomStrength = 2.8; }
-        else if(tech === 'ratio') { glowColor = '#ffd700'; nameEl.innerText = "十劃呪法「比率」"; baseBloomStrength = 2.2; }
-        else if(tech === 'divine') { glowColor = '#ffd700'; nameEl.innerText = "八握剣異戒神将魔虚羅"; baseBloomStrength = 2.5; }
-        else if(tech === 'idlegamble') { glowColor = '#aa00ff'; nameEl.innerText = "領域展開「坐殺博徒」"; baseBloomStrength = 3.5; }
-        else if(tech === 'love') { glowColor = '#66ccff'; nameEl.innerText = "領域展開「真贋相愛」"; baseBloomStrength = 3.0; }
-        else if(tech === 'sentence') { glowColor = '#ffaa33'; nameEl.innerText = "領域展開「誅伏賜死」"; baseBloomStrength = 0.6; }
-        else if(tech === 'palace') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「時胞月宮殿」"; baseBloomStrength = 2.5; }
-        else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "領域展開「自閉円頓裹」"; baseBloomStrength = 2.5; }
-        else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "虚式「茈」· 放出"; baseBloomStrength = 1.4; }
-        else { glowColor = purpleMode ? '#bb00ff' : '#00ffff'; nameEl.innerText = purpleMode ? "虚式「茈」" : "通常状態"; baseBloomStrength = purpleMode ? 0.35 : 1.0; }
+        if(tech === 'shrine') { glowColor = '#ff0000'; setTechniqueName('領域展開「伏魔御廚子」'); baseBloomStrength = 2.5; }
+        else if(tech === 'purple') { glowColor = '#bb00ff'; setTechniqueName('虚式「茈」'); baseBloomStrength = 4.0; }
+        else if(tech === 'void') { glowColor = '#00ffff'; setTechniqueName('領域展開「無量空処」'); baseBloomStrength = 2.0; }
+        else if(tech === 'red') { glowColor = '#ff3333'; setTechniqueName('術式反転「赫」'); baseBloomStrength = 2.5; }
+        else if(tech === 'blue') { glowColor = '#4d7dff'; setTechniqueName('術式順転「蒼」'); baseBloomStrength = 3.0; }
+        else if(tech === 'blackflash') { glowColor = '#ff0044'; setTechniqueName('黒閃'); baseBloomStrength = 5.0; }
+        else if(tech === 'shadowgarden') { glowColor = '#4466ff'; setTechniqueName('領域展開「嵌合暗翳庭」'); baseBloomStrength = 1.5; }
+        else if(tech === 'transfiguration') { glowColor = '#ff9fcf'; setTechniqueName('無為転変'); baseBloomStrength = 2.8; }
+        else if(tech === 'ratio') { glowColor = '#ffd700'; setTechniqueName('十劃呪法「比率」'); baseBloomStrength = 2.2; }
+        else if(tech === 'divine') { glowColor = '#ffd700'; setTechniqueName('八握剣異戒神将魔虚羅'); baseBloomStrength = 2.5; }
+        else if(tech === 'idlegamble') { glowColor = '#aa00ff'; setTechniqueName('領域展開「坐殺博徒」'); baseBloomStrength = 3.5; }
+        else if(tech === 'love') { glowColor = '#66ccff'; setTechniqueName('領域展開「真贋相愛」'); baseBloomStrength = 3.0; }
+        else if(tech === 'sentence') { glowColor = '#ffaa33'; setTechniqueName('領域展開「誅伏賜死」'); baseBloomStrength = 0.6; }
+        else if(tech === 'palace') { glowColor = '#ff0000'; setTechniqueName('領域展開「時胞月宮殿」'); baseBloomStrength = 2.5; }
+        else if(tech === 'perfection') { glowColor = '#b060ff'; setTechniqueName('領域展開「自閉円頓裹」'); baseBloomStrength = 2.5; }
+        else if(tech === 'flick') { glowColor = '#bb88ff'; setTechniqueName('虚式「茈」· 放出'); baseBloomStrength = 1.4; }
+        else { glowColor = purpleMode ? '#bb00ff' : '#00ffff'; setTechniqueName(''); baseBloomStrength = purpleMode ? 0.35 : 1.0; }
         if (claspCast) {
             // Re-assert after the per-technique chain (the burst enters as 'purple').
             glowColor = '#bb00ff';
-            nameEl.innerText = '虚式「茈」';
+            setTechniqueName('虚式「茈」');
             baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
             bloomPass.strength = baseBloomStrength;
         }
