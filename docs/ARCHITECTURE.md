@@ -1,7 +1,7 @@
 # 技术架构 · SAT0RU
 
 单文件 Three.js 应用（`index.html`，约 2100 行）+ MediaPipe Hands 手部识别。
-本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式、無量空処、环境尘埃、渲染性能、参数速查、已知限制。
+本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式与双手契印、無量空処、环境尘埃、渲染性能、参数速查、已知限制。
 改代码前先看 §去哪改，别凭感觉动阈值。
 
 ## 1. 数据流总览
@@ -31,7 +31,7 @@
 | `?mode=all` | 恢复全套 15 技法（`SCORE_GESTURES` + 语音），指南同步切换 `GUIDE_ALL` |
 | `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。id 见 README |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 双手契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
 
 按键：`D` 调试面板、`M` 音乐、`H` 指南、`V` 语音、`T` 轮换、`N` 回识别、`K` 按键表、`C` 纯净模式、`O` 开场页。
 `T/N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
@@ -76,6 +76,8 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
     仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。
   - 反向：非 red 状态下 `blueCharge || gojoLocked || techCoolingDown` 时赫分强制 0；非 void 状态下同样的
     条件把 void 分强制 0（蓄势/释放锁/2s 冷却期间不能新开领域，但已展开的领域可继续持有）。
+  - **双手契印互斥**：`claspPoseInfo()` 命中（双手食指朝上 + 至少一只手中指朝上 + 双拇指内扣 + 腕距/食指尖距
+    都在阈值内）时，void/red/blue 分清零、苍时序清零；契印启动后整段动画旁路所有手势（见 §5.4）。
 
 ### 3.4 平滑与裁决（`TUNING`）
 
@@ -188,6 +190,36 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 拇指外弹只在**已有蓄势**且最近一次姿势是拇指内扣时算发射；拇指一直外张的枪形不会被当成弹指。
 - 無量空処的手势同样是「两指 + 拇指内扣」，但它只在普通模式生效；茈模式开启时普通管线整体旁路，不会打架。
 
+### 5.4 双手契印（无需按钮）
+
+参考视频 `视频/虚式『茈』 2.mp4`：双手合拢、十指交叉扣住、两根食指并拢朝上、拇指内扣。
+与单手茈互相独立，**不经过顶部按钮**，也不分左右手。
+
+**扫描结论**（同参数 MediaPipe，13 帧，见 TESTING §1.8）：
+
+- 双手扣合时 MediaPipe **经常只认出一只手**（6 帧双手 / 6 帧单手 / 1 帧无手）；
+- 判据只取双手帧里稳定的量：两只手 `indexUp=1`、至少一只手 `middleUp=1`、两只手 `thumbGapRatio<0.75`、
+  `wristGap<2.2`、`tipGap<1.3`（后两者都除以平均掌长）；
+- 因此**不要求连续双手帧**：`updateClaspDetection()` 在 400ms 内累积 ≥4 帧且持续 ≥120ms 即发动。
+
+**状态机**：`claspCast = { startMs, phase:'build'|'burst', burstStartMs }`。
+
+- build（0→900ms）：左蓝 / 右红粒子球在屏幕两侧长大；
+- converge（900→1550ms）：两球向中心靠拢，带 1.8 世界单位的交叉偏移，加色混合自然呈紫；
+- 1550ms：`impactClaspCast()` → `forceTechnique('purple', 1600ms)` + 中心点爆炸（与茈命中同源）；
+- +1600ms 结束，`updateState('neutral', true)`；2s 冷却，且必须松开扣合姿势（400ms 无姿势）才能重发。
+
+**视觉**：`CLASP_ORB_COUNT = 1600` ×2，蓝球（左）/ 红球（右），复用 `ORB_RINGS` 的环带结构；
+`sideFraction 0.38`、`orbStartRadius 0.8 → orbRadius 6.5`、`crossOffset 1.8`；
+build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘埃；爆发复用主粒子场。
+
+**边界**：
+
+- 触发要求双手；单手同形仍是無量空処（回归专门验证）；
+- 双手分得很开（阈值外）不算契印，退回普通双手评分（两只手都比 void 时就是 void）；
+- 契印候选/动画期间 void/red/blue 全压制，防止交错的手指被读成领域展开；
+- 与茈按钮模式共存：契印开始时取消当前单手蓄势，动画期间旁路 `updatePurpleMode`。
+
 ## 6. 「赫」排斥 · 红场
 
 ### 6.1 手势与锚点
@@ -275,7 +307,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
   （blue 3.0、red 2.5、purple 4.0、shrine 2.5、blackflash 5.0…），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
-- **`fieldIdle`**：`currentTech==='neutral' && now > neutralSettledAtMs && 无紫爆炸`
+- **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`
   → 主粒子场 `particles.visible=false`，且跳过 20k 的 lerp/上传/旋转/爆炸计算。
   `neutralSettledAtMs = now + 700`（进入 neutral 后留 700ms 淡出时间）。**这是最大的性能闸门**。
 - fps 表：每 500ms 统计，D 面板 `fps` 行；低于 ~30 说明 GPU 吃紧（核显或浏览器退软渲）。
@@ -288,6 +320,7 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
   領域展開「伏魔御廚子」「無量空処」「嵌合暗翳庭」「坐殺博徒」「真贋相愛」「誅伏賜死」「時胞月宮殿」「自閉円頓裹」/
   黒閃 / 無為転変 / 十劃呪法「比率」/ 八握剣異戒神将魔虚羅。
 - 顶部正中「茈」按钮是模式开关（§5），开启时外圈显示 2s 冷却进度；普通模式（含無量空処）时按钮静默。
+  双手契印不经按钮，pill 在 build/converge/burst 期间都显示「虚式「茈」」，结束后回通常状態。
 - 左侧手势指南 `GUIDE_GOJO` / `GUIDE_ALL`；`C` 纯净模式全部隐藏；`D` 面板显示 raw/smoothed 分数、
   `fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
 - 语音（all 模式）：Web Speech API，`"don't move"` → 誅伏賜死，`"run away"` → 镜头拉远
@@ -317,6 +350,8 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
 | `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
+| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
+| `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
 | 枪形阈值（赫） | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
@@ -340,7 +375,11 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - 语音依赖浏览器 Web Speech API。
 - **無量空処的食中指交叉不被 MediaPipe 解析**（扫描见 §7.1）：不要试图用「交叉」判定，用拇指内扣；
   如果用户拇指只内扣到一半（`thumbGapRatio` 0.75~0.85），会落在赫枪形里，表现为展开领域失败。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **48 项断言**（含苍/赫/茈/無量空処）。
+- **双手契印依赖双手都被识别**：MediaPipe 在扣合姿势下经常把两只手并成一只（参考视频里约一半帧如此），
+  短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
+- **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
+  可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **58 项断言**（含苍/赫/茈/無量空処/双手契印）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -360,6 +399,9 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：时序 → 构筑 → 释放 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
+| `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |
+| `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印动画状态机、中心紫色爆炸、2s 冷却 |
+| `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（1600 ×2） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（all 模式 15 个） |
 | `getVoid` | 無量空処的白环 + 蓝色球壳目标形状 |

@@ -350,6 +350,111 @@
     let purpleSpinPhase = 0;
     let purplePrevAngle = null;
 
+    // --- 虚式「茈」 clasp cast: a Blue orb on the left and a Red orb on the right ---
+    // Both use the same ring/haze structure as the other orbs so their spin is readable even
+    // on the software renderer. They carry no trail: the effect is their growth and convergence.
+    const CLASP_ORB_COUNT = 1600;
+    function createClaspOrb(colors) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(CLASP_ORB_COUNT * 3);
+        const colorArr = new Float32Array(CLASP_ORB_COUNT * 3);
+        const seeds = [];
+        for (let i = 0; i < CLASP_ORB_COUNT; i++) {
+            const frac = i / CLASP_ORB_COUNT;
+            let c;
+            if (frac < 0.14) {
+                seeds.push({
+                    type: 'core',
+                    r: 0.05 + Math.random() * 0.22,
+                    phi: Math.acos(2 * Math.random() - 1),
+                    theta: Math.random() * Math.PI * 2,
+                    spin: 2.4 + Math.random() * 2.6,
+                    wobble: 0.4 + Math.random() * 1.2,
+                    phase: Math.random() * Math.PI * 2
+                });
+                c = colors.core;
+            } else if (frac < 0.66) {
+                const k = i % 3;
+                seeds.push({
+                    type: 'ring',
+                    k,
+                    r: Math.min(1, ORB_RINGS[k].scale),
+                    theta0: ORB_ARC_BASE[(i * 7) % 4] + (Math.random() + Math.random() + Math.random() - 1.5) * 0.35,
+                    rj: 1 + (Math.random() - 0.5) * 0.12
+                });
+                c = colors.rings[k];
+            } else {
+                seeds.push({
+                    type: 'haze',
+                    r: 0.3 + Math.random() * 1.2,
+                    phi: Math.acos(2 * Math.random() - 1),
+                    theta: Math.random() * Math.PI * 2,
+                    spin: 1.9 + Math.random() * 0.9,
+                    wobble: 0.5 + Math.random() * 1.5,
+                    phase: Math.random() * Math.PI * 2
+                });
+                c = colors.haze;
+            }
+            colorArr[i * 3] = c.r;
+            colorArr[i * 3 + 1] = c.g;
+            colorArr[i * 3 + 2] = c.b;
+        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+        const material = new THREE.PointsMaterial({
+            size: 0.32,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.9,
+            depthWrite: false
+        });
+        const points = new THREE.Points(geometry, material);
+        points.visible = false;
+        points.frustumCulled = false;
+        scene.add(points);
+        return { geometry, positions, material, points, seeds };
+    }
+    const claspBlueOrb = createClaspOrb({
+        core: { r: 0.55, g: 0.75, b: 1.0 },
+        rings: [{ r: 0.25, g: 0.55, b: 1.0 }, { r: 0.16, g: 0.4, b: 0.96 }, { r: 0.1, g: 0.26, b: 0.82 }],
+        haze: { r: 0.06, g: 0.2, b: 0.75 }
+    });
+    const claspRedOrb = createClaspOrb({
+        core: { r: 1.0, g: 0.55, b: 0.3 },
+        rings: [{ r: 1.0, g: 0.18, b: 0.12 }, { r: 0.85, g: 0.1, b: 0.08 }, { r: 0.6, g: 0.04, b: 0.05 }],
+        haze: { r: 0.5, g: 0.02, b: 0.03 }
+    });
+    function fillClaspOrbPositions(orb, nowSec, radius, spinPhase) {
+        for (let i = 0; i < CLASP_ORB_COUNT; i++) {
+            const s = orb.seeds[i];
+            let x;
+            let y;
+            let z;
+            if (s.type === 'ring') {
+                const R = ORB_RINGS[s.k];
+                const theta = s.theta0 + nowSec * R.spin + spinPhase;
+                const rad = radius * R.scale * s.rj;
+                const ct = Math.cos(theta);
+                const st = Math.sin(theta);
+                x = (R.u[0] * ct + R.w[0] * st) * rad;
+                y = (R.u[1] * ct + R.w[1] * st) * rad;
+                z = (R.u[2] * ct + R.w[2] * st) * rad;
+            } else {
+                const theta = s.theta + nowSec * s.spin + spinPhase;
+                const wob = Math.sin(nowSec * s.wobble + s.phase) * (s.type === 'core' ? 0.08 : 0.26);
+                const rr = radius * s.r * (1 + wob);
+                x = rr * Math.sin(s.phi) * Math.cos(theta);
+                y = rr * Math.cos(s.phi) * 0.82;
+                z = rr * Math.sin(s.phi) * Math.sin(theta);
+            }
+            orb.positions[i * 3] = x;
+            orb.positions[i * 3 + 1] = y;
+            orb.positions[i * 3 + 2] = z;
+        }
+        orb.geometry.attributes.position.needsUpdate = true;
+    }
+
     // --- Ambient dust: the standby particles, and proof of Blue's pull / Red's push ---
     // Idle they drift like dust in the room. While Blue charges they spiral inward and orbit
     // the blue ball (following the hand); while Red is out they get shoved into a clean rim
@@ -960,6 +1065,33 @@
         pulseMs: 180,
         refractoryMs: 220
     };
+    // 虚式「茈」 clasp cast: both hands clasped / fingers interlaced, index fingers up and
+    // thumbs tucked under. Independent of the top 「茈」 switch. The scan of the reference
+    // footage shows MediaPipe often collapses the pose to a single hand, so the trigger only
+    // needs a short run of two-hand frames instead of a continuous one.
+    const CLASP_CAST = {
+        minFrames: 4, // consecutive two-hand clasp frames...
+        holdMs: 120, // ...that must also span this long
+        gapMs: 400, // a longer detection gap restarts the run
+        wristGapMax: 2.2, // wrist distance / palm length
+        tipGapMax: 1.3, // index fingertip distance / palm length
+        buildMs: 900, // orbs grow at the screen sides
+        convergeMs: 650, // orbs travel to the centre and overlap
+        fadeMs: 180, // orbs vanish into the blast
+        burstMs: 1600, // matches the Purple field explosion
+        cooldownMs: 2000, // release-to-release, like every other technique
+        sideFraction: 0.38, // orb centre at ±this fraction of the view half-width
+        crossOffset: 1.8, // they pass slightly beyond centre before the blast (overlap/cross)
+        orbStartRadius: 0.8,
+        orbRadius: 6.5
+    };
+    let claspCast = null; // { startMs, phase: 'build' | 'burst', burstStartMs }
+    let claspRunFrames = 0;
+    let claspRunStartMs = 0;
+    let claspLastSeenMs = -Infinity;
+    let claspCooldownUntilMs = 0;
+    let claspPoseReleaseRequired = false;
+    let claspSuppressUntilMs = 0;
     const videoElement = document.querySelector('.input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
@@ -1512,6 +1644,98 @@
         if (nameEl) nameEl.innerText = '虚式「茈」';
     }
 
+    // --- 虚式「茈」 clasp cast (two hands, no top button) ---
+    // The reference pose interlocks the fingers; MediaPipe often merges the hands into one
+    // detection or keeps them a few frames apart, so the pose test is deliberately loose:
+    // both indexes up, at least one middle up, both thumbs tucked, wrists and index tips near.
+    function claspPoseInfo(landmarks, shapes) {
+        if (!landmarks || landmarks.length !== 2 || !shapes || shapes.length !== 2) return false;
+        const [a, b] = landmarks;
+        const palm = (Math.hypot(a[0].x - a[9].x, a[0].y - a[9].y)
+            + Math.hypot(b[0].x - b[9].x, b[0].y - b[9].y)) / 2;
+        if (palm < 0.001) return false;
+        const wristGap = Math.hypot(a[0].x - b[0].x, a[0].y - b[0].y) / palm;
+        const tipGap = Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y) / palm;
+        return shapes[0].indexUp === 1 && shapes[1].indexUp === 1
+            && (shapes[0].middleUp === 1 || shapes[1].middleUp === 1)
+            && shapes[0].thumbGapRatio < 0.75 && shapes[1].thumbGapRatio < 0.75
+            && wristGap < CLASP_CAST.wristGapMax
+            && tipGap < CLASP_CAST.tipGapMax;
+    }
+
+    function startClaspCast(nowMs) {
+        if (blueCharge || purpleShot) return false; // an active charge owns the interaction
+        if (nowMs < techCooldownUntilMs || nowMs < gestureLockUntilMs) return false;
+        claspCast = { startMs: nowMs, phase: 'build', burstStartMs: 0 };
+        claspRunFrames = 0;
+        claspPoseReleaseRequired = true; // holding the clasp after the blast must not recast
+        if (purpleCharge) cancelPurpleCharge();
+        const nameEl = document.getElementById('technique-name');
+        if (nameEl) nameEl.innerText = '虚式「茈」';
+        return true;
+    }
+
+    function updateClaspDetection(nowMs, pose) {
+        if (MODE !== 'gojo') return;
+        if (claspCast) {
+            if (pose) claspLastSeenMs = nowMs;
+            return;
+        }
+        if (claspPoseReleaseRequired) {
+            if (!pose && (nowMs - claspLastSeenMs) > 400) claspPoseReleaseRequired = false;
+            else return;
+        }
+        if (nowMs < claspCooldownUntilMs) return;
+        if (!pose) {
+            if ((nowMs - claspLastSeenMs) > CLASP_CAST.gapMs) claspRunFrames = 0;
+            return;
+        }
+        if (claspRunFrames === 0 || (nowMs - claspLastSeenMs) > CLASP_CAST.gapMs) {
+            claspRunFrames = 1;
+            claspRunStartMs = nowMs;
+        } else {
+            claspRunFrames += 1;
+        }
+        claspLastSeenMs = nowMs;
+        if (claspRunFrames >= CLASP_CAST.minFrames
+            && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs) {
+            startClaspCast(nowMs);
+        }
+    }
+
+    function impactClaspCast(nowMs) {
+        forceTechnique('purple', TUNING.purpleExplosionDurationMs, nowMs);
+        updateState('purple', true);
+        // Point blast from screen centre, same source convention as the projectile impact.
+        for (let i = 0; i < COUNT; i++) {
+            purpleExplosionSourcePositions[i * 3] = 0.0001;
+            purpleExplosionSourcePositions[i * 3 + 1] = 0.0001;
+            purpleExplosionSourcePositions[i * 3 + 2] = 0.0001;
+            purpleExplosionSourceSizes[i] = targetSizes[i];
+        }
+        triggerPurpleExplosion(nowMs);
+        techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + CLASP_CAST.cooldownMs);
+        claspCooldownUntilMs = nowMs + CLASP_CAST.cooldownMs;
+        shakeIntensity = Math.max(shakeIntensity, 1.3);
+    }
+
+    function updateClaspCast(nowMs) {
+        if (!claspCast) return;
+        if (claspCast.phase === 'build') {
+            if ((nowMs - claspCast.startMs) >= CLASP_CAST.buildMs + CLASP_CAST.convergeMs) {
+                claspCast.phase = 'burst';
+                claspCast.burstStartMs = nowMs;
+                impactClaspCast(nowMs);
+            }
+            return;
+        }
+        if ((nowMs - claspCast.burstStartMs) >= CLASP_CAST.burstMs) {
+            claspCast = null;
+            claspSuppressUntilMs = nowMs + 400;
+            updateState('neutral', true);
+        }
+    }
+
     // Runs only while the 茈 switch is ON. It owns the gun/pinch charge; firing triggers are
     // added by the push/flick tasks. No Blue/Red score ever escapes this mode.
     function updatePurpleMode(landmarks, shapes, keys, nowMs, flicks = null) {
@@ -1656,6 +1880,15 @@
         const purpleFlicks = {};
         lastHandShapes = [];
         let redFormSeen = false;
+        // The clasp cinematic keeps running even if the hands leave the frame. While it owns
+        // the screen no gesture may compete (the blast must not read as a new technique).
+        updateClaspCast(nowMs);
+        if (claspCast) {
+            if (blueCharge) cancelBlueCharge();
+            if (purpleCharge) cancelPurpleCharge();
+            resetBlueHandStates();
+            return frameScores;
+        }
         if (MODE === 'gojo' && purpleMode) {
             // The 茈 switch owns the interaction; Blue and Red are paused.
             if (blueCharge) cancelBlueCharge();
@@ -1675,6 +1908,9 @@
             }
         }
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
+            // With no hands the pose is false; this decays a warming run and can release the
+            // post-cast "let go before recasting" lock.
+            if (MODE === 'gojo') updateClaspDetection(nowMs, false);
             if (MODE === 'gojo' && purpleMode) {
                 updatePurpleMode([], [], [], nowMs);
                 return frameScores;
@@ -1797,8 +2033,25 @@
         lastHandShapes = handShapes;
         const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
 
+        // Two-hand clasp: accumulate a short run of frames instead of demanding a continuous
+        // two-hand read (MediaPipe drops one hand for stretches of the interlocked pose).
+        const claspPose = MODE === 'gojo' && claspPoseInfo(results.multiHandLandmarks, handShapes);
+        if (MODE === 'gojo') updateClaspDetection(nowMs, claspPose);
+        if (claspCast) {
+            if (blueCharge) cancelBlueCharge();
+            if (purpleCharge) cancelPurpleCharge();
+            resetBlueHandStates();
+            return frameScores;
+        }
+
         if (MODE === 'gojo') {
             if (purpleMode) {
+                // The clasp belongs to the same technique family; never arm the one-hand
+                // purple charge from hands that are currently forming the clasp.
+                if (claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+                    if (purpleCharge) cancelPurpleCharge();
+                    return frameScores;
+                }
                 frameScores.blue = 0;
                 frameScores.red = 0;
                 updatePurpleMode(results.multiHandLandmarks, handShapes, handKeys, nowMs, purpleFlicks);
@@ -1811,10 +2064,12 @@
             const techCoolingDown = nowMs < techCooldownUntilMs;
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
-            } else if (gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red') {
+            } else if (gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red'
+                || claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
                 // Fling-return swing must not arm the next technique; stages stay wiped.
                 // Red forms also wipe stages: the natural open>curl>open motion of making the
-                // gun sign must never satisfy Blue's open>fist>open chain.
+                // gun sign must never satisfy Blue's open>fist>open chain. Clasp hands also
+                // keep the Five-finger states idle.
                 resetBlueHandStates();
             } else {
                 const completedKey = updateBlueSequences(handShapes, handKeys, nowMs);
@@ -1842,6 +2097,14 @@
             // lock or another technique's 2s cooldown. An already-active Void is exempt so the
             // domain can be held for as long as the sign is maintained.
             if (currentTech !== 'void' && (blueCharge || gojoLocked || techCoolingDown)) frameScores.void = 0;
+            // A clasping silhouette reads exactly like Void on a single hand. While a clasp is
+            // warming (or has just fired), the clasp owns those hands and no technique may
+            // claim them; the cast itself starts above and returns early.
+            if (claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+                frameScores.void = 0;
+                frameScores.red = 0;
+                frameScores.blue = 0;
+            }
         } else if (results.multiHandLandmarks.length === 2) {
             const a = results.multiHandLandmarks[0];
             const b = results.multiHandLandmarks[1];
@@ -1919,6 +2182,10 @@
         { foot: '模式开关：开启后苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
         { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
         { foot: '小球射向屏幕正中心并爆开；拇指外弹比指尖上挑更易触发；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
+        { sep: '虚式「茈」 · 双手契印' },
+        { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
+        { foot: '左侧蓝色粒子球 + 右侧红色粒子球同时变大，向中心靠拢重叠后炸成紫色大爆炸' },
+        { foot: '不需要点顶部「茈」；这是双手动作，单手无效（单手同形仍是無量空処）' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
@@ -1935,7 +2202,7 @@
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
         { foot: '苍构筑/释放期间赫不触发，两者互不打断' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）' },
-        { foot: '任何术式触发后 2 秒冷却，防甩手连锁误触；手势模式启用苍/赫/茈/无量空处，T 可预览其余' }
+        { foot: '任何术式触发后 2 秒冷却，防甩手连锁误触；手势模式启用苍/赫/茈（含双手契印）/无量空处，T 可预览其余' }
     ];
     const GUIDE_ALL = [
         { sep: '单手 · one hand' },
@@ -1949,6 +2216,7 @@
         { gesture: '张开手掌+拇指伸出', tech: '領域展開「自閉円頓裹」' },
         { gesture: '平掌、中指无名指留缝', tech: '十劃呪法「比率」' },
         { sep: '双手 · two hands' },
+        { gesture: '双手交叉扣合（食指朝上、拇指内扣）', tech: '虚式「茈」' },
         { gesture: '拇指相触', tech: '無為転変' },
         { gesture: '双腕距 0.08~0.15', tech: '領域展開「嵌合暗翳庭」' },
         { gesture: '双拳', tech: '八握剣異戒神将魔虚羅' },
@@ -2087,6 +2355,7 @@
             `cooldown: ${Math.max(0, techCooldownUntilMs - nowMs).toFixed(0)}ms`,
             `charge: ${blueCharge ? `ON gro:${(blueCharge.lastGrowth || 0).toFixed(2)}/s streak:${blueCharge.growSamples}/${CHARGE.pushMinSamples} +${((blueCharge.size / Math.max(blueCharge.growStartSize, 0.001) - 1) * 100).toFixed(0)}%` : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
+            `clasp: ${claspCast ? claspCast.phase : '-'} run:${claspRunFrames} cd:${Math.max(0, claspCooldownUntilMs - nowMs).toFixed(0)}ms`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
             '',
@@ -2129,6 +2398,11 @@
     }
 
     function pickGestureFromScores(nowMs) {
+        // During the clasp build/convergence the screen is neutral; the cinematic (not a
+        // gesture) owns it. The burst itself is forced to Purple by impactClaspCast().
+        if (claspCast && claspCast.phase === 'build') {
+            return currentTech === 'neutral' ? 'neutral' : commitTransition('neutral', nowMs);
+        }
         if (currentTech === 'flick' && nowMs < flickLockUntilMs) {
             return 'flick';
         }
@@ -2301,6 +2575,15 @@
     });
 
     function updateState(tech, force = false) {
+        const nameEl = document.getElementById('technique-name');
+        if (claspCast) {
+            // The clasp cinematic outranks the underlying (neutral) gesture state.
+            glowColor = '#bb00ff';
+            if (nameEl) nameEl.innerText = '虚式「茈」';
+            baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
+            bloomPass.strength = baseBloomStrength;
+            if (!force && currentTech === tech) return;
+        }
         if(!force && currentTech === tech) return;
         const prevTech = currentTech;
         const nowMs = performance.now();
@@ -2322,7 +2605,6 @@
         } else if (nowMs > purpleFlickEligibleUntilMs && currentTech !== 'flick') {
             pendingPurpleExitFlick = false;
         }
-        const nameEl = document.getElementById('technique-name');
         shakeIntensity = tech === 'shrine' ? 1.5 : (tech !== 'neutral' ? 0.4 : 0);
 
         if(tech === 'shrine') { glowColor = '#ff0000'; nameEl.innerText = "領域展開「伏魔御廚子」"; baseBloomStrength = 2.5; }
@@ -2342,6 +2624,13 @@
         else if(tech === 'perfection') { glowColor = '#b060ff'; nameEl.innerText = "領域展開「自閉円頓裹」"; baseBloomStrength = 2.5; }
         else if(tech === 'flick') { glowColor = '#bb88ff'; nameEl.innerText = "虚式「茈」· 放出"; baseBloomStrength = 1.4; }
         else { glowColor = purpleMode ? '#bb00ff' : '#00ffff'; nameEl.innerText = purpleMode ? "虚式「茈」" : "通常状態"; baseBloomStrength = purpleMode ? 0.35 : 1.0; }
+        if (claspCast) {
+            // Re-assert after the per-technique chain (the burst enters as 'purple').
+            glowColor = '#bb00ff';
+            nameEl.innerText = '虚式「茈」';
+            baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
+            bloomPass.strength = baseBloomStrength;
+        }
         idleFlash.classList.toggle('active', tech === 'idlegamble');
         bloomPass.strength = baseBloomStrength;
 
@@ -2413,6 +2702,9 @@
         camera.position.z += (zoomTarget - camera.position.z) * 0.05;
 
         const nowMs = performance.now();
+        // Clasp-cast timeline: kept on the render clock so the build/convergence/blast
+        // completes even when the camera loses both hands.
+        updateClaspCast(nowMs);
         // FPS meter for the debug panel.
         fpsFrames += 1;
         if (nowMs - fpsLastMs >= 500) {
@@ -2422,7 +2714,8 @@
         }
         // While idling or constructing, the big field is fully dark: skip its per-frame lerp and
         // 240KB attribute upload. This keeps the charge swarm smooth even on weak GPUs.
-        const fieldIdle = currentTech === 'neutral'
+        const claspBuild = !!claspCast && claspCast.phase === 'build';
+        const fieldIdle = (currentTech === 'neutral' || claspBuild)
             && nowMs > neutralSettledAtMs
             && purpleExplosionUntilMs <= nowMs;
         particles.visible = !fieldIdle;
@@ -2501,6 +2794,46 @@
         } else {
             purpleOrb.visible = false;
             purplePath.length = 0;
+        }
+        // 虚式「茈」 clasp cast: Blue orb grows on the left, Red orb on the right, both travel
+        // to the centre and overlap (additive red+blue reads as purple), then the field blast
+        // takes over. The orbs fade into the first 180ms of the burst.
+        if (claspCast) {
+            const age = Math.max(0, nowMs - claspCast.startMs);
+            const buildP = clamp01(age / CLASP_CAST.buildMs);
+            const convP = clamp01((age - CLASP_CAST.buildMs) / CLASP_CAST.convergeMs);
+            const grow = 1 - Math.pow(1 - buildP, 2.2);
+            let radius = CLASP_CAST.orbStartRadius
+                + (CLASP_CAST.orbRadius - CLASP_CAST.orbStartRadius) * grow;
+            const halfH = Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
+            const halfW = halfH * camera.aspect;
+            const side = halfW * CLASP_CAST.sideFraction;
+            const travel = convP < 0.5
+                ? 2 * convP * convP
+                : 1 - Math.pow(-2 * convP + 2, 2) / 2;
+            const bob = Math.sin(nowMs * 0.0015) * 0.9;
+            const arc = Math.sin(travel * Math.PI) * 1.6;
+            const fade = claspCast.phase === 'burst'
+                ? 1 - clamp01((nowMs - claspCast.burstStartMs) / CLASP_CAST.fadeMs)
+                : 1;
+            radius = Math.max(0.3, radius * (0.55 + 0.45 * fade));
+            const show = fade > 0;
+            claspBlueOrb.points.visible = show;
+            claspRedOrb.points.visible = show;
+            if (show) {
+                const cross = travel * CLASP_CAST.crossOffset; // small pass-through at the centre
+                claspBlueOrb.points.position.set(-side * (1 - travel) + cross, bob + arc, 0);
+                claspRedOrb.points.position.set(side * (1 - travel) - cross, -bob - arc, 0);
+                const opacity = (0.35 + 0.65 * grow) * fade;
+                claspBlueOrb.material.opacity = opacity;
+                claspRedOrb.material.opacity = opacity;
+                const spin = nowMs / 1000;
+                fillClaspOrbPositions(claspBlueOrb, spin, radius, 0);
+                fillClaspOrbPositions(claspRedOrb, spin, radius, Math.PI);
+            }
+        } else {
+            claspBlueOrb.points.visible = false;
+            claspRedOrb.points.visible = false;
         }
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a

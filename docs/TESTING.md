@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，48 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，58 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 48 项断言（按顺序）
+### 1.4 58 项断言（按顺序）
 
 1. neutral 初始
 2. 枪形动作不误触苍（张开→收指→张开恰好凑成蓝时序的回归）
@@ -84,6 +84,16 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 46. 拇指**慢慢**外张（~660ms）不发射，蓄势保持
 47. 拇指内扣 → 快速外张（指尖不动）发射
 48. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
+49. 单手摆出与契印相同的两指+拇指内扣：仍是 void，不触发契印动画
+50. 双手扣合（食指尖靠近）触发双手契印（`claspCast` 非空）
+51. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
+52. 快进过 build+converge：进入爆发阶段（`claspCast.phase='burst'`）
+53. 爆发真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
+54. 爆发 1600ms 后契印状态结束（`claspCast=null`）
+55. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
+56. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
+57. 双手扣合姿势但相距很远：不算契印（不退化成双手 void 误触发）
+58. 双手相距很远的同形姿势仍按普通评分展开 void
 
 ### 1.5 加用例的四个坑
 
@@ -97,10 +107,14 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - **拇指外弹**：用 `thumbUnder1`（拇指内扣）+ `gun1`（拇指外张）模拟跳变；`thumbLerp1` 做慢速外张的
   反例。跳变必须在 `PURPLE_CAST.snapWindowMs`（500ms）内且 `thumbGapRatio` 增幅 ≥0.15 才发射；
   用例之间重新蓄势要 drain 上一发的 2s 冷却（`step(gun1, 70)` 足够）。
+- **双手契印**：用 `clasp2()`（两只手放在 0.455/0.545，`thumbUnderPts`）触发；触发需要攒 4 帧/120ms，
+  给 10 帧足够。动画时间轴走合成时钟：直接改 `claspCast.startMs` 再用 `updateClaspCast(t)` 快进
+  （`finishClasp()` 封装好了）；不要在用例里用 `performance.now()`，否则冷却会写到合成未来。
+  结束后有「必须松开姿势」锁，要先 `step([], 30)` 再重新扣合；双手分离的负例用 `claspFar2()`。
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void`（加 `&nobanner=1` 可隐藏左上角测试横幅）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|claspbuild|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏看构图）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
@@ -109,7 +123,9 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - `purpleburst`：发射后把爆炸**钉在 94% 剩余时长**（约 100ms 处的早期爆心），避免软件渲染低帧率
   错过 1.6s 的爆炸；按钮冷却环同时保持可见；
 - `void`：`forceTechnique('void')` + `updateState('void', true)`，直接展示白环 + 蓝色球壳的领域场
-  （不需要摄像头）。
+  （不需要摄像头）；
+- `claspbuild`：合成双手扣合触发契印，把 build 冻结在 75%（左右蓝/红两球），用于构图验收；
+- `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持 pill 为「虚式「茈」」。
 
 演示在真实时钟（`performance.now()`）上跑，但回归本身用合成时钟；驱动里的 `resetRealClockFx()`
 会在演示前清掉合成时钟遗留的 `purpleExplosionUntilMs`/震动/冷却，否则 canvas 会被巨大的
@@ -126,6 +142,16 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 
 重扫时建议用临时页 + 视频抽帧 + 相同的 `maxNumHands/modelComplexity/minDetectionConfidence`，
 扫完删掉临时文件；不要把视频帧或扫描页留在仓库。
+
+### 1.8 双手契印的参考视频扫描
+
+临时用同参数 MediaPipe Hands 扫了 `视频/虚式『茈』 2.mp4` 的 13 帧（3~16s，1fps，640 宽）：
+
+- **双手扣合时模型常常只给一只手**：6 帧双手 / 6 帧单手 / 1 帧无手；
+- 双手帧里稳定的是「两只手 indexUp=1、至少一只手 middleUp=1、两只手 thumbGapRatio<0.75」；
+  `wristGap` 0.61~2.68 掌长（有一个 2.68 的离群帧），`indexTipGap` 0.29~1.98（离群 1.98）；
+- 因此判定用「双手 + 拇指内扣 + 腕/指尖距离」，配 400ms 短窗口累积；离群帧被窗口过滤。
+- 单手帧的姿势和 void 几乎同形，所以契印候选期间必须强制清空 void 分；回归第 49 条锁这个行为。
 
 ## 2. 视觉验收（Xvfb + 有头 Firefox）
 
@@ -183,6 +209,10 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=purpleburst&nobanner=1" /tmp/shot-purpleburst.png 26
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=void&nobanner=1" /tmp/shot-void.png 26
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspbuild&nobanner=1&noui=1" /tmp/shot-clasp-build.png 22
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspburst&nobanner=1&noui=1" /tmp/shot-clasp-burst.png 22
 ```
 
 `nobanner=1` 只影响测试横幅；页面标题仍是 `LOGICTEST PASS`，也可以从窗口标题
@@ -228,8 +258,8 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（48 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void`（或相应态）确认无穿帮
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（58 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

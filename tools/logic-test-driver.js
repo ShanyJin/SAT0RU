@@ -80,6 +80,21 @@
         // 無量空処: the reference video's crossed two-finger sign. MediaPipe does not resolve
         // the crossing reliably, but the tucked thumb (thumbGapRatio < 0.75) is stable.
         const void1 = (x, y = 0.75) => [mkHand(x, y, thumbUnderPts(0))];
+        // 虚式「茈」 clasp cast: two hands, fingers interlocked, index up, thumbs tucked.
+        // Placed close enough that the index tips nearly meet, as in the reference footage.
+        const claspPts = thumbUnderPts(0);
+        const clasp2 = () => [mkHand(0.455, 0.65, claspPts), mkHand(0.545, 0.65, claspPts)];
+        const claspFar2 = () => [mkHand(0.30, 0.65, claspPts), mkHand(0.70, 0.65, claspPts)];
+        // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
+        const finishClasp = () => {
+            if (!claspCast) return;
+            claspCast.startMs = t - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
+            updateClaspCast(t);
+            if (claspCast && claspCast.phase === 'burst') {
+                claspCast.burstStartMs = t - CLASP_CAST.burstMs - 1;
+                updateClaspCast(t);
+            }
+        };
 
         let t = 1000;
         // Visual-check hook: the module scope is closed, so expose the 茈 state for
@@ -99,6 +114,26 @@
                 }
             };
         };
+        window.__claspState = () => ({
+            cast: !!claspCast,
+            phase: claspCast ? claspCast.phase : null,
+            run: claspRunFrames,
+            releaseRequired: claspPoseReleaseRequired,
+            cooldownLeftMs: Math.max(0, claspCooldownUntilMs - performance.now()),
+            blueVisible: claspBlueOrb.points.visible,
+            redVisible: claspRedOrb.points.visible,
+            blueScreen: (() => {
+                const v = claspBlueOrb.points.position.clone().project(camera);
+                return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+            })(),
+            redScreen: (() => {
+                const v = claspRedOrb.points.position.clone().project(camera);
+                return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
+            })(),
+            name: document.getElementById('technique-name')?.innerText,
+            viewport: { w: window.innerWidth, h: window.innerHeight },
+            now: performance.now()
+        });
         window.__purpleState = () => ({
             mode: purpleMode,
             charge: !!purpleCharge,
@@ -180,6 +215,12 @@
             flickLockUntilMs = 0;
             flickPulseUntilMs = 0;
             techCooldownUntilMs = 0;
+            claspCast = null;
+            claspRunFrames = 0;
+            claspLastSeenMs = -Infinity;
+            claspCooldownUntilMs = 0;
+            claspPoseReleaseRequired = false;
+            claspSuppressUntilMs = 0;
             renderer.domElement.style.transform = 'translate(0,0)';
         };
 
@@ -404,15 +445,91 @@
             setPurpleMode(false);
             step([], 10);
 
+            // --- 虚式「茈」 clasp cast: two hands interlocked, no top button ---
+            step([], 220); // drain cooldowns
+            // One hand in the same two-finger pose is still the Void domain, never the clasp.
+            step(void1(0.5), 20);
+            markState('one hand clasp-like is void, not cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 100);
+            // Two hands: the clasp itself must start the cinematic and suppress Void.
+            step(clasp2(), 10);
+            markState('clasp cast starts', 'cast', claspCast ? 'cast' : 'idle');
+            markState('clasp pose does not become void', 'neutral', currentTech);
+            // Fast-forward through build + convergence on the synthetic clock.
+            claspCast.startMs = t - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
+            updateClaspCast(t);
+            markState('clasp bursts into purple', 'burst', claspCast ? claspCast.phase : 'ended');
+            markState('clasp blast is active', 'yes', purpleExplosionUntilMs > t ? 'yes' : 'no');
+            claspCast.burstStartMs = t - CLASP_CAST.burstMs - 1;
+            updateClaspCast(t);
+            markState('clasp cast ends', 'ended', claspCast ? 'active' : 'ended');
+            // A held clasp cannot immediately recast (pose must be released).
+            step(clasp2(), 10);
+            markState('clasp cooldown blocks recast', 'idle', claspCast ? 'cast' : 'idle');
+            step([], 30); // release the pose so the clasp can re-arm
+            step(clasp2(), 70); // hold through the 2s cooldown; it should fire once it expires
+            markState('clasp recast after cooldown', 'cast', claspCast ? 'cast' : 'idle');
+            finishClasp();
+            step([], 70); // drain the recast's 2s cooldown
+            // Two clasp-like hands held far apart are two separate Void signs, not a clasp.
+            step(claspFar2(), 20);
+            markState('far two-hand pose is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            markState('far two-hand pose stays void', 'void', currentTech);
+            step([], 100);
+
             step([], 10); mark('end', null);
 
             // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo) {
+            const isClaspDemo = endMode === 'claspbuild' || endMode === 'claspburst';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo) {
                 step([], 200);
                 resetRealClockFx();
-                if (endMode === 'void') {
+                // Screenshot helper for the test artifact only (never the app): hide the rails.
+                if (new URLSearchParams(location.search).has('noui')) {
+                    document.body.classList.add('clean-mode');
+                }
+                if (isClaspDemo) {
+                    // 虚式「茈」 two-hand clasp: trigger on synthetic hands, then retime the
+                    // cinematic onto the render clock so animate() draws it for the screenshot.
+                    step(clasp2(), 10);
+                    if (claspCast) {
+                        const now = performance.now();
+                        if (endMode === 'claspbuild') {
+                            // Freeze the build at ~75%: both grown orbs sit at the screen sides.
+                            // The wrapper and interval are demo-only (this file is not the app).
+                            // setInterval keeps the visual age fresh even at 1–3fps.
+                            claspCast.startMs = now - CLASP_CAST.buildMs * 0.75;
+                            const baseUpdate = updateClaspCast;
+                            updateClaspCast = (ms) => {
+                                if (claspCast && claspCast.phase === 'build') {
+                                    // animate() calls this right before drawing, so the visual
+                                    // age stays at 75% of the build at any frame rate.
+                                    claspCast.startMs = ms - CLASP_CAST.buildMs * 0.75;
+                                    return;
+                                }
+                                baseUpdate(ms);
+                            };
+                        } else {
+                            claspCast.startMs = now - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
+                            updateClaspCast(now); // -> burst
+                            const baseUpdate = updateClaspCast;
+                            updateClaspCast = (ms) => {
+                                if (claspCast && claspCast.phase === 'burst') {
+                                    // Keep the blast mid-progress for the screenshot (life 0.42 = far-travelled streaks).
+                                    purpleExplosionUntilMs = ms + TUNING.purpleExplosionDurationMs * 0.42;
+                                    claspCooldownUntilMs = ms + CLASP_CAST.cooldownMs;
+                                    forcedTech = 'purple';
+                                    forcedUntilMs = ms + 400;
+                                    return;
+                                }
+                                baseUpdate(ms);
+                            };
+                        }
+                        document.title = endMode === 'claspbuild' ? 'CLASP BUILD DEMO' : 'CLASP BURST DEMO';
+                    }
+                } else if (endMode === 'void') {
                     // 無量空処: pin the domain field without needing the camera. The white
                     // inner ring + blue shell + slow rotation are the ported getVoid() effect.
                     forceTechnique('void', 999999999);
