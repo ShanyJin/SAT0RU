@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，93 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，97 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,120 +34,129 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 93 项断言（按顺序）
+### 1.4 97 项断言（按顺序）
 
 1. neutral 初始
 2. 做枪形的自然动作不武装苍（旧「张开→收指→张开」误触的回归）
-3. 同一动作留下的黒閃蓄势被随后的开掌放掉（不留残余）
-4. 赫 枪形触发
-5. 赫 枪形收手退场
-6. 赫 食指指触发
-7. 两形态互换不断档
-8. 短暂丢手（8 帧）桥接仍红
-9. 收手退场
-10. 2s 后赫恢复（旧的 8s 锁已废）
-11. 2s 冷却内重指不触发
-12. 2s 冷却结束赫恢复
-13. 冷却期回摆不误触苍
-14. 冷却结束双手指赫恢复
-15. 赫 语音：保持不足 2s 不播
-16. 赫 语音：保持超过 2s 播一次（`redVoiceCount +1`）
-17. 赫 语音：随机挑的是本地 `audio/he-1|2.mp3`
-18. 赫 语音：同一次保持只播一次
-19. 赫 语音：枪形保持 2s 同样触发
-20. 黒閃：张开→5 秒内快速握拳 → 武装蓄势（`bfCharge` 非空）
-21. 蓄势本身不占技法名（`currentTech` 仍 neutral）
-22. 握拳小幅抖动保持蓄势、不误判前推
-23. 单帧「开掌」误读不取消蓄势（需持续 100ms）
-24. 持续开掌取消蓄势（不爆发）
-25. 横向甩臂（一边横扫一边长大、横向漂移 >1.1/s）不触发
-26. 横向甩臂后蓄势仍在
-27. 蓄势期间指赫：不触发赫（其它术式全锁）
-28. 蓄势期间摆赫姿势也不丢蓄势
-29. 该蓄势最终由持续开掌放掉
-30. 握拳向镜头前推（掌尺寸持续增长）→ 爆发
-31. 爆发期间顶部技法名 = 黒閃
-32. 爆发期间 2D 叠层激活（`bfOverlayActiveUntilMs`）
-33. 爆发期间其它手势抢不走画面（枪形仍是黒閃）
-34. 2s 冷却内「开掌→握拳」不再武装
-35. 冷却结束（且开掌解锁后）同样动作可再次武装
-36. 苍：短持掌（~1.3s）不武装
-37. 苍：持掌 3 秒武装构筑球（不立即绽放，`currentTech` 仍 neutral）
-38. 慢速拖动 ~0.36/s 不打断，球只跟手
-39. 手指/掌尺寸抖动不打断（交替 ±8% 缩放 + 3 帧 +24% 关键点跳变）
-40. 快速横向挥手 ~1.8/s 不打断
-41. 构筑期指赫不打断
-42. 持续前推释放（掌尺寸 1.0→1.5，连续增长 ≥110ms、累计 ≥24%，blue）
-43. 动画中其他手势被忽略
-44. 冷却期赫被忽略
-45. 苍：双手持掌构筑
-46. 丢追踪释放（丢手 34 帧 ≈1.1s 后，blue）
-47. 合掌构筑武装（双手持掌 3s）
-48. 合掌释放（blue）
-49. 只张开 20 帧不触发（<3s）
-50. 握拳→张开不触发
-51. 赫枪形仍是赫、不是無量空処（拇指外张）
-52. 無量空処手势触发（两指举起 + 拇指内扣）
-53. 無量空処保持（手势持续）
-54. 無量空処松手退场
-55. 右上「茈」按钮存在
-56. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
-57. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
-58. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
-59. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
-60. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
-61. 捏合蓄势出小球
-62. 拇指内扣的待发姿势本身也能蓄势出小球
-63. 前推发射（`purpleShot` 非空）
-64. 飞行 380ms 后命中，`currentTech=purple`
-65. 命中后 2s 冷却内不能再蓄势
-66. 2s 冷却结束后恢复蓄势
-67. 拇指在下、指尖上挑的 flick 发射（旧路径仍保留）
-68. 重新蓄势（为拇指外弹用例准备）
-69. 拇指**慢慢**外张（~660ms）不发射，蓄势保持
-70. 拇指内扣 → 快速外张（指尖不动）发射
-71. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
-72. 单手摆出与契印相同的两指+拇指内扣：仍是 void，不触发契印动画
-73. 双手扣合（食指尖靠近）触发双手契印（`claspCast` 非空）
-74. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
-75. 快进过 build+converge：进入爆发阶段（`claspCast.phase='burst'`）
-76. 爆发真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
-77. 爆发 1600ms 后契印状态结束（`claspCast=null`）
-78. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
-79. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
-80. 双手扣合姿势但相距很远：不算契印（不退化成双手 void 误触发）
-81. 双手相距很远的同形姿势仍按普通评分展开 void
-82. 無量空処保持不足 3 秒：不触发开场动画
-83. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
-84. 开场动画隐藏 UI（`body.void-cinema`）
-85. 快进到换环时刻：20k 领域场重新显示
-86. 换环时领域场透明度淡入（>0.4）
-87. 换环时星星淡出（opacity <0.7）
-88. 长黑幕结束前：环全亮、黑幕仍全黑（opacity >0.95）
-89. 黑幕淡出完成后：背景透明（overlay <0.05）而环仍全亮（>0.95）
-90. 环收尾段：环正在淡出（0.2 < opacity < 0.8）
-91. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
-92. 动画结束后仍保持手势：不循环重播
-93. 松手后重新结印并保持 3 秒：可以再次播放
+3. 赫 枪形触发
+4. 赫 枪形收手退场
+5. 赫 食指指触发
+6. 两形态互换不断档
+7. 短暂丢手（8 帧）桥接仍红
+8. 收手退场
+9. 2s 后赫恢复（旧的 8s 锁已废）
+10. 2s 冷却内重指不触发
+11. 2s 冷却结束赫恢复
+12. 冷却期回摆不误触苍
+13. 冷却结束双手指赫恢复
+14. 赫 语音：保持不足 1s 不播
+15. 赫 语音：保持满 1s 播一次（`audioPlayCounts` +1）
+16. 赫 语音：随机挑的是本地 `audio/he-1|2.mp3`
+17. 赫 语音：同一次保持只播一次
+18. 赫 语音：枪形保持 1s 同样触发
+19. 苍 语音：持掌不足 1s 不播
+20. 苍 语音：持掌满 1s 播一次
+21. 苍 语音：播的是本地 `audio/blue.mp3`
+22. 苍 语音：同一次保持只播一次
+23. 苍：短持掌（~1.3s）不武装
+24. 苍：持掌 3 秒武装构筑球（不立即绽放，`currentTech` 仍 neutral）
+25. 慢速拖动 ~0.36/s 不打断，球只跟手
+26. 手指/掌尺寸抖动不打断（交替 ±8% 缩放 + 3 帧 +24% 关键点跳变）
+27. 快速横向挥手 ~1.8/s 不打断
+28. 构筑期指赫不打断
+29. 持续前推释放（掌尺寸 1.0→1.5，连续增长 ≥110ms、累计 ≥24%，blue）
+30. 动画中其他手势被忽略
+31. 冷却期赫被忽略
+32. 苍：双手持掌构筑
+33. 丢追踪释放（丢手 34 帧 ≈1.1s 后，blue）
+34. 合掌构筑武装（双手持掌 3s）
+35. 合掌释放（blue）
+36. 只张开 20 帧不触发（<3s）
+37. 握拳→张开不触发
+38. 赫枪形仍是赫、不是無量空処（拇指外张）
+39. 無量空処手势触发（两指举起 + 拇指内扣）
+40. 無量空処语音：保持不足 1s 不播
+41. 無量空処保持（手势持续）
+42. 無量空処语音：保持满 1s 播一次
+43. 無量空処语音：播的是本地 `audio/void.mp3`
+44. 無量空処语音：同一次保持只播一次
+45. 無量空処松手退场
+46. 右上「茈」按钮存在
+47. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
+48. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
+49. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
+50. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
+51. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
+52. 捏合蓄势出小球
+53. 拇指内扣的待发姿势本身也能蓄势出小球
+54. 前推发射（`purpleShot` 非空）
+55. 发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）
+56. 飞行 380ms 后命中，`currentTech=purple`
+57. 命中后 2s 冷却内不能再蓄势
+58. 2s 冷却结束后恢复蓄势
+59. 拇指在下、指尖上挑的 flick 发射（旧路径仍保留）
+60. 重新蓄势（为拇指外弹用例准备）
+61. 拇指**慢慢**外张（~660ms）不发射，蓄势保持
+62. 拇指内扣 → 快速外张（指尖不动）发射
+63. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
+64. 单手摆出与契印相同的两指+拇指内扣：仍是 void，不触发契印动画
+65. 双手扣合（食指尖靠近）触发双手契印（`claspCast` 非空）
+66. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
+67. 快进过 build+converge：进入爆发阶段（`claspCast.phase='burst'`）
+68. 爆发真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
+69. 爆发 1600ms 后契印状态结束（`claspCast=null`）
+70. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
+71. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
+72. 双手扣合姿势但相距很远：不算契印（不退化成双手 void 误触发）
+73. 双手相距很远的同形姿势仍按普通评分展开 void
+74. 無量空処保持不足 3 秒：不触发开场动画
+75. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
+76. 开场动画隐藏 UI（`body.void-cinema`）
+77. 快进到换环时刻：20k 领域场重新显示
+78. 换环时领域场透明度淡入（>0.4）
+79. 换环时星星淡出（opacity <0.7）
+80. 长黑幕结束前：环全亮、黑幕仍全黑（opacity >0.95）
+81. 黑幕淡出完成后：背景透明（overlay <0.05）而环仍全亮（>0.95）
+82. 环收尾段：环正在淡出（0.2 < opacity < 0.8）
+83. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
+84. 动画结束后仍保持手势：不循环重播
+85. 松手后重新结印并保持 3 秒：可以再次播放
+86. 左侧栏存在「长时间无量空处」开关
+87. 点击开关打开（`voidLongMode=true`）
+88. 长版时间轴总长 > 语音时长 + 1s（`endMs 33800 > audioMs 31164 + 1000`）
+89. 长版下無量空処保持不足 1 秒：不触发动画
+90. 保持满 1 秒：启动长版开场动画
+91. 同帧播放长语音 `audio/void-long.mp3`
+92. 长版不播单人版 `audio/void.mp3`
+93. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
+94. 再点开关关闭（`voidLongMode=false`）
+95. 左侧音频库列出全部 7 条
+96. 音频库包含契印音轨 `audio/purple-clasp.mp3`
+97. 点击音频行会播放对应音频
 
 ### 1.5 加用例的坑
 
-- **2 秒冷却**：赫/茈/無量空処/黒閃爆发触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
+- **2 秒冷却**：赫/茈/無量空処触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
   需要 ~140~180 帧。现有用例习惯多 drain 到 180~260 帧，稳。参考红冷却的 9→10→11 节奏。
 - **EMA 与帧数**：进入要 smoothed ≥0.75，姿势切换给足 20~25 帧；`redFormSeen` 这类「立即清零」的逻辑
   在单帧上生效，不需要长窗口。
-- **苍 = 持掌 3 秒**：`armBlue1` 现在是 `step(open1(x), 100)`（3 帧起算 + 3000ms ≈ 94 帧，留余量）。
-  持掌不足的负例用 40 帧；中途插 2 帧 `fist1` 会打断计时，但**同时会武装黒閃**，随后必须开掌把它放掉
-  （驱动里就是这么串的）。冷却期内的开掌帧会被 `othersOwnHands` 重置，不会偷偷攒苍。
-- **黒閃**：`armBlackFlash1` = 张开 8 帧 + 握拳 6 帧。蓄势后握拳静止/小幅抖动（±5%）不得爆发；
-  爆发用 `scaledFist1` 逐帧 +7% 增长（第 4 帧左右满足 100ms/3 采样/19%/1.3/s 的闸门）。
-  **横向甩臂负例**用 `scaledFist1(0.5 + i*0.055, …, 1 + i*0.06)`：尺寸同样在长，但横向漂移 ~1.67/s
-  超过 `punchMaxDrift 1.1/s`，不得爆发。取消蓄势要「持续开掌 ≥100ms」（约 4 帧），
-  单帧开掌只当运动模糊。爆发后 `bfPoseReleaseRequired` 要求先开掌才能重新武装，冷却期内的开掌帧不会累积链条
-  ——写「冷却拦截」用例时把「开掌→握拳」放在冷却结束前即可。
-- **赫语音**：`updateRedVoice` 跟着 `runFrame` 走合成时钟；断言数「次数」而不是听声音（无手势的测试页里
-  `play()` 会被浏览器拒绝，驱动只统计尝试播放次数与 `redVoiceLastSrc`）。保持 2s = 进入赫后再 60+ 帧，
-  断「不足 2s」要给 <60 帧；每次松开手势后再结印才会再播。
+- **苍 = 持掌 3 秒**：`armBlue1` 是 `step(open1(x), 100)`（3 帧起算 + 3000ms ≈ 94 帧，留余量）。
+  持掌不足的负例用 40 帧。想在同一用例里做第二段持掌，必须**用握拳帧断掉上一次保持**
+  （`step(fist1(0.5), 3)`）：无手帧早退时不会清 `blueHandStates`，直接空步会让旧 stage=1 续上，
+  第二段持掌一开局就完成。冷却期内的开掌帧会被 `othersOwnHands` 重置，不会偷偷攒苍。
+- **术式语音（1 秒门槛）**：`updateTechniqueVoices` 由 `runFrame` 每帧调用、走合成时钟；断言数
+  「尝试播放次数」而不是听声音（测试页里 `play()` 会被浏览器拒绝，驱动统计 `audioPlayCounts` 与
+  `lastAudioKey`）。保持 1s ≈ 进入技法后再 30+ 帧；断「不足 1s」给 <30 帧。苍的计时读
+  `blueHoldElapsedMs()`（stage=1 的 `atMs`），松手/握拳清零后才会复位 `blueVoicePlayed`；
+  赫离开 red、無量空処离开 void 同理。每次重新保持才会再播。
+- **音频库**：`AUDIO_TRACKS` 按页面里实际存在的 `<audio>` 过滤；回归页有完整侧栏，应得 7 行。
+  点击态用 `toggleAudioClip(key)` 或直接 `row.click()`，断言 `audioPlayCounts[key]` +1 与 `.playing` 类；
+  同一时间只播一条的行为由 `playAudioClip` 先暂停其它轨道保证。
+- **长时间无量空处**：`longBtn.click()` 切换 `voidLongMode`；打开后保持 void 只需 ~35 帧就会在
+  `runFrame` 里自动开播长版（`voidCinematic.timeline === VOID_CINEMA_LONG`），同帧
+  `audioPlayCounts['void-long']` +1、`audioPlayCounts['void']` 不变。用
+  `VOID_CINEMA_LONG.endMs`（33800）快进收尾，断言 `endMs > audioMs + 1000`；收尾后关掉开关
+  （`resetRealClockFx` 也会把 `voidLongMode` 复位，演示态之间不串味）。
 - **前推链**：`scaledOpen1` / `scaledGun1` 的缩放必须逐帧递增且持续 ≥110ms、累计 ≥24% 才会释放；
   中间一帧不涨即断链。写「应该释放」的用例时给足 5 帧以上；写「不该释放」的用例时，
   一个 2~3 帧的尺寸跳变即可复现旧版误触。
@@ -166,7 +175,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|claspbuild|claspburst|blackcharge|blackburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|voidlong|claspbuild|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
@@ -182,14 +191,10 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   白环 + 蓝色星云（黑幕上）；
 - `voidclear`：把相位冻结在「黑幕已淡出 + 环还没开始收」的时刻——背景透明、白环仍全亮，
   验收主人要求的「黑幕消失、环还在」节拍；
+- `voidlong`：直接 `startVoidCinematic(performance.now(), true)`，把相位冻结在长版换环后的
+  黑幕保持段——验证 24 秒长黑幕上白环仍亮、bloom 在慢呼吸；
 - `claspbuild`：合成双手扣合触发契印，把 build 冻结在 75%（左右蓝/红两球），用于构图验收；
-- `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」；
-- `blackcharge`：合成「张开→握拳」武装黒閃，把蓄势钉在世界原点轻微漂移——屏幕中心会看到
-  150 颗红/黑细点组成的散盘（半径≈掌长，红点带辉光、黑点带暗红描边），用于验收「拳头为中心的 10cm 散点」；
-- `blackburst`：武装后直接 `startBlackFlashBurst`，把爆发钉在 age≈0.45（叠层绘制包装里用同一帧时钟
-  重写 `bfOverlayBurstMs/bfOverlayActiveUntilMs`，1fps 下也不会落到空帧），并用 16ms 定时器续期
-  `bfBurstUntilMs/forcedTech` 让顶部保持「黒閃」。画面应为：满屏近黑 + 红边黑闪电从中间空洞向外炸、
-  飞散余烬、中间留一拳空位。
+- `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」。
 - 截 UI（顶栏/侧栏）时加 `&nobanner=1`：否则左上角的测试横幅会盖住菜单按钮；`&noui=1` 用
   `display:none` 直接藏掉侧栏与菜单按钮（应用里的 clean-mode 已删，别再用那个类）。
 
@@ -217,7 +222,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - 双手帧里稳定的是「两只手 indexUp=1、至少一只手 middleUp=1、两只手 thumbGapRatio<0.75」；
   `wristGap` 0.61~2.68 掌长（有一个 2.68 的离群帧），`indexTipGap` 0.29~1.98（离群 1.98）；
 - 因此判定用「双手 + 拇指内扣 + 腕/指尖距离」，配 400ms 短窗口累积；离群帧被窗口过滤。
-- 单手帧的姿势和 void 几乎同形，所以契印候选期间必须强制清空 void 分；回归第 49 条锁这个行为。
+- 单手帧的姿势和 void 几乎同形，所以契印候选期间必须强制清空 void 分；回归第 64 条锁这个行为。
 
 ## 2. 视觉验收（Xvfb + 有头 Firefox）
 
@@ -288,9 +293,7 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspburst&nobanner=1&noui=1" /tmp/shot-clasp-burst.png 22
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=blackcharge&nobanner=1&noui=1" /tmp/shot-bf-charge.png 30
-xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=blackburst&nobanner=1&noui=1" /tmp/shot-bf-burst.png 30
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidlong&nobanner=1&noui=1" /tmp/shot-voidlong.png 36
 ```
 
 `nobanner=1` 只影响测试横幅；页面标题仍是 `LOGICTEST PASS`，也可以从窗口标题
@@ -337,9 +340,9 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（93 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=claspbuild` / `end=claspburst` / `end=blackcharge` / `end=blackburst`（或相应态）确认无穿帮
-- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置开关可切换、右上提示随「茈」模式变化
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（97 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
+- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置 4 个开关（D/H/V/L）可切换、音频库 7 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

@@ -51,11 +51,6 @@
             const w = hand[0];
             return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
         };
-        const scaledFist1 = (x, y, f) => {
-            const hand = mkHand(x, y, FIST_PTS);
-            const w = hand[0];
-            return [hand.map((p) => ({ x: w.x + (p.x - w.x) * f, y: w.y + (p.y - w.y) * f }))];
-        };
         // 茈's second firing pose: same raised index+middle, thumb tucked under, then a quick
         // outward lift of the two fingertips. `lift` is the outward displacement for the flick.
         const thumbUnderPts = (lift = 0) => {
@@ -171,16 +166,6 @@
             overlay: voidCinemaEl ? Number(voidCinemaEl.style.opacity || 0) : null,
             now: performance.now()
         });
-        // Visual-check hook for 黒閃 (charge orb / burst overlay beats).
-        window.__bfState = () => ({
-            charge: !!bfCharge,
-            burstActive: bfBurstUntilMs > performance.now(),
-            overlayActive: bfOverlayActiveUntilMs > performance.now(),
-            chargeDots: !!(bfCharge && bfCharge.visInit),
-            chargeRadiusPx: bfCharge ? bfCharge.size * window.innerHeight * 1.05 : 0,
-            name: document.getElementById('technique-name')?.innerText,
-            now: performance.now()
-        });
         const runFrame = (hands, ms) => {
             // Mirror onResults: the 無量空処 cinematic freezes the gesture pipeline.
             if (voidCinematic) return;
@@ -204,7 +189,7 @@
             maybeTriggerPurpleExitExplosion(next, ms);
             updateState(next);
             maybeTriggerVoidCinematic(ms);
-            updateRedVoice(ms);
+            updateTechniqueVoices(ms);
         };
         const step = (hands, n) => {
             for (let i = 0; i < n; i++) { runFrame(hands, t); t += 33; }
@@ -220,12 +205,6 @@
         const armBlue1 = (x = 0.5) => {
             step(open1(x), 100);
             return !!blueCharge;
-        };
-        // 黒閃: flash an open palm, then a quick fist within BLACK_FLASH.openWindowMs.
-        const armBlackFlash1 = (x = 0.5) => {
-            step(open1(x), 8);
-            step(fist1(x), 6);
-            return !!bfCharge;
         };
         // A test failure may leave a blast + 2s cooldown behind; clear it so the next
         // assertion starts from a fresh idle state instead of cascading.
@@ -256,11 +235,7 @@
             claspCooldownUntilMs = 0;
             claspPoseReleaseRequired = false;
             claspSuppressUntilMs = 0;
-            bfCharge = null;
-            bfBurstUntilMs = 0;
-            bfPoseReleaseRequired = false;
-            resetBlackFlashHandStates();
-            clearBlackFlashOverlay();
+            voidLongMode = false;
             voidCinematic = null;
             voidHoldAwarded = false;
             voidStreaks.visible = false;
@@ -284,14 +259,13 @@
         try {
             step([], 5); mark('neutral', 'neutral');
 
-            // Making the gun sign must not arm Blue. (The brief fist in this motion now arms
-            // a 黒閃 charge by design — the following open hand lets it go.)
+            // Making the gun sign must not arm Blue. The brief fist in this motion just
+            // breaks the open-palm hold.
             step(open1(0.5), 8);
             step(gun1(0.5), 3);
             step(fist1(0.5), 2);
             step(open1(0.5), 6);
             markState('gun motion does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
-            markState('gun motion leaves no black charge', 'idle', bfCharge ? 'charge' : 'idle');
             step([], 20);
 
             // --- 赫 form 2: gun (index+middle together, thumb flared) ---
@@ -326,89 +300,47 @@
             step(RED2, 25); mark('red after cooldown', 'red');
             step([], 260); // drain again before the voice / Blue suites
 
-            // --- 赫 voice: either Red form held past 2 s plays one of the two local clips,
+            // --- 赫 voice: either Red form held 1 s plays one of the two local clips,
             // exactly once per continuous hold — dropping the sign re-arms it. ---
-            const vc0 = redVoiceCount;
-            step(red1(0.5), 50); // ~1.65 s of pointing; Red itself is entered after ~7 frames
-            markState('red voice waits for the 2 s hold', 'silent',
-                redVoiceCount === vc0 ? 'silent' : 'played');
-            step(red1(0.5), 25); // crosses the 2 s hold
-            markState('red voice fires after a 2 s hold', 'played',
-                redVoiceCount === vc0 + 1 ? 'played' : 'silent');
+            const he0 = audioPlayCounts['he-1'] + audioPlayCounts['he-2'];
+            const heCount = () => audioPlayCounts['he-1'] + audioPlayCounts['he-2'];
+            step(red1(0.5), 22); // ~0.73 s of pointing; Red itself is entered after ~7 frames
+            markState('red voice waits for the 1 s hold', 'silent',
+                heCount() === he0 ? 'silent' : 'played');
+            step(red1(0.5), 20); // crosses the 1 s hold
+            markState('red voice fires after a 1 s hold', 'played',
+                heCount() === he0 + 1 ? 'played' : 'silent');
             markState('red voice picks a local clip', 'local',
-                /\/audio\/he-[12]\.mp3$/.test(redVoiceLastSrc || '') ? 'local' : (redVoiceLastSrc || 'none'));
+                /^(he-1|he-2)$/.test(lastAudioKey) ? 'local' : (lastAudioKey || 'none'));
             step(red1(0.5), 40); // a longer hold must not replay it
             markState('red voice plays once per hold', 'once',
-                redVoiceCount === vc0 + 1 ? 'once' : 'again');
+                heCount() === he0 + 1 ? 'once' : 'again');
             step([], 60); // drop the sign: re-arm the clip for the next hold
-            step(gun1(0.5), 70); // the gun form gets its own random clip after 2 s
+            step(gun1(0.5), 70); // the gun form gets its own random clip after 1 s
             markState('red voice fires on the gun form too', 'played',
-                redVoiceCount === vc0 + 2 ? 'played' : 'silent');
-            step([], 200); // drain before the 黒閃 suite
-
-            // --- 黒閃: open palm -> quick fist arms a black/red charge on the fist ---
-            step([], 30);
-            markState('black flash arms on open->quick fist', 'charge', armBlackFlash1() ? 'charge' : 'idle');
-            markState('black flash charge shows no technique yet', 'neutral', currentTech);
-            // A steady fist just holds the charge; wobble must not read as a punch.
-            for (let i = 0; i < 10; i++) {
-                runFrame(scaledFist1(0.5, 0.75, i % 2 ? 1.05 : 0.98), t);
-                t += 33;
-            }
-            markState('fist wobble keeps black charge', 'charge', bfCharge ? 'charge' : 'idle');
-            // A single motion-blurred "open" read must not kill the charge; a held open does.
-            step(open1(0.5), 2);
-            markState('brief open frame keeps black charge', 'charge', bfCharge ? 'charge' : 'idle');
-            step(open1(0.5), 5);
-            markState('opening hand cancels black charge', 'idle', bfCharge ? 'charge' : 'idle');
-            step([], 20);
-
-            // A sideways arm swing that also grows the palm must not fire: the fist travels
-            // across the frame far too fast to be a punch toward the lens.
-            armBlackFlash1();
-            for (let i = 0; i < 6; i++) {
-                runFrame(scaledFist1(0.5 + i * 0.055, 0.75, 1 + i * 0.06), t);
-                t += 33;
-            }
-            markState('sideways swing does not fire black flash', 'no', bfBurstUntilMs > t ? 'yes' : 'no');
-            markState('sideways swing keeps the charge', 'charge', bfCharge ? 'charge' : 'idle');
-            // While the charge runs, no other technique may start at the same spot.
-            step(red1(0.5), 10);
-            markState('black charge locks out red', 'neutral', currentTech);
-            markState('black charge survives a red pose', 'charge', bfCharge ? 'charge' : 'idle');
-            step(open1(0.5), 7);
-            markState('swing-test charge cancels on open', 'idle', bfCharge ? 'charge' : 'idle');
-            step([], 20);
-
-            // Punch: the fist accelerates toward the camera -> burst + overlay.
-            armBlackFlash1();
-            for (let f = 1.0; f <= 1.4; f += 0.07) {
-                runFrame(scaledFist1(0.5, 0.75, f), t);
-                t += 33;
-            }
-            markState('black flash punch fires burst', 'yes', bfBurstUntilMs > t ? 'yes' : 'no');
-            mark('black flash burst shows its name', 'blackflash');
-            markState('black flash overlay active', 'yes', bfOverlayActiveUntilMs > t ? 'yes' : 'no');
-            step(gun1(0.5), 10);
-            mark('black flash owns the burst', 'blackflash');
-            // Within the 2 s cooldown an open->fist chain must not re-arm.
-            step(open1(0.5), 12);
-            step(fist1(0.5), 3);
-            markState('black flash cooldown blocks rearm', 'idle', bfCharge ? 'charge' : 'idle');
-            step([], 10);
-            // After the cooldown the same chain arms again (the open hand also releases the
-            // post-burst pose lock); the open stretch stays under 蒼's 3 s hold.
-            step(open1(0.5), 60);
-            step(fist1(0.5), 6);
-            markState('black flash rearms after cooldown', 'charge', bfCharge ? 'charge' : 'idle');
-            step(open1(0.5), 7); // cancel the charge again
-            step([], 20);
+                heCount() === he0 + 2 ? 'played' : 'silent');
+            step([], 200); // drain before the Blue suite
 
             // --- 苍1: holding an open palm for 3 s arms a charge instead of blooming ---
-            // Shorter holds must not arm it.
-            step(open1(0.5), 40); // ~1.3 s
+            // Blue voice: the hold itself plays the 蒼 clip after 1 s, well before the charge.
+            const bc0 = audioPlayCounts.blue;
+            step([], 20);
+            step(open1(0.5), 22); // ~0.73 s; the 3-frame open confirmation shifts the timer
+            markState('blue voice waits for the 1 s hold', 'silent',
+                audioPlayCounts.blue === bc0 ? 'silent' : 'played');
+            step(open1(0.5), 20); // crosses the 1 s hold
+            markState('blue voice fires after a 1 s hold', 'played',
+                audioPlayCounts.blue === bc0 + 1 ? 'played' : 'silent');
+            markState('blue voice picks the local clip', 'blue',
+                lastAudioKey === 'blue' ? 'blue' : (lastAudioKey || 'none'));
+            step(open1(0.5), 30); // still under 苍's 3 s charge threshold
+            markState('blue voice plays once per hold', 'once',
+                audioPlayCounts.blue === bc0 + 1 ? 'once' : 'again');
+            step(fist1(0.5), 3); // break the hold so the next test starts fresh
+            // Shorter holds must not arm the charge.
+            step(open1(0.5), 40); // ~1.3 s (the clip replays; the charge must stay idle)
             markState('short open hold does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
-            step(fist1(0.5), 2); // a fist breaks the hold (it arms 黒閃; the next open lets it go)
+            step(fist1(0.5), 2); // a fist breaks the open-palm hold
             step([], 10);
             markState('blue1 charge armed (no bloom)', 'charge',
                 armBlue1() ? (currentTech === 'neutral' ? 'charge' : 'bloomed') : 'idle');
@@ -479,8 +411,18 @@
             step([], 100);
             step(void1(0.5), 20);
             mark('void gesture triggers', 'void');
-            step(void1(0.5), 20);
+            const vv0 = audioPlayCounts.void;
+            markState('void voice waits for the 1 s hold', 'silent',
+                audioPlayCounts.void === vv0 ? 'silent' : 'played');
+            step(void1(0.5), 20); // crosses the 1 s hold
             mark('void holds while gesture held', 'void');
+            markState('void voice fires after a 1 s hold', 'played',
+                audioPlayCounts.void === vv0 + 1 ? 'played' : 'silent');
+            markState('void voice picks the local clip', 'void',
+                lastAudioKey === 'void' ? 'void' : (lastAudioKey || 'none'));
+            step(void1(0.5), 20);
+            markState('void voice plays once per hold', 'once',
+                audioPlayCounts.void === vv0 + 1 ? 'once' : 'again');
             step([], 30);
             mark('void releases when gesture drops', 'neutral');
 
@@ -519,6 +461,7 @@
 
             // --- 茈 forward push: fire, impact at center, 2s cooldown ---
             setPurpleMode(true);
+            const pv0 = audioPlayCounts.purple;
             step(scaledGun1(0.5, 0.75, 1.0), 8);
             for (let f = 1.0; f <= 1.5; f += 0.07) {
                 runFrame(scaledGun1(0.5, 0.75, f), t);
@@ -526,6 +469,8 @@
             }
             markState('purple forward push fires', 'shot',
                 (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            markState('purple shot plays the 2026 clip', 'played',
+                (audioPlayCounts.purple === pv0 + 1 && lastAudioKey === 'purple') ? 'played' : 'silent');
             step(gun1(0.5), 15);
             mark('purple shot impacts', 'purple');
             step(gun1(0.5), 20);
@@ -661,15 +606,56 @@
             updateVoidCinematic(t);
             step([], 30);
 
+            // --- 長時間無量空処: the left-rail switch selects the long timeline + 31 s voice ---
+            const longBtn = document.querySelector('#settings-list [data-action="voidlong"]');
+            markState('long void switch exists', 'yes', longBtn ? 'yes' : 'no');
+            if (longBtn) longBtn.click();
+            markState('long void switch toggles on', 'on',
+                (voidLongMode && document.querySelector('#settings-list [data-action="voidlong"]')
+                    ?.getAttribute('aria-checked') === 'true') ? 'on' : 'off');
+            markState('long timeline outlives its voice', 'yes',
+                VOID_CINEMA_LONG.endMs > VOID_CINEMA_LONG.audioMs + 1000 ? 'yes' : 'no');
+            step([], 240); // drain cooldowns before the long hold
+            const lv0 = audioPlayCounts['void-long'];
+            const vs0 = audioPlayCounts.void;
+            step(void1(0.5), 20); // enter the domain
+            markState('long void under 1 s no cinematic', 'no', voidCinematic ? 'yes' : 'no');
+            step(void1(0.5), 20); // cross the 1 s long hold
+            markState('long void starts long cinematic', 'yes',
+                (voidCinematic && voidCinematic.long) ? 'yes' : 'no');
+            markState('long void plays the long voice', 'played',
+                audioPlayCounts['void-long'] === lv0 + 1 ? 'played' : 'silent');
+            markState('long void skips the short voice', 'skipped',
+                audioPlayCounts.void === vs0 ? 'skipped' : 'played');
+            voidCinematic.startMs = t - VOID_CINEMA_LONG.endMs - 1;
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('long cinematic ends after the voice', 'ended', voidCinematic ? 'active' : 'ended');
+            const longBtnOff = document.querySelector('#settings-list [data-action="voidlong"]');
+            if (longBtnOff) longBtnOff.click();
+            markState('long void switch toggles off', 'off', voidLongMode ? 'on' : 'off');
+            step([], 40);
+
+            // --- Audio block: one row per local clip; clicking plays it ---
+            const audioRows = document.querySelectorAll('#audio-list .audio-row');
+            markState('audio block lists every clip', '7', String(audioRows.length));
+            markState('audio block includes the clasp track', 'yes',
+                document.querySelector('#audio-list [data-audio="purple-clasp"]') ? 'yes' : 'no');
+            const pc0 = audioPlayCounts['purple-clasp'];
+            const claspRow = document.querySelector('#audio-list [data-audio="purple-clasp"]');
+            if (claspRow) claspRow.click();
+            markState('audio row click plays the clip', 'played',
+                (audioPlayCounts['purple-clasp'] === pc0 + 1 && lastAudioKey === 'purple-clasp')
+                    ? 'played' : 'silent');
+
             step([], 10); mark('end', null);
 
             // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
             const isClaspDemo = endMode === 'claspbuild' || endMode === 'claspburst';
-            const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear';
-            const isBlackDemo = endMode === 'blackcharge' || endMode === 'blackburst';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isBlackDemo) {
+            const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
@@ -732,13 +718,15 @@
                     // beat we want to screenshot (software GL runs at 1–3fps).
                     forceTechnique('void', 999999999);
                     updateState('void', true);
-                    startVoidCinematic(performance.now());
+                    startVoidCinematic(performance.now(), endMode === 'voidlong');
                     if (voidCinematic) {
                         const freezeMs = endMode === 'voidform'
                             ? VOID_CINEMA.formDelayMs + VOID_CINEMA.formMs * 0.85
                             : endMode === 'voidclear'
                                 ? VOID_CINEMA.blackFadeAtMs + VOID_CINEMA.blackFadeMs + 300
-                                : VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5;
+                                : endMode === 'voidlong'
+                                    ? VOID_CINEMA_LONG.ringAtMs + VOID_CINEMA_LONG.ringFadeMs * 0.5
+                                    : VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5;
                         const baseUpdate = updateVoidCinematic;
                         updateVoidCinematic = (ms) => {
                             if (!voidCinematic) return;
@@ -749,50 +737,8 @@
                         };
                     }
                     document.title = endMode === 'voidform' ? 'VOID FORM DEMO'
-                        : endMode === 'voidclear' ? 'VOID CLEAR DEMO' : 'VOID RING DEMO';
-                } else if (isBlackDemo) {
-                    // 黒閃: arm the fist charge on synthetic hands, then ride the real clock so
-                    // animate() paints the black/red orb (charge) or the burst + overlay.
-                    step(open1(0.5), 8);
-                    step(fist1(0.5), 6);
-                    if (bfCharge) {
-                        const now = performance.now();
-                        bfCharge.startedMs = now - 2200; // fully grown ball
-                        bfCharge.visX = 0;
-                        bfCharge.visY = 0;
-                        if (endMode === 'blackcharge') {
-                            // Pin the charge at world centre and drift it a little.
-                            const t0 = now;
-                            (function wiggle() {
-                                if (!bfCharge) return;
-                                const sec = (performance.now() - t0) / 1000;
-                                bfCharge.visX = Math.sin(sec * 1.7) * 1.0;
-                                bfCharge.visY = Math.cos(sec * 1.3) * 0.7;
-                                requestAnimationFrame(wiggle);
-                            })();
-                        } else {
-                            startBlackFlashBurst(now);
-                            // Hold the blast mid-progress for the screenshot. The overlay freeze
-                            // is rewritten inside the draw call (same clock as animate); software
-                            // GL frames can be a second apart, so an rAF loop would go stale.
-                            const baseDraw = drawBlackFlashOverlay;
-                            drawBlackFlashOverlay = (ms) => {
-                                bfOverlayActiveUntilMs = ms + BLACK_FLASH.burstMs;
-                                bfOverlayBurstMs = ms - BLACK_FLASH.burstMs * 0.45;
-                                return baseDraw(ms);
-                            };
-                            // Keep the burst state (pill label + cooldown) fresh on a timer so
-                            // the screenshot always lands inside an active blast.
-                            setInterval(() => {
-                                const ms = performance.now();
-                                bfBurstUntilMs = ms + BLACK_FLASH.burstMs * 0.55;
-                                techCooldownUntilMs = ms + BLACK_FLASH.cooldownMs;
-                                forcedTech = 'blackflash';
-                                forcedUntilMs = ms + 400;
-                            }, 16);
-                        }
-                    }
-                    document.title = endMode === 'blackcharge' ? 'BLACK FLASH CHARGE DEMO' : 'BLACK FLASH BURST DEMO';
+                        : endMode === 'voidclear' ? 'VOID CLEAR DEMO'
+                        : endMode === 'voidlong' ? 'VOID LONG DEMO' : 'VOID RING DEMO';
                 } else if (endMode === 'red') {
                     // Hold the gun form so the red core sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).

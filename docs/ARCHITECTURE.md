@@ -1,7 +1,7 @@
 # 技术架构 · SAT0RU
 
 单文件 Three.js 应用（`index.html`，约 2100 行）+ MediaPipe Hands 手部识别。
-本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式与双手契印、無量空処、环境尘埃、渲染性能、参数速查、已知限制。
+本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式与双手契印、無量空処（含长时间版）、本地语音与音频库、环境尘埃、渲染性能、参数速查、已知限制。
 改代码前先看 §去哪改，别凭感觉动阈值。
 
 ## 1. 数据流总览
@@ -11,7 +11,7 @@
  └→ MediaPipe Hands (legacy Solutions, maxNumHands=2, complexity=1, minDet=0.7)
      └→ multiHandLandmarks（每手 21 点，归一化坐标）
          ├→ handShape(lm)          21 点 → 几何特征（伸指/张开/捏合/拇指外张…）
-         ├→ computeHandScores()    每手 → 各技法 0/1 分（16 技法表）
+         ├→ computeHandScores()    每手 → 各技法 0/1 分
          ├→ computeFrameScores()   双手 → 组合技法 + 五条悟模式互斥/桥接/冷却
          ├→ smoothScores()         每技法 EMA α=0.20
          ├→ pickGestureFromScores() 进入 0.75 / 保持 0.50 / 切换领先 0.12 或持续 300ms
@@ -27,12 +27,12 @@
 
 | 参数 | 作用 |
 |---|---|
-| 无 | `MODE` 固定 `'gojo'`：只保留本作的苍 / 赫 / 無量空処 / 黒閃（+ 茈按钮模式与双手契印、flick 尾巴） |
-| `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。可用 id：`neutral void purple red blue blackflash flick` |
+| 无 | `MODE` 固定 `'gojo'`：只保留本作的苍 / 赫 / 無量空処（+ 茈按钮模式与双手契印、flick 尾巴） |
+| `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。可用 id：`neutral void purple red blue flick` |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|claspbuild\|claspburst\|blackcharge\|blackburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 契印构建 / 契印爆发 / 黒閃蓄势 / 黒閃爆发（`&noui=1` 隐藏侧栏） |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|voidlong\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 长版换环中 / 契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
 
-按键：`D` 调试面板、`H` 指南分区、`V` 语音、`N` 回识别模式（音乐 / 按键表 / 纯净模式 / 技法轮换 / 独立开场页已删）。
+按键：`D` 调试面板、`H` 指南分区、`V` 语音、`L` 长时间无量空处、`N` 回识别模式（音乐 / 按键表 / 纯净模式 / 技法轮换 / 独立开场页已删）。
 `N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
 
 ## 3. 识别管线
@@ -58,7 +58,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 | `thumbOut` | 拇指尖离手腕 > 0.25 | 平掌+拇指技法 |
 | `thumbGapRatio` | 拇指尖→食指 MCP 距离 ÷ 掌长（腕→中指 MCP） | **枪形/赫** > 0.75（拇指外张）；**無量空処** < 0.75（拇指内扣）；茈的拇指外弹也看这个值的跳变 |
 | `handAngle` | 腕→中指 MCP 的倾角 | 备用 |
-| `isOpen` / `isFist` | 四指指尖-腕距离 > PIP×1.12 / < ×0.92 | 苍的持掌判定 / 黒閃的开掌→握拳链（不依赖手掌朝向） |
+| `isOpen` / `isFist` | 四指指尖-腕距离 > PIP×1.12 / < ×0.92 | 苍的持掌判定（不依赖手掌朝向；握拳/收手会打断计时） |
 
 ### 3.3 `computeHandScores()` → `computeFrameScores()`
 
@@ -70,13 +70,9 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
     与赫枪形是同一对伸出的手指，靠拇指外张/内扣区分（见 §7）；任一手满足即 `frameScores.void=1`。
   - **苍**：`updateBlueSequences()` 持掌状态机（见 §4.1），完成后 `armBlueCharge()`。手别 key 用 handedness，
     标签翻转按 0.30 邻域重捕获（清速度历史与腕旋基准）。
-  - **黒閃**：`updateBlackFlashSequences()` 链（张开 ≥3 帧 → 5s 内握拳 ≥2 帧，见 §6.5）命中后
-    `armBlackFlashCharge()`；蓄势期间 `updateBlackFlashCharge()` 独占该手，握拳前推（掌尺寸增长链）→
-    `startBlackFlashBurst()`，开掌/丢失 700ms → 取消。爆发窗口 `bfBurstUntilMs` 内 `frameScores.blackflash=1`。
-  - **互斥**：`blueCharge` 存在 → `resetBlueHandStates()` + `resetBlackFlashHandStates()`；`gojoLocked`（释放锁）或
-    `techCoolingDown` 或 `redFormSeen` 或已处于 red → 清零苍/黒閃时序（`currentTech==='red'` 时只清苍，不清黒閃链）。
+  - **互斥**：`gojoLocked`（释放锁）或 `techCoolingDown` 或 `redFormSeen` 或已处于 red → 清零苍时序。
     `currentTech==='red'` 时若本帧无赫形态且距 `lastRedSeenMs` < 350ms
-    仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。`bfCharge` 或爆发窗口内苍/赫/void 分清零并早退。
+    仍补 1 分（丢手桥接）；无手帧早退前也有同样桥接。`blueCharge` 存在时 `resetBlueHandStates()`。
   - 反向：非 red 状态下 `blueCharge || gojoLocked || techCoolingDown` 时赫分强制 0；非 void 状态下同样的
     条件把 void 分强制 0（蓄势/释放锁/2s 冷却期间不能新开领域，但已展开的领域可继续持有）。
   - **双手契印互斥**：`claspPoseInfo()` 命中（双手食指朝上 + 至少一只手中指朝上 + 双拇指内扣 + 腕距/食指尖距
@@ -102,7 +98,7 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 单手或双手各自独立：**张开手掌对着镜头，连续保持 `BLUE_SEQ.holdMs = 3000ms`**（前 3 帧 `isOpen` 才开始计时，
 中途握拳或收手即清零）。手短暂丢失有 `handGraceMs 500` 宽限。先完成的手成为锚（返回 hand key）。
 任一帧出现赫形态（`redFormSeen`）立即清零——做枪形时手型过渡不会被误读。
-握拳会打断持掌计时，所以「张开→快速握拳」不会同时武装苍（那是黒閃的链，见 §6.5）。
+握拳会打断持掌计时，所以「张开→快速握拳」不会误武装苍。
 
 ### 4.2 `blueCharge` 数据
 
@@ -244,33 +240,6 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
-## 6.5 黒閃 · Black Flash（开掌→握拳蓄势 + 向镜头前推爆发）
-
-配置在 `BLACK_FLASH`，视觉全部由 2D 叠层 `#blackflash-overlay` 绘制（加色 WebGL 场画不出纯黑）：
-
-- **武装（`updateBlackFlashSequences`）**：同一只手 **张开 ≥3 帧（`openFrames`）→ `openWindowMs 5000` 内
-  握拳 ≥2 帧（`fistFrames`）** → 返回 hand key，`armBlackFlashCharge()` 建立 `bfCharge`。
-  苍的 3 秒持掌链优先（先判苍的完成帧），所以老实的持掌不会被抢成黒閃；握拳会打断苍的计时。
-- **蓄势（`updateBlackFlashCharge`）**：`bfCharge` 拥有该手——跟手记录 `x/y/visX/visY`，握拳持续就保持；
-  单帧被运动模糊误读成「开掌」不会取消，需持续 `openCancelMs 100ms` 才放掉；手丢失超过 `lostMs 700` 也取消
-  （给快速出拳擦过镜头留出找回的余地）。蓄势中顶部显示「黒閃 · 構え」，拳头四周用 2D 叠层画
-  **150 颗红/黑细点**（`BF_CHARGE_DOT_COUNT`）：盘面半径取该手掌长 `palmState.size × 屏高`
-  （掌长≈10cm，即「拳头为中心、半径 10cm」），散开、旋转、逐颗闪烁；黑点带暗红描边，屏幕混合下仍可读。
-- **爆发（向镜头前推）**：掌尺寸连续增长 ≥`punchMinSamples 3` 个采样、≥`punchMinMs 100`、
-  累计 ≥`punchMinGrowth 0.19`、平均增速 ≥`punchMinRate 1.3/s`，并且**横向漂移速率 ≤`punchMaxDrift 1.1/s`**
-  ——甩臂时拳头会高速横扫画面，前推时拳头基本停在原地只是由小变大，这条闸门专门滤掉「左右甩手臂才触发」。
-  → `startBlackFlashBurst()`：2s 冷却、`bfBurstUntilMs = +1400ms`、`forceTechnique('blackflash')`、震屏 1.5。
-- **爆发视觉**（移植主人给的参考特效页）：全屏近黑 `#050000` 底 + 半径 `0.20×min(w,h)` 的**中间空洞**
-  （闪电/粒子都不在洞里生成，即「中间那点没有」）；每一帧从洞缘随机角度生成 15~35px 粗的递归分叉闪电
-  （深度 ≤4、25% 分叉、3~7 帧生命），两遍绘制——先红色 aura（`#d90000` + `shadowBlur 30`），再叠黑芯
-  （细 8px），得到「红边黑闪电」；同时有从洞缘外飞的余烬（4~12px、摩擦 0.85）、500ms 冲击环 + 白色内闪、
-  2% 概率的整屏白闪，以及实体层的抖动/微旋转。播放在 `burstMs 1400ms` 内（1~2 秒），最后 260ms 整体淡出，
-  结束后画布自清；WebGL 主场保持全黑，不与叠层抢画面。
-- **姿势锁 + 全锁**：爆发后 `bfPoseReleaseRequired = true`，握着拳不能立刻重新武装，必须先开掌；
-  且 `bfCharge` / 爆发窗口内**所有其他技法分（含 purple、flick）都清零并早退**，配合 2s 冷却，
-  黒閃整段动作（蓄势→爆发）结束前不会在同一处触发别的术式。
-- 与其它术式：契印/茈模式期间不判黒閃；苍构筑期不判黒閃。
-
 ## 7. 領域展開「無量空処」 · 虚空
 
 ### 7.1 参考视频的扫描结论
@@ -293,15 +262,15 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - `GOJO_GESTURES` 含 `void`，走常规 EMA → `pickGestureFromScores`；进入 0.75、保持 0.50。
 - 展开期间可一直保持手势；松手退到 neutral。蓄势/释放锁/2s 冷却期间不能新开领域，
   已展开的领域不受影响（否则自己的入场冷却会把领域掐断）。
-- `commitTransition('void')` 与其它技法一样起算 2s 冷却；`?tech=void` / T 轮换仍可手动预览。
+- `commitTransition('void')` 与其它技法一样起算 2s 冷却；`?tech=void` 仍可手动预览。
 
 ### 7.3 视觉
 
 - 复用原项目的 `getVoid(i)`：15% 点在半径 26 的白环上，其余 85% 在半径 30~120 的蓝色球壳里。
 - `updateState('void')`：顶部状态名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
   `shakeIntensity 0.4`；主粒子场以慢速 `rotation.y += 0.005` 旋转。
-- 没有额外的界面/按钮；与 O 键打开的独立开场页（`DomainExpansion-infintevoid/`）互不影响——
-  但同一个动画现在被移植进了主场景，由「保持领域 3 秒」触发（见 §7.4）。
+- 没有额外的界面/按钮；旧的独立开场页（`DomainExpansion-infintevoid/`）已不接入 UI——
+  同一个动画现在被移植进了主场景，由「保持领域 3 秒」触发（见 §7.4）。
 
 ### 7.4 定格 3 秒 · 無量空処开场动画（cinematic）
 
@@ -310,8 +279,9 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 
 - **触发**：`updateState` 进入 void 的那一帧写 `voidEnteredAtMs`（取 `lastFrameNowMs`，回归可走合成时钟）；
   `onResults` 在 `updateState` 之后调 `maybeTriggerVoidCinematic(nowMs)`——当前技法 void、
-  `now - voidEnteredAtMs ≥ VOID_CINEMA.holdMs(3000)`、未在播放、本次保持没播过（`voidHoldAwarded`）、
-  且不是 `?tech=` / T 预览（`forcedTech`）时启动。一次保持只播一次；松手后重新结印才会再播。
+  `now - voidEnteredAtMs ≥` 当前时间轴的 `holdMs`（正常 3000 / 长版 1000）、未在播放、
+  本次保持没播过（`voidHoldAwarded`）、且不是 `?tech=` 预览（`forcedTech`）时启动。
+  一次保持只播一次；松手后重新结印才会再播。
 - **播放期间管线冻结**：`onResults` 与驱动的 `runFrame` 在 `voidCinematic` 非空时直接返回，手势不会打断它、
   领域也不会被重置；时间轴走 `animate()` 的真实时钟（6.2s），中途丢手也照常播完。
 - **舞台层**：`#void-cinema` 黑幕（z1，盖住摄像头与 stage-shade；WebGL canvas 是 z3，在其上）；
@@ -329,13 +299,27 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   若手还保持着领域，领域场继续显示（`voidHoldAwarded` 阻止循环重播）。
 - 阈值全在 `VOID_CINEMA`（holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackHoldMs/blackFadeMs/
   ringOutDelayMs/ringOutMs，`blackFadeAtMs/ringOutAtMs/endMs` 是 getter 派生的绝对时刻）；
-  演示态 `&end=voidform|voidring|voidclear` 把相位冻结在「成型中」/「换环中」/「黑幕已淡出、只剩环」便于截图。
+  演示态 `&end=voidform|voidring|voidclear|voidlong` 把相位冻结在「成型中」/「换环中」/
+  「黑幕已淡出、只剩环」/ 长版「换环后黑幕保持中」便于截图。
+
+### 7.5 长时间无量空处（long mode）
+
+左侧栏设置「长时间无量空处 · Long Void」开关（`setVoidLongMode`，L 键同效；`voidLongMode` 为全局标志）。
+打开后同一套 cinematic 换用 `VOID_CINEMA_LONG`，并改为**保持 1 秒**就触发：
+
+- 时间轴：hold 1000 / 黑幕淡入 600 / 成型 400+2200 / 换环 4000+1000 / **黑幕保持 24000** /
+  黑幕淡出 2000 / 环停留 800 / 环淡出 3000 / `endMs = 33800ms`（约 34 秒）。
+- 语音：`maybeTriggerVoidCinematic` 启动 long cinematic 的同一帧 `playAudioClip('void-long')`
+  （`audio/void-long.mp3`，31.164s）。动画 33.8s 比语音长 ~2.6s，**语音先结束、动画后结束**；
+  长版下不再播单人版 `void.mp3`（1 秒触发点已被 cinematic 占用）。
+- 与正常模式的关系：关闭开关即回到「1 秒单人语音 + 3 秒定格开场动画」；`?end=voidlong` 演示态
+  直接把长版时间轴推到换环后、黑幕保持段冻结，方便截图。
+- 黑幕保持段的 bloom 在 2.7 上下 ±0.28 慢速呼吸（约 7 秒一个周期），避免 24 秒静止画面显得死板。
 
 ## 8. 主粒子场与爆炸
 
 - `COUNT = 20000`；`targetPositions/targetColors/targetSizes` 每帧由当前技法函数生成
-  （现在只剩 `getRed/getVoid/getPurple/getBlue`；`blackflash` 目标全零，爆发画面由余烬块整场覆写），
-  现场 `lerp 0.1` 追随 → 形状渐变过渡。
+  （现在只剩 `getRed/getVoid/getPurple/getBlue`），现场 `lerp 0.1` 追随 → 形状渐变过渡。
 - `PointsMaterial`：size 全局（attribute 不生效），additive，`mix-blend-mode: screen` 合成。
 - **爆炸**（紫/蓝共用）：`purpleExplosionUntilMs` 期间每点从形状位置向外飞 `purpleExplosionMaxDistance 100`
   × 个体差异 0.84~1.12，颜色固定爆炸色，bloom 临时 +3（`purpleExplosionBloomBoost`），
@@ -367,7 +351,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
-  （blue 3.0、red 2.5、purple 4.0、void 2.0、blackflash 4.2），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
+  （blue 3.0、red 2.5、purple 4.0、void 2.0、flick 1.4），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
 - **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`，
   或「無量空処 cinematic 的星星阶段（`hideField`）」→ 主粒子场 `particles.visible=false`，
   且跳过 20k 的 lerp/上传/旋转/爆炸计算。
@@ -380,18 +364,43 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、暖金 `#D8A657` 强调、噪点纹理。
 - 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏；正中央
   `#technique-name` 用 22px 纯白字显示当前技法**原版名**（`updateState` → `setTechniqueName()`）：
-  術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「無量空処」/ 黒閃。`neutral` 时清空文字并加
+  術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「無量空処」。`neutral` 时清空文字并加
   `.empty`（opacity 0），不再显示「通常状態」；蓄势中可带「· 構築中 / 射出 / 構え」后缀。
 - 右上 `#purple-hint` 一行提示（「点击开启虚式「茈」枪指模式」）+ `#purple-mode-btn` 模式开关（§5）。
   开启时按钮外圈显示 2s 冷却进度、提示改为「已开启 · 点击关闭」；普通模式（含無量空処）时按钮静默。
   双手契印不经按钮，状态名在 build/converge/burst 期间都显示「虚式「茈」」，结束后清空。
-- 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），内部三个分区：
-  **设置**（`#settings-list` 的 Win11 开关行：D/H/V 三项，点击即切换）、
-  **手势指南**（`GUIDE_GOJO`，H 收起）、**关于 · About**（`#about-section`：改版作者/网站/仓库、原项目、
-  开源依赖、本地化说明）。音乐、按键表、纯净模式、技法轮换、独立开场页入口均已按主人要求删除。
+- 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），内部四个分区：
+  **设置**（`#settings-list` 的 Win11 开关行：D 调试 / H 手势指南 / V 语音 / L 长时间无量空处，点击即切换）、
+  **音频 · Audio**（`#audio-section`，见 §11.1）、**手势指南**（`GUIDE_GOJO`，H 收起）、
+  **关于 · About**（`#about-section`：改版作者/网站/仓库、原项目、开源依赖、本地化说明）。
+  音乐、按键表、纯净模式、技法轮换、独立开场页入口、黒閃均已按主人要求删除。
 - `D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
 - 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
-  Firefox 不支持；Google 在线识别国内可能不通。
+  Firefox 不支持；Google 在线识别国内可能不通。术式语音与音频库不走 Web Speech（见 §11.1）。
+
+### 11.1 本地语音与音频库（local audio）
+
+全部术式语音都是本地 `<audio preload="auto">`，零外网请求；`AUDIO_TRACKS`（key/元素/标签/时长）
+是唯一清单，`buildAudioLibrary()` 按它生成左侧栏 `#audio-list` 的 `.audio-row`（一行一条、点击播放/停止）。
+
+| key | 文件 | 用途 |
+|---|---|---|
+| `blue` | `audio/blue.mp3` | 苍持掌满 `VOICE_HOLD_MS = 1000ms`（`blueHoldElapsedMs` 读 `blueHandStates` stage=1 的时长） |
+| `he-1` / `he-2` | `audio/he-1.mp3` / `he-2.mp3` | 任一赫手势进入满 1 秒随机播一条（`redEnteredAtMs` 由 `updateState` 写入，每次保持一次） |
+| `void` | `audio/void.mp3` | 普通無量空処保持满 1 秒播单人版；长版模式跳过 |
+| `void-long` | `audio/void-long.mp3` | 长版 cinematic 启动同帧播放（31.164s） |
+| `purple` | `audio/purple-2026.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
+| `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印专属语音，**待主人踩点接入**，目前仅音频库可试听 |
+
+- `updateTechniqueVoices(nowMs)` 在 `onResults` 每帧（以及回归驱动 `runFrame`）里跑三个 1 秒门槛：
+  苍（`blueVoicePlayed`）、赫（`redVoicePlayed`，离开 red 即复位）、無量空処（`voidVoicePlayed`，
+  长版模式下不播短语音）。松手/离开技法会把对应标志复位，所以「每次保持播一次」。
+- `playAudioClip(key)` 先暂停并归零其它所有轨道，再从头播目标轨道 → **同一时间只播一条**；
+  `audioPlayCounts` 供回归断言。`toggleAudioClip`/`stopAudioClip` 服务侧栏按钮，`updateAudioRowState`
+  负责 `.playing` 高亮与「■ 停止」文案。
+- **自动播放解锁**：浏览器要求用户手势后才能出声，`primeAudio()` 在首次 `pointerdown`/`keydown`
+  （`{once:true}`）把每条轨道静音试播再暂停（正在播放的那条不复位），之后手势触发就能直接出声。
+- 已知取舍：手机静音键/系统音量仍会压掉声音；`play()` 被策略拒绝时静默失败（catch 掉，不打断画面）。
 
 ## 12. 参数速查（改之前先读注释）
 
@@ -408,9 +417,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `BLUE_SEQ.holdMs` | 苍持掌时长 | 3000ms | 张开手掌保持这么久即构筑 |
 | `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
-| `BLACK_FLASH.*` | 黒閃 | 见 §6.5 | open 3 帧 / fist 2 帧 / openWindow 5000ms / lost 700ms / punch 100ms·3 采样·0.19·1.3/s·drift≤1.1 / openCancel 100ms / burst 1400ms / 冷却 2000ms |
-| `BF_CHARGE_DOT_COUNT` | 黒閃蓄势散点数 | 150 | 红/黑细点，2D 叠层绘制，盘面半径≈掌长（10cm） |
-| `RED_VOICE_HOLD_MS` | 赫语音门槛 | 2000ms | 任一赫手势连续保持这么久，随机播 `audio/he-1|2.mp3` |
+| `VOICE_HOLD_MS` | 术式语音门槛 | 1000ms | 苍/赫/普通無量空処保持满 1 秒播一次；见 §11.1 |
+| `AUDIO_TRACKS` | 本地音频清单 | 7 条 | 苍/赫×2/無量空処×2/茈 2026/契印（待接）；左侧栏与语音触发共用 |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -423,6 +431,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
 | `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
+| `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 全 33800ms；语音 `audioMs` 31164ms（先结束） |
 | `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
@@ -444,15 +453,16 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - screen 混合叠在摄像头上：画面极亮（对着窗户）粒子会偏淡，属预期；可降曝光或加 bloom。
 - 无摄像头/拒绝授权时 MediaPipe 弹 "Failed to acquire camera"，**模态框会卡住页面 JS**——自动化验收必须
   覆写 `window.alert`（测试页已做）。
-- 语音依赖浏览器 Web Speech API。
+- Web Speech（"run away"）依赖浏览器在线识别；术式语音/音频库是本地 MP3，不受影响，但首次出声前需要
+  一次点击或按键解锁自动播放（`primeAudio`）。
 - **無量空処的食中指交叉不被 MediaPipe 解析**（扫描见 §7.1）：不要试图用「交叉」判定，用拇指内扣；
   如果用户拇指只内扣到一半（`thumbGapRatio` 0.75~0.85），会落在赫枪形里，表现为展开领域失败。
 - **双手契印依赖双手都被识别**：MediaPipe 在扣合姿势下经常把两只手并成一只（参考视频里约一半帧如此），
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **93 项断言**
-  （含苍/赫/赫语音/黒閃/茈/無量空処/無量空処开场动画/双手契印）。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **97 项断言**
+  （含苍/赫/苍赫無量空処语音/茈/双手契印/無量空処开场动画/长时间无量空处/音频库）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -470,9 +480,11 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 3s → 构筑 → 释放 |
-| `updateBlackFlashSequences` / `armBlackFlashCharge` / `updateBlackFlashCharge` / `startBlackFlashBurst` | 黒閃：开掌→握拳武装 → 蓄势跟手 → 前推爆发 |
-| `startBlackFlashOverlay` / `drawBlackFlashOverlay` / `clearBlackFlashOverlay` | 黒閃 2D 叠层：蓄势红黑散点 + 全屏红边黑闪电爆发（中间留洞） |
-| `updateRedVoice` / `primeHeVoice` | 赫保持 2s → 随机播放一段赫语音（首次点击/按键解锁 audio） |
+| `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処定格开场动画（正常 3s / 长版 1s 触发，长版同帧播长语音） |
+| `setVoidLongMode` | 「长时间无量空处」开关（L 键/侧栏），切换 `VOID_CINEMA_LONG` 时间轴 |
+| `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：7 条本地语音的按钮、高亮与停止 |
+| `playAudioClip` / `primeAudio` | 单条播放（先停其它轨道）+ 首次点击/按键静音预热解锁自动播放 |
+| `updateTechniqueVoices` / `blueHoldElapsedMs` | 每帧检查苍/赫/無量空処的 1 秒保持门槛并触发语音 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |

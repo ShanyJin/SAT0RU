@@ -6,19 +6,22 @@
 
 主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），默认「五条悟模式」：
 
-- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 3 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）
-- **黒閃**：张开手掌后 5 秒内迅速握拳 → 拳头四周 ~10cm 红黑散点蓄势、跟手 → 拳头向镜头前推（由小变大）
-  → **满屏红边黑闪电爆发、中间留空一拳**（移植主人给的参考特效页）；横甩不触发；整段动作期间锁住其它术式
+- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 3 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）；
+  持掌满 1 秒先播苍语音（`audio/blue.mp3`）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场；
-  任一赫手势保持 >2 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
+  任一赫手势保持 1 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
 - **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
-  保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；**定格 >3 秒**自动播开场动画
-  （旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场；环出现后黑幕再保持 10 秒，
-  随后黑幕先淡出、背景透明环还在，最后环淡出；一次保持只播一次）
+  保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；比出满 1 秒播单人版语音；
+  **定格 >3 秒**自动播开场动画（旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场；
+  环出现后黑幕再保持 10 秒，随后黑幕先淡出、背景透明环还在，最后环淡出；一次保持只播一次）；
+  左侧栏「长时间无量空处」开关打开后改成 1 秒触发 ~34 秒长动画 + 31 秒长语音（语音先结束）
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
-  前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
+  前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开，发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）；
+  松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮）：双手交叉扣住、食指朝上、拇指内扣 →
-  左侧蓝球 + 右侧红球长大 → 向中心靠拢重叠 → 紫色大爆炸；单手同形仍是無量空処
+  左侧蓝球 + 右侧红球长大 → 向中心靠拢重叠 → 紫色大爆炸；单手同形仍是無量空処；
+  专属语音待主人踩点接入（`audio/purple-clasp.mp3` 已在音频库可手动试听）
+- **左侧栏「音频」区块**：7 个本地音频各一行，点击播放/停止，同一时间只播一条
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
 其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
@@ -40,7 +43,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 93 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 97 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -53,7 +56,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `vendor/` | MediaPipe Hands、three.js r160、字体（本地化） |
 | `tools/serve.py` | 静态服务器（wasm/data MIME） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
-| `audio/` | 赫语音 `he-1.mp3`（2.5s）/ `he-2.mp3`（4.2s），本地播放、零外网请求 |
+| `audio/` | 本地语音 7 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（待接）；零外网请求 |
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
@@ -61,16 +64,16 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 去哪改（grep 锚点）
 
-- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`、`BLACK_FLASH`
-- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`
-- 黒閃 → `BLACK_FLASH`、`bfHandStates`、`bfCharge`、`updateBlackFlashSequences`、`armBlackFlashCharge`、
-  `updateBlackFlashCharge`、`startBlackFlashBurst`；2D 叠层 `startBlackFlashOverlay`/`drawBlackFlashOverlay`/
-  `drawBlackFlashBurst`（全屏红边黑闪电，`bfBolts`/`bfSparks`）/`drawBlackFlashCharge`（蓄势红黑散点，
-  `bfChargeDots`/`BF_CHARGE_DOT_COUNT`）/`#blackflash-overlay`；前推阈值
-  `punchMinGrowth/punchMinRate/punchMinMs/punchMinSamples/punchMaxDrift`（横向漂移闸门，防甩臂误触）、
-  开掌宽限 `openCancelMs`，姿势锁 `bfPoseReleaseRequired`
-- 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`；语音 → `RED_VOICE_HOLD_MS`、`updateRedVoice`、
-  `heVoiceAudios`、`primeHeVoice`、`redEnteredAtMs`（`updateState` 写入）、`audio/he-1|2.mp3`
+- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`
+- 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`（3 秒）
+- 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`；语音 → `VOICE_HOLD_MS`、`updateTechniqueVoices`、
+  `redEnteredAtMs`（`updateState` 写入）、`audio/he-1|2.mp3`
+- 音频库/语音 → `AUDIO_TRACKS`、`playAudioClip`、`toggleAudioClip`、`stopAudioClip`、`primeAudio`、
+  `updateTechniqueVoices`、`blueHoldElapsedMs`、`audioPlayCounts`、`buildAudioLibrary`、
+  `#audio-section`/`#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`（1 秒）
+- 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
+  `maybeTriggerVoidCinematic`、`startVoidCinematic(nowMs, true)`、`#settings-list` 的 `voidlong` 行（L 键）；
+  正常时长轴仍是 `VOID_CINEMA`
 - 茈的模式/蓄势/发射/视觉 → `purpleMode`、`setPurpleMode`、`PURPLE_CAST`、`updatePurpleMode`、
   `purplePoseInfo`、`purpleWorldAnchor`、`firePurpleCharge`、`impactPurpleShot`、`purpleOrb`、
   `fillPurpleOrbPositions`、`updatePurpleButton`；拇指外弹看 `PURPLE_CAST.snapWindowMs/snapJump`、
@@ -88,10 +91,10 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
 - 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-section`
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、
-  `updateKeybindMenu()`（设置开关只剩 D/H/V）、`setRailOpen()`、`setGuideVisibility()`
+  `updateKeybindMenu()`（设置开关 D/H/V/L）、`setRailOpen()`、`setGuideVisibility()`
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 93/93 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 97/97 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

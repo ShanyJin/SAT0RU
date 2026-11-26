@@ -28,8 +28,6 @@
         /* Black stage for the 無量空処 cinematic: above the camera, below the WebGL canvas. */
         #void-cinema { position: fixed; inset: 0; z-index: 1; background: #000; opacity: 0; pointer-events: none; }
         #three-canvas { position: fixed; inset: 0; z-index: 3; mix-blend-mode: screen; pointer-events: none; }
-        /* 黒閃's true-black bolts need normal blending (screen would erase black entirely). */
-        #blackflash-overlay { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 4; pointer-events: none; }
         #grain {
             position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: .05;
             background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.08'/%3E%3C/svg%3E");
@@ -131,6 +129,20 @@
         .set-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .18s ease, background .18s; }
         .set-row[aria-checked="true"] .set-track { background: var(--accent-soft); border-color: var(--accent); }
         .set-row[aria-checked="true"] .set-track::after { transform: translateX(16px); background: var(--accent); }
+        /* Audio block: one row per local clip, click to play/stop. */
+        .audio-row { display: flex; width: 100%; align-items: center; gap: 9px; padding: 5px 0; background: none; border: 0; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
+        .audio-play {
+            flex: none; width: 24px; height: 24px; display: grid; place-items: center;
+            font-size: 9px; color: var(--text-secondary);
+            background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: 50%;
+            transition: color .16s, background .16s, border-color .16s, box-shadow .16s;
+        }
+        .audio-label { flex: 1; min-width: 0; font-size: 12.5px; color: var(--text-secondary); transition: color .15s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .audio-dur { flex: none; font: 500 10.5px/1 var(--mono); color: var(--text-tertiary); }
+        .audio-row:hover .audio-label { color: var(--text-primary); }
+        .audio-row:hover .audio-play { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        .audio-row.playing .audio-play { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
+        .audio-row.playing .audio-label { color: var(--text-primary); }
         .guide-sep { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); margin: 8px 0 2px; }
         .guide-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 4px 0; }
         .guide-gesture { flex: 1; min-width: 0; font-size: 12px; color: var(--text-secondary); }
@@ -206,9 +218,13 @@
     <div class="stage-shade"></div>
     <div id="void-cinema"></div>
     <canvas id="output_canvas"></canvas>
-    <canvas id="blackflash-overlay"></canvas>
+    <audio id="blue-voice" src="/audio/blue.mp3" preload="auto"></audio>
     <audio id="he-voice-1" src="/audio/he-1.mp3" preload="auto"></audio>
     <audio id="he-voice-2" src="/audio/he-2.mp3" preload="auto"></audio>
+    <audio id="void-voice" src="/audio/void.mp3" preload="auto"></audio>
+    <audio id="void-long-voice" src="/audio/void-long.mp3" preload="auto"></audio>
+    <audio id="purple-voice" src="/audio/purple-2026.mp3" preload="auto"></audio>
+    <audio id="purple-clasp-voice" src="/audio/purple-clasp.mp3" preload="auto"></audio>
     <div id="grain"></div>
     <div id="idle-flash"></div>
 
@@ -240,6 +256,10 @@
             <div class="panel-title">设置 · Settings</div>
             <div id="settings-list"></div>
         </section>
+        <section class="rail-section" id="audio-section">
+            <div class="panel-title">音频 · Audio</div>
+            <div id="audio-list"></div>
+        </section>
         <section class="rail-section" id="guide-section">
             <div class="panel-title">手势指南 · Gesture Guide</div>
             <div id="gesture-guide"></div>
@@ -259,7 +279,7 @@
                 </div>
                 <div class="about-note">
                     保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，
-                    以及無量空処开场动画、双色粒子爆发、赫语音等本版新增演出。
+                    以及無量空処开场动画、各术式语音、左侧音频库与长时间无量空处等本版新增演出。
                     原版音效与上面未提到的动作，我们之后再补。
                 </div>
                 <div class="about-sep">用到的开源项目</div>
@@ -638,6 +658,25 @@
         get ringOutAtMs() { return this.blackFadeAtMs + this.blackFadeMs + this.ringOutDelayMs; },
         get endMs() { return this.ringOutAtMs + this.ringOutMs; }
     };
+    // 長時間無量空処 (armed from the left rail): same opening, a much longer hold on black,
+    // and a 2.6 s visual tail after the 31 s voice ends. The rule is "audio first, animation
+    // last": endMs (33.8 s) > audioMs (31.164 s), so the picture always outlives the music.
+    const VOID_CINEMA_LONG = {
+        holdMs: 1000, // voice + cinematic start together 1 s into the hold
+        fadeInMs: 600,
+        formDelayMs: 400,
+        formMs: 2200,
+        ringAtMs: 4000,
+        ringFadeMs: 1000,
+        blackHoldMs: 24000,
+        blackFadeMs: 2000,
+        ringOutDelayMs: 800,
+        ringOutMs: 3000,
+        audioMs: 31164,
+        get blackFadeAtMs() { return this.ringAtMs + this.blackHoldMs; },
+        get ringOutAtMs() { return this.blackFadeAtMs + this.blackFadeMs + this.ringOutDelayMs; },
+        get endMs() { return this.ringOutAtMs + this.ringOutMs; }
+    };
     const VOID_STREAK_COUNT = 1200;
     const VOID_STREAK_VERTEX_COUNT = VOID_STREAK_COUNT * 2;
     const VOID_STREAK_PALETTE = [
@@ -686,6 +725,7 @@
     let voidCinematic = null;
     let voidEnteredAtMs = 0;
     let voidHoldAwarded = false;
+    let voidLongMode = false; // left-rail 「長時間無量空処」 switch: long timeline + 31 s voice
     let lastFrameNowMs = 0;
     const voidCinemaEl = document.getElementById('void-cinema');
 
@@ -773,12 +813,14 @@
         }
     }
 
-    function startVoidCinematic(startMs) {
+    function startVoidCinematic(startMs, useLong = false) {
         if (voidCinematic) return;
         voidHoldAwarded = true;
         voidCinematic = {
             startMs,
             lastMs: startMs,
+            long: !!useLong,
+            timeline: useLong ? VOID_CINEMA_LONG : VOID_CINEMA,
             ringShown: false,
             hideField: false,
             formTargetsSet: false,
@@ -818,8 +860,13 @@
     function maybeTriggerVoidCinematic(nowMs) {
         if (MODE !== 'gojo' || voidCinematic || voidHoldAwarded || forcedTech) return;
         if (currentTech !== 'void') return;
-        if (nowMs - voidEnteredAtMs < VOID_CINEMA.holdMs) return;
-        startVoidCinematic(nowMs);
+        const useLong = voidLongMode;
+        const C = useLong ? VOID_CINEMA_LONG : VOID_CINEMA;
+        if (nowMs - voidEnteredAtMs < C.holdMs) return;
+        startVoidCinematic(nowMs, useLong);
+        // Long mode: music and picture start on the same frame. The short clip is skipped
+        // by updateTechniqueVoices while this mode is armed.
+        if (useLong) playAudioClip('void-long');
     }
 
     function updateVoidCinematic(nowMs) {
@@ -827,7 +874,7 @@
         const cine = voidCinematic;
         const age = nowMs - cine.startMs;
         if (age < 0) return; // synthetic-clock test may run ahead of the render clock
-        const C = VOID_CINEMA;
+        const C = cine.timeline;
         if (age >= C.endMs) {
             finishVoidCinematic();
             return;
@@ -867,6 +914,10 @@
             if (age >= C.ringOutAtMs) ringAlpha = 1 - clamp01((age - C.ringOutAtMs) / C.ringOutMs);
             particleMaterial.opacity = ringAlpha;
             baseBloomStrength = 2.7;
+            if (cine.long && age < C.blackFadeAtMs) {
+                // Slow breathing during the long black hold so the extended take still moves.
+                baseBloomStrength += 0.28 * Math.sin(((age - C.ringAtMs) / 1000) * 0.9);
+            }
         }
         cine.hideField = age >= C.fadeInMs && !cine.ringShown;
 
@@ -1035,296 +1086,6 @@
         return { x: (1 - 2 * sx) * halfW, y: (1 - 2 * sy) * halfH };
     }
 
-    // --- 黒閃 overlay: full-screen punch blast + the charge swarm ---
-    // The WebGL field is additive and screen-blended, so pure black would vanish. Both the
-    // black blast and the black half of the charge therefore live on a 2D canvas above the
-    // renderer. The burst is ported from the reference effect page: a near-black full-screen
-    // frame with crimson-glowing lightning bolts and embers fanning out of an empty impact
-    // hole in the middle (nothing is born inside it), plus an expanding impact ring, random
-    // white camera flashes and a shaking entity layer. The charge is a scattered disc of
-    // red/black dots around the fist, sized to the palm's apparent length (~10 cm radius).
-    const blackflashCanvas = document.getElementById('blackflash-overlay');
-    const blackflashCtx = blackflashCanvas.getContext('2d');
-    const bfBolts = [];
-    const bfSparks = [];
-    let bfOverlayActiveUntilMs = 0;
-    let bfOverlayBurstMs = 0;
-    let bfOverlayDirty = false;
-    const bfProjectVec = new THREE.Vector3();
-
-    // Charge swarm seeds: fixed per-dot angle, distance, size, colour and twinkle phase.
-    const BF_CHARGE_DOT_COUNT = 150;
-    const bfChargeDots = [];
-    for (let i = 0; i < BF_CHARGE_DOT_COUNT; i++) {
-        bfChargeDots.push({
-            angle: Math.random() * Math.PI * 2,
-            dist: 0.12 + Math.pow(Math.random(), 0.55) * 1.02, // fills the 10 cm disc, a few strays
-            radius: 1.6 + Math.random() * 2.6,
-            phase: Math.random() * Math.PI * 2,
-            twinkle: 0.6 + Math.random() * 0.8,
-            spin: 0.5 + Math.random() * 0.9,
-            black: Math.random() < 0.42
-        });
-    }
-
-    function resizeBlackFlashOverlay() {
-        const dpr = Math.min(window.devicePixelRatio || 1, 2);
-        blackflashCanvas.width = Math.round(window.innerWidth * dpr);
-        blackflashCanvas.height = Math.round(window.innerHeight * dpr);
-        blackflashCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    resizeBlackFlashOverlay();
-    window.addEventListener('resize', resizeBlackFlashOverlay);
-
-    function bfOverlaySize() {
-        const rect = blackflashCanvas.getBoundingClientRect();
-        return { width: rect.width || window.innerWidth, height: rect.height || window.innerHeight };
-    }
-
-    function bfBuildBranch(branches, x, y, angle, thickness, depth, scale) {
-        if (depth > 4 || thickness < 3 * scale) return;
-        const points = [{ x, y }];
-        const length = (Math.random() * 150 + 80) * scale;
-        const steps = Math.max(1, Math.floor(length / (20 * scale)));
-        let curX = x;
-        let curY = y;
-        for (let i = 0; i < steps; i++) {
-            const jitter = (Math.random() - 0.5) * 1.2;
-            const nextX = curX + Math.cos(angle + jitter) * (20 + Math.random() * 15) * scale;
-            const nextY = curY + Math.sin(angle + jitter) * (20 + Math.random() * 15) * scale;
-            points.push({ x: nextX, y: nextY });
-            if (Math.random() < 0.25) {
-                const branchAngle = angle + (Math.random() > 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
-                bfBuildBranch(branches, nextX, nextY, branchAngle, thickness * 0.65, depth + 1, scale);
-            }
-            curX = nextX;
-            curY = nextY;
-        }
-        branches.push({ points, thickness: Math.max(2 * scale, thickness) });
-    }
-
-    function bfSpawnBolt(cx, cy, impactRadius, scale) {
-        const branches = [];
-        const startAngle = Math.random() * Math.PI * 2;
-        const startX = cx + Math.cos(startAngle) * impactRadius;
-        const startY = cy + Math.sin(startAngle) * impactRadius;
-        const thickness = (Math.random() * 20 + 15) * scale;
-        bfBuildBranch(branches, startX, startY, startAngle, thickness, 0, scale);
-        bfBolts.push({ branches, life: Math.random() * 4 + 3 });
-    }
-
-    function bfSpawnSpark(cx, cy, impactRadius, scale) {
-        const angle = Math.random() * Math.PI * 2;
-        const dist = impactRadius + Math.random() * 100 * scale;
-        const speed = (Math.random() * 15 + 5) * scale;
-        bfSparks.push({
-            x: cx + Math.cos(angle) * dist,
-            y: cy + Math.sin(angle) * dist,
-            vx: Math.cos(angle) * speed,
-            vy: Math.sin(angle) * speed,
-            radius: (Math.random() * 8 + 4) * scale,
-            life: 1,
-            decay: Math.random() * 0.05 + 0.02
-        });
-    }
-
-    function bfStrokePolyline(ctx, points) {
-        ctx.beginPath();
-        ctx.moveTo(points[0].x, points[0].y);
-        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
-        ctx.stroke();
-    }
-
-    function drawBlackFlashBurst(nowMs, width, height) {
-        const ctx = blackflashCtx;
-        const remain = bfOverlayActiveUntilMs - nowMs;
-        const fade = clamp01(remain / 260); // soft hand-back to the camera at the very end
-        ctx.clearRect(0, 0, width, height);
-        ctx.fillStyle = `rgba(5,0,0,${fade.toFixed(3)})`;
-        ctx.fillRect(0, 0, width, height);
-
-        const unit = Math.min(width, height);
-        const scale = unit / 900;
-        const cx = width / 2;
-        const cy = height / 2;
-        // The empty impact zone: no bolt or ember is born inside this circle.
-        const impactRadius = unit * 0.20;
-
-        if (remain > 300) {
-            if (Math.random() < 0.8 && bfBolts.length < 8) bfSpawnBolt(cx, cy, impactRadius, scale);
-            if (Math.random() < 0.6 && bfBolts.length < 12) bfSpawnBolt(cx, cy, impactRadius, scale);
-            if (Math.random() < 0.5) {
-                bfSpawnSpark(cx, cy, impactRadius, scale);
-                bfSpawnSpark(cx, cy, impactRadius, scale);
-            }
-        }
-        for (let i = bfBolts.length - 1; i >= 0; i--) {
-            bfBolts[i].life -= 1;
-            if (bfBolts[i].life <= 0) bfBolts.splice(i, 1);
-        }
-        for (let i = bfSparks.length - 1; i >= 0; i--) {
-            const p = bfSparks[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vx *= 0.85; // friction, same feel as the reference
-            p.vy *= 0.85;
-            p.life -= p.decay;
-            p.x += (Math.random() - 0.5) * 4 * scale;
-            p.y += (Math.random() - 0.5) * 4 * scale;
-            if (p.life <= 0 || p.x < -width || p.x > width * 2 || p.y < -height || p.y > height * 2) {
-                bfSparks.splice(i, 1);
-            }
-        }
-
-        ctx.save();
-        ctx.globalAlpha = fade;
-        // Screen shake: jitter + a tiny roll of the entity layer only (the backdrop stays put).
-        ctx.translate(cx, cy);
-        ctx.rotate((Math.random() - 0.5) * 0.012);
-        ctx.translate(-cx, -cy);
-        ctx.translate((Math.random() - 0.5) * 8 * scale, (Math.random() - 0.5) * 8 * scale);
-
-        // Pass 1 — crimson aura around every bolt and ember.
-        ctx.lineCap = 'round';
-        ctx.lineJoin = 'round';
-        ctx.shadowColor = '#ff0000';
-        ctx.shadowBlur = 30 * scale;
-        ctx.strokeStyle = '#d90000';
-        ctx.fillStyle = '#d90000';
-        for (const bolt of bfBolts) {
-            for (const branch of bolt.branches) {
-                ctx.lineWidth = branch.thickness;
-                bfStrokePolyline(ctx, branch.points);
-            }
-        }
-        for (const p of bfSparks) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Pass 2 — black core; the aura survives as the glowing rim.
-        ctx.shadowBlur = 0;
-        ctx.strokeStyle = '#000000';
-        ctx.fillStyle = '#000000';
-        for (const bolt of bfBolts) {
-            for (const branch of bolt.branches) {
-                ctx.lineWidth = Math.max(1, branch.thickness - 8 * scale);
-                bfStrokePolyline(ctx, branch.points);
-            }
-        }
-        for (const p of bfSparks) {
-            ctx.beginPath();
-            ctx.arc(p.x, p.y, Math.max(1, p.radius - 3 * scale), 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        // Impact ring: expands outward from the hole for the first ~500 ms.
-        const flashP = clamp01((nowMs - bfOverlayBurstMs) / 500);
-        if (flashP < 1) {
-            const flashOpacity = 1 - flashP;
-            const flashRadius = impactRadius + flashP * unit * 0.42;
-            ctx.shadowBlur = 50 * scale;
-            ctx.shadowColor = '#ff0000';
-            ctx.strokeStyle = `rgba(255,50,50,${flashOpacity.toFixed(3)})`;
-            ctx.lineWidth = 10 * scale;
-            ctx.beginPath();
-            ctx.arc(cx, cy, flashRadius, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = `rgba(255,255,255,${(flashOpacity * 0.5).toFixed(3)})`;
-            ctx.beginPath();
-            ctx.arc(cx, cy, Math.max(0, flashRadius - 10 * scale), 0, Math.PI * 2);
-            ctx.fill();
-        }
-        ctx.restore();
-
-        // Occasional white camera flash (2% per painted frame, as in the reference).
-        if (Math.random() < 0.02) {
-            ctx.fillStyle = 'rgba(255,200,200,0.1)';
-            ctx.fillRect(0, 0, width, height);
-        }
-    }
-
-    function drawBlackFlashCharge(nowMs, width, height) {
-        const ctx = blackflashCtx;
-        ctx.clearRect(0, 0, width, height);
-        bfProjectVec.set(bfCharge.visX, bfCharge.visY, 0).project(camera);
-        const cx = (bfProjectVec.x * 0.5 + 0.5) * width;
-        const cy = (-bfProjectVec.y * 0.5 + 0.5) * height;
-        const scale = height / 720;
-        // palmState.size is the wrist→middle-MCP length (~10 cm), so using it as the disc
-        // radius gives the requested ~10 cm spread around the fist at any camera distance.
-        const radius = Math.min(160 * scale, Math.max(38 * scale, bfCharge.size * height * 1.05));
-        const spin = bfCharge.startedMs / 1000 + nowMs * 0.0012;
-        for (const dot of bfChargeDots) {
-            const angle = dot.angle + spin * dot.spin;
-            const wobble = 0.94 + 0.06 * Math.sin(nowMs * 0.0034 + dot.phase);
-            const rr = radius * dot.dist * wobble;
-            const x = cx + Math.cos(angle) * rr;
-            const y = cy + Math.sin(angle) * rr;
-            const twinkle = 0.55 + 0.45 * Math.sin(nowMs * 0.02 * dot.twinkle + dot.phase);
-            if (dot.black) {
-                ctx.globalAlpha = 0.5 * twinkle;
-                ctx.fillStyle = '#a81108';
-                ctx.beginPath();
-                ctx.arc(x, y, dot.radius * 1.9 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 0.88;
-                ctx.fillStyle = '#050000';
-                ctx.beginPath();
-                ctx.arc(x, y, dot.radius * scale, 0, Math.PI * 2);
-                ctx.fill();
-            } else {
-                ctx.globalAlpha = 0.28 * twinkle;
-                ctx.fillStyle = '#ff2a12';
-                ctx.beginPath();
-                ctx.arc(x, y, dot.radius * 2.2 * scale, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.globalAlpha = 0.92 * twinkle;
-                ctx.fillStyle = '#ff3a18';
-                ctx.beginPath();
-                ctx.arc(x, y, dot.radius * scale, 0, Math.PI * 2);
-                ctx.fill();
-            }
-        }
-        ctx.globalAlpha = 1;
-    }
-
-    // Paints the 黒閃 overlay for nowMs. Returns true if a frame was presented.
-    function drawBlackFlashOverlay(nowMs) {
-        const { width, height } = bfOverlaySize();
-        if (nowMs < bfOverlayActiveUntilMs) {
-            drawBlackFlashBurst(nowMs, width, height);
-            bfOverlayDirty = true;
-            return true;
-        }
-        if (bfCharge && bfCharge.visInit) {
-            drawBlackFlashCharge(nowMs, width, height);
-            bfOverlayDirty = true;
-            return true;
-        }
-        if (!bfOverlayDirty) return false;
-        clearBlackFlashOverlay();
-        return true;
-    }
-
-    function startBlackFlashOverlay(nowMs) {
-        bfBolts.length = 0;
-        bfSparks.length = 0;
-        bfOverlayBurstMs = nowMs;
-        bfOverlayActiveUntilMs = nowMs + BLACK_FLASH.burstMs;
-        bfOverlayDirty = true;
-    }
-
-    function clearBlackFlashOverlay() {
-        if (!bfOverlayDirty && bfOverlayActiveUntilMs === 0 && bfBolts.length === 0 && bfSparks.length === 0) return;
-        bfOverlayActiveUntilMs = 0;
-        bfBolts.length = 0;
-        bfSparks.length = 0;
-        bfOverlayDirty = false;
-        blackflashCtx.clearRect(0, 0, blackflashCanvas.width, blackflashCanvas.height);
-    }
-
     // Technique Functions
     function getRed(i) {
         if(i < COUNT * 0.1) {
@@ -1391,25 +1152,89 @@
     const redAnchor = { x: 0, y: 0, valid: false };
     const redFollow = { x: 0, y: 0, t: 0, init: false };
     let lastRedSeenMs = 0;
-    // 赫 voice: two clips; one is picked at random when either Red form is held past 2 s.
-    // Playback fires once per continuous hold — dropping the sign (or leaving Red) re-arms it.
-    const RED_VOICE_HOLD_MS = 2000;
-    const heVoiceAudios = [
-        document.getElementById('he-voice-1'),
-        document.getElementById('he-voice-2')
-    ].filter(Boolean);
-    let redEnteredAtMs = 0;
-    let redVoicePlayed = false;
-    let redVoiceLastSrc = '';
-    let redVoiceCount = 0;
+    // --- Local voice clips ---------------------------------------------------------------
+    // All clips live in audio/ and play from plain <audio> elements: zero network requests.
+    // Gesture voices fire after a 1 s hold (once per continuous hold); the left-rail Audio
+    // block can also play any clip by hand. One clip at a time, so nothing overlaps.
+    const VOICE_HOLD_MS = 1000;
+    const AUDIO_TRACKS = [
+        { key: 'blue', el: document.getElementById('blue-voice'), label: '術式順転「蒼」', dur: '0:04' },
+        { key: 'he-1', el: document.getElementById('he-voice-1'), label: '術式反転「赫」· 一', dur: '0:03' },
+        { key: 'he-2', el: document.getElementById('he-voice-2'), label: '術式反転「赫」· 二', dur: '0:04' },
+        { key: 'void', el: document.getElementById('void-voice'), label: '領域展開「無量空処」· 単人', dur: '0:05' },
+        { key: 'void-long', el: document.getElementById('void-long-voice'), label: '領域展開「無量空処」· 長時間', dur: '0:31' },
+        { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 2026（短）', dur: '0:02' },
+        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印（待接入）', dur: '0:22' }
+    ].filter((track) => !!track.el);
+    const audioTracksByKey = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, track]));
+    const audioPlayCounts = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, 0]));
+    let lastAudioKey = '';
+    let activeAudioKey = '';
+    let audioPrimed = false;
 
-    // Browsers block <audio> until the page has seen a user gesture; prime both clips on
-    // the first click/keypress so the gesture-triggered playback later is allowed.
-    let heVoicePrimed = false;
-    function primeHeVoice() {
-        if (heVoicePrimed) return;
-        heVoicePrimed = true;
-        for (const audio of heVoiceAudios) {
+    function updateAudioRowState() {
+        const list = document.getElementById('audio-list');
+        if (!list) return;
+        list.querySelectorAll('.audio-row').forEach((row) => {
+            const playing = row.dataset.audio === activeAudioKey;
+            row.classList.toggle('playing', playing);
+            row.setAttribute('aria-pressed', playing ? 'true' : 'false');
+        });
+    }
+
+    function stopAudioClip() {
+        for (const track of AUDIO_TRACKS) {
+            if (!track.el.paused) track.el.pause();
+        }
+        activeAudioKey = '';
+        updateAudioRowState();
+    }
+
+    // Restart a clip and count the attempt (the regression asserts counters, not sound).
+    function playAudioClip(key) {
+        const track = audioTracksByKey[key];
+        if (!track) return null;
+        for (const other of AUDIO_TRACKS) {
+            if (other === track) continue;
+            if (!other.el.paused) other.el.pause();
+            try { other.el.currentTime = 0; } catch (err) {}
+        }
+        const audio = track.el;
+        try { audio.currentTime = 0; } catch (err) {}
+        audioPlayCounts[key] += 1;
+        lastAudioKey = key;
+        activeAudioKey = key;
+        updateAudioRowState();
+        const attempt = audio.play();
+        if (attempt && attempt.catch) attempt.catch(() => {});
+        return audio;
+    }
+
+    function toggleAudioClip(key) {
+        const track = audioTracksByKey[key];
+        if (!track) return;
+        if (activeAudioKey === key && !track.el.paused) {
+            stopAudioClip();
+            return;
+        }
+        playAudioClip(key);
+    }
+
+    for (const track of AUDIO_TRACKS) {
+        track.el.addEventListener('ended', () => {
+            if (activeAudioKey !== track.key) return;
+            activeAudioKey = '';
+            updateAudioRowState();
+        });
+    }
+
+    // Browsers block <audio> until the page has seen a user gesture; prime every clip on
+    // the first click/keypress so gesture-triggered playback later is allowed.
+    function primeAudio() {
+        if (audioPrimed) return;
+        audioPrimed = true;
+        for (const track of AUDIO_TRACKS) {
+            const audio = track.el;
             audio.muted = true;
             const attempt = audio.play();
             if (!attempt || !attempt.then) {
@@ -1417,34 +1242,56 @@
                 continue;
             }
             attempt.then(() => {
-                audio.pause();
-                audio.currentTime = 0;
+                if (activeAudioKey !== track.key) {
+                    audio.pause();
+                    audio.currentTime = 0;
+                }
                 audio.muted = false;
             }).catch(() => { audio.muted = false; });
         }
     }
-    window.addEventListener('pointerdown', primeHeVoice, { once: true });
-    window.addEventListener('keydown', primeHeVoice, { once: true });
+    window.addEventListener('pointerdown', primeAudio, { once: true });
+    window.addEventListener('keydown', primeAudio, { once: true });
 
-    function updateRedVoice(nowMs) {
+    // 赫: either Red form held for 1 s -> one of the two clips at random, once per hold.
+    let redEnteredAtMs = 0;
+    let redVoicePlayed = false;
+    // 苍: the per-hand open-palm hold lives in blueHandStates (stage 1 = counting).
+    let blueVoicePlayed = false;
+    // 無量空処: normal mode plays the single-person clip 1 s into the hold. Long mode
+    // starts its own 31 s track together with the long cinematic instead.
+    let voidVoicePlayed = false;
+
+    function blueHoldElapsedMs(nowMs) {
+        let best = -1;
+        for (const key of Object.keys(blueHandStates)) {
+            const st = blueHandStates[key];
+            if (st.stage === 1) best = Math.max(best, nowMs - st.atMs);
+        }
+        return best;
+    }
+
+    // One place for all hold-to-voice triggers; called once per frame after updateState().
+    function updateTechniqueVoices(nowMs) {
+        const blueHeld = blueHoldElapsedMs(nowMs);
+        if (blueHeld < 0) blueVoicePlayed = false;
+        else if (!blueVoicePlayed && blueHeld >= VOICE_HOLD_MS) {
+            blueVoicePlayed = true;
+            playAudioClip('blue');
+        }
         if (currentTech !== 'red') {
             redVoicePlayed = false;
-            return;
+        } else if (!redVoicePlayed && (nowMs - redEnteredAtMs) >= VOICE_HOLD_MS) {
+            redVoicePlayed = true;
+            const heTracks = AUDIO_TRACKS.filter((t) => t.key === 'he-1' || t.key === 'he-2');
+            if (heTracks.length) playAudioClip(heTracks[Math.floor(Math.random() * heTracks.length)].key);
         }
-        if (redVoicePlayed) return;
-        if ((nowMs - redEnteredAtMs) < RED_VOICE_HOLD_MS) return;
-        redVoicePlayed = true;
-        if (!heVoiceAudios.length) return;
-        const audio = heVoiceAudios[Math.floor(Math.random() * heVoiceAudios.length)];
-        redVoiceLastSrc = audio.getAttribute('src') || '';
-        redVoiceCount += 1;
-        try {
-            audio.currentTime = 0;
-        } catch (err) {
-            // Not loaded yet — play() below starts it from the beginning anyway.
+        if (currentTech !== 'void') {
+            voidVoicePlayed = false;
+        } else if (!voidLongMode && !voidVoicePlayed && (nowMs - voidEnteredAtMs) >= VOICE_HOLD_MS) {
+            voidVoicePlayed = true;
+            playAudioClip('void');
         }
-        const attempt = audio.play();
-        if (attempt && attempt.catch) attempt.catch(() => {});
     }
     // After any technique fires, new triggers are locked out for a few seconds so the return
     // swing of a fling can't chain straight into the next technique (Red -> Blue double fire).
@@ -1462,31 +1309,6 @@
     const blueHandStates = {};
     // holdMs: how long the open palm must face the camera before 蒼 constructs (3 s).
     const BLUE_SEQ = { openFrames: 3, holdMs: 3000, handGraceMs: 500, animMs: 2500, cooldownMs: 2000 };
-    // 黒閃: open palm, then a quick fist within BF.openWindowMs; the fist holds a black/red
-    // charge that follows it, and a forward punch with acceleration fires the burst.
-    const BLACK_FLASH = {
-        openFrames: 3,
-        fistFrames: 2,
-        openWindowMs: 5000,
-        lostMs: 700,
-        // Punch detection: sustained palm-scale growth over >=100 ms, plus a low lateral-drift
-        // gate. A sideways arm swing moves the fist across the frame fast, which is exactly
-        // what the old 2-sample/10% chain mistook for a punch; a push toward the lens grows
-        // the palm while the fist stays roughly in place (only mild perspective drift).
-        punchMinMs: 100,
-        punchMinSamples: 3,
-        punchMinGrowth: 0.19,
-        punchMinRate: 1.3,
-        punchMaxDrift: 1.1,
-        openCancelMs: 100,
-        burstMs: 1400,
-        cooldownMs: 2000
-    };
-    // 黒閃 per-hand chain, charge state, and the burst window.
-    const bfHandStates = {};
-    let bfCharge = null;
-    let bfBurstUntilMs = 0;
-    let bfPoseReleaseRequired = false;
     let blueCharge = null; // active construction: { key, x, y, size, growSamples, startedMs, lastSeenMs, ... }
     const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
     let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
@@ -1577,13 +1399,11 @@
     const canvasCtx = canvasElement.getContext('2d');
     let glowColor = '#00ffff';
     // Scoring order matters: earlier entries win exact ties. Only the techniques this fork
-    // ships remain — 蒼 / 赫 / 無量空処 / 黒閃, plus 茈 (button mode) and its flick tail.
-    const SCORE_GESTURES = ['purple', 'void', 'red', 'blue', 'blackflash', 'flick'];
+    // ships remain — 蒼 / 赫 / 無量空処, plus 茈 (button mode) and its flick tail.
+    const SCORE_GESTURES = ['purple', 'void', 'red', 'blue', 'flick'];
     const GESTURES = ['neutral', ...SCORE_GESTURES];
     // Only one mode now: the Gojo set. MODE stays a constant so the older guards read the same.
     const MODE = 'gojo';
-    // 黒閃 is stateful (open → quick fist → punch), so it is not an EMA-scored gesture: its own
-// charge state drives it, exactly like 茈.
     const GOJO_GESTURES = ['blue', 'red', 'void'];
     const ACTIVE_GESTURES = GOJO_GESTURES;
     const smoothedScores = Object.fromEntries(GESTURES.map((tech) => [tech, tech === 'neutral' ? 1 : 0]));
@@ -1620,7 +1440,7 @@
     const menuBtn = document.getElementById('menu-btn');
     let railOpen = true;
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
-    const KEYBINDS = { debug: 'D', guide: 'H', voice: 'V', auto: 'N' };
+    const KEYBINDS = { debug: 'D', guide: 'H', voice: 'V', auto: 'N', voidlong: 'L' };
     const gestureGuide = document.getElementById('gesture-guide');
     const triggerWordEl = document.getElementById('trigger-word-text');
     const idleFlash = document.getElementById('idle-flash');
@@ -1790,22 +1610,17 @@
         shapes.forEach((shape, i) => {
             const key = keys[i] || `hand_${i}`;
             seen.add(key);
-            const st = blueHandStates[key] || { stage: 0, atMs: 0, openRun: 0, fistRun: 0, lastSeenMs: 0 };
+            const st = blueHandStates[key] || { stage: 0, atMs: 0, openRun: 0, lastSeenMs: 0 };
 
             if (shape.isOpen) {
                 st.openRun += 1;
-                st.fistRun = 0;
-            } else if (shape.isFist) {
-                st.fistRun += 1;
-                st.openRun = 0;
             } else {
                 st.openRun = 0;
-                st.fistRun = 0;
             }
             st.lastSeenMs = nowMs;
 
             // Hold an open palm (fingers spread toward the camera) for BLUE_SEQ.holdMs.
-            // The fist (黒閃's trigger) breaks the chain; nothing else does.
+            // Any other pose breaks the chain.
             if (st.stage === 0) {
                 if (st.openRun >= BLUE_SEQ.openFrames) {
                     st.stage = 1;
@@ -1834,182 +1649,6 @@
 
     function resetBlueHandStates() {
         for (const key of Object.keys(blueHandStates)) delete blueHandStates[key];
-    }
-
-    // --- 黒閃 (Black Flash) ---
-    // Chain per hand: open palm (≥3 frames) -> quick fist (≥2 frames) within openWindowMs.
-    // The fist then holds a black/red charge that follows it; a forward punch (palm growing
-    // toward the camera, same proxy as 蒼) fires the burst. Opening the hand cancels.
-    function updateBlackFlashSequences(shapes, keys, nowMs) {
-        let completedKey = null;
-        const seen = new Set();
-        shapes.forEach((shape, i) => {
-            const key = keys[i] || `hand_${i}`;
-            seen.add(key);
-            const st = bfHandStates[key] || { stage: 0, atMs: 0, openRun: 0, fistRun: 0, lastSeenMs: 0 };
-            if (shape.isOpen) {
-                st.openRun += 1;
-                st.fistRun = 0;
-            } else if (shape.isFist) {
-                st.fistRun += 1;
-                st.openRun = 0;
-            } else {
-                st.openRun = 0;
-                st.fistRun = 0;
-            }
-            st.lastSeenMs = nowMs;
-            if (st.stage === 0) {
-                if (st.openRun >= BLACK_FLASH.openFrames) {
-                    st.stage = 1;
-                    st.atMs = nowMs;
-                }
-            } else if (st.stage === 1) {
-                if ((nowMs - st.atMs) > BLACK_FLASH.openWindowMs) {
-                    st.stage = 0;
-                } else if (st.fistRun >= BLACK_FLASH.fistFrames) {
-                    st.stage = 0;
-                    st.fistRun = 0;
-                    if (!completedKey) completedKey = key;
-                }
-            }
-            bfHandStates[key] = st;
-        });
-        for (const key of Object.keys(bfHandStates)) {
-            if (!seen.has(key) && (nowMs - bfHandStates[key].lastSeenMs) > BLUE_SEQ.handGraceMs) {
-                delete bfHandStates[key];
-            }
-        }
-        return completedKey;
-    }
-
-    function resetBlackFlashHandStates() {
-        for (const key of Object.keys(bfHandStates)) delete bfHandStates[key];
-    }
-
-    function armBlackFlashCharge(key, lm, nowMs) {
-        const p = palmState(lm);
-        const w = handPointToWorld(p.cx, p.cy);
-        bfCharge = {
-            key,
-            x: p.cx,
-            y: p.cy,
-            size: p.size,
-            startedMs: nowMs,
-            lastSeenMs: nowMs,
-            prevSize: p.size,
-            prevSizeMs: nowMs,
-            prevCx: p.cx,
-            prevCy: p.cy,
-            growSamples: 0,
-            growStartMs: nowMs,
-            growStartSize: p.size,
-            growStartX: p.cx,
-            growStartY: p.cy,
-            openSinceMs: 0,
-            visX: w.x,
-            visY: w.y,
-            visInit: true,
-            spin: 0
-        };
-        resetBlackFlashHandStates();
-        setTechniqueName('黒閃 · 構え');
-    }
-
-    function cancelBlackFlashCharge() {
-        bfCharge = null;
-    }
-
-    function startBlackFlashBurst(nowMs) {
-        bfCharge = null;
-        bfPoseReleaseRequired = true; // a still-clenched fist must not re-arm immediately
-        bfBurstUntilMs = nowMs + BLACK_FLASH.burstMs;
-        techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + BLACK_FLASH.cooldownMs);
-        startBlackFlashOverlay(nowMs);
-        forceTechnique('blackflash', BLACK_FLASH.burstMs, nowMs);
-        updateState('blackflash', true);
-        shakeIntensity = Math.max(shakeIntensity, 1.5);
-    }
-
-    // Tracks the fist: follows it, and fires when it punches forward. Returns 'charge' or
-    // 'burst'; 'cancel' when the sign is dropped.
-    function updateBlackFlashCharge(landmarks, keys, nowMs) {
-        const c = bfCharge;
-        let lm = null;
-        let idx = -1;
-        for (let i = 0; i < landmarks.length; i++) {
-            if (keys[i] === c.key) { lm = landmarks[i]; idx = i; break; }
-        }
-        if (!lm) {
-            let bestDist = 0.30;
-            for (let i = 0; i < landmarks.length; i++) {
-                const p = palmState(landmarks[i]);
-                const d = Math.hypot(p.cx - c.x, p.cy - c.y);
-                if (d < bestDist) { bestDist = d; lm = landmarks[i]; idx = i; }
-            }
-            if (lm) {
-                const p = palmState(lm);
-                c.key = keys[idx];
-                c.prevSize = p.size;
-                c.prevSizeMs = nowMs;
-                c.prevCx = p.cx;
-                c.prevCy = p.cy;
-                c.growSamples = 0;
-                c.openSinceMs = 0;
-            }
-        }
-        if (!lm) {
-            const since = nowMs - c.lastSeenMs;
-            return since > BLACK_FLASH.lostMs ? 'cancel' : 'charge';
-        }
-        const shape = handShape(lm);
-        // Opening the hand lets the charge go, but a single motion-blurred "open" read
-        // mid-punch must not kill it: require the open pose to hold for openCancelMs.
-        if (shape.isOpen) {
-            if (!c.openSinceMs) c.openSinceMs = nowMs;
-            if (nowMs - c.openSinceMs >= BLACK_FLASH.openCancelMs) return 'cancel';
-        } else {
-            c.openSinceMs = 0;
-        }
-        const p = palmState(lm);
-        // Punch = the palm grows steadily toward the lens (fist getting bigger on screen)
-        // while the fist does NOT travel sideways across the frame. The drift gate is what
-        // separates a real straight punch from a sideways arm swing.
-        const growRatio = p.size / Math.max(c.prevSize, 0.001);
-        if (growRatio > 1.01) {
-            if (c.growSamples === 0) {
-                c.growStartSize = c.prevSize;
-                c.growStartMs = c.prevSizeMs;
-                c.growStartX = c.prevCx;
-                c.growStartY = c.prevCy;
-            }
-            c.growSamples += 1;
-        } else {
-            c.growSamples = 0;
-        }
-        const growMs = nowMs - c.growStartMs;
-        let punch = false;
-        if (c.growSamples >= BLACK_FLASH.punchMinSamples && growMs >= BLACK_FLASH.punchMinMs) {
-            const growth = (p.size - c.growStartSize) / Math.max(c.growStartSize, 0.001);
-            const rate = growth / Math.max(growMs / 1000, 0.001);
-            const drift = Math.hypot(p.cx - c.growStartX, p.cy - c.growStartY);
-            const driftRate = drift / Math.max(growMs / 1000, 0.001);
-            punch = growth >= BLACK_FLASH.punchMinGrowth
-                && rate >= BLACK_FLASH.punchMinRate
-                && driftRate <= BLACK_FLASH.punchMaxDrift;
-        }
-        c.prevSize = p.size;
-        c.prevSizeMs = nowMs;
-        c.prevCx = p.cx;
-        c.prevCy = p.cy;
-        c.x = p.cx;
-        c.y = p.cy;
-        c.size = p.size;
-        c.lastSeenMs = nowMs;
-        const w = handPointToWorld(p.cx, p.cy);
-        c.visX = w.x;
-        c.visY = w.y;
-        c.spin += 0.12;
-        return punch ? 'burst' : 'charge';
     }
 
     function palmState(lm) {
@@ -2278,6 +1917,7 @@
         purpleCooldownUntilMs = nowMs + PURPLE_CAST.cooldownMs;
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
         setTechniqueName('虚式「茈」 · 射出');
+        playAudioClip('purple'); // the short 2026 line belongs to the button-mode shot
         shakeIntensity = Math.max(shakeIntensity, 0.5);
     }
 
@@ -2716,69 +2356,25 @@
                 return frameScores;
             }
             // Gojo pass: Blue's open-palm hold arms a charge (orb follows that hand) and the
-            // charge decides when to release; 黒閃's open>quick-fist chain arms its own
-            // charge; Red is the plain index-up rule, gated off while either charge runs.
+            // charge decides when to release; Red is the plain index-up rule, gated off
+            // while the charge runs.
             const gojoLocked = nowMs < gestureLockUntilMs;
             const techCoolingDown = nowMs < techCooldownUntilMs;
             const othersOwnHands = gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red'
                 || claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
 
-            // 黒閃 charge owns the fist until it punches or the hand opens. While it runs,
-            // every other technique score is pinned to zero: nothing else may start at the
-            // same spot until the whole 黒閃 interaction (charge + burst) has ended.
-            if (bfCharge) {
-                const verdict = updateBlackFlashCharge(results.multiHandLandmarks, handKeys, nowMs);
-                if (verdict === 'burst') {
-                    startBlackFlashBurst(nowMs);
-                } else if (verdict === 'cancel') {
-                    cancelBlackFlashCharge();
-                }
-                frameScores.blue = 0;
-                frameScores.red = 0;
-                frameScores.void = 0;
-                frameScores.purple = 0;
-                frameScores.flick = 0;
-                frameScores.blackflash = nowMs <= bfBurstUntilMs ? 1 : 0;
-                frameScores.neutral = clamp01(1 - maxActiveScore(frameScores));
-                return frameScores;
-            }
-            if (nowMs <= bfBurstUntilMs) {
-                // The burst owns the screen; no other gesture may start until it has ended.
-                frameScores.blue = 0;
-                frameScores.red = 0;
-                frameScores.void = 0;
-                frameScores.purple = 0;
-                frameScores.flick = 0;
-                frameScores.blackflash = 1;
-                frameScores.neutral = 0;
-                return frameScores;
-            }
-
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
-                resetBlackFlashHandStates();
             } else if (othersOwnHands) {
                 // Fling-return swing must not arm the next technique; stages stay wiped.
                 // Red forms also wipe stages: the natural open>curl>open motion of making the
                 // gun sign must never satisfy Blue's chain. Clasp hands stay idle too.
                 resetBlueHandStates();
-                if (!(currentTech === 'red') ) resetBlackFlashHandStates();
             } else {
                 const completedKey = updateBlueSequences(handShapes, handKeys, nowMs);
                 if (completedKey) {
                     const ci = handKeys.indexOf(completedKey);
                     armBlueCharge(completedKey, results.multiHandLandmarks[ci >= 0 ? ci : 0], nowMs);
-                    resetBlackFlashHandStates();
-                } else if (!bfPoseReleaseRequired) {
-                    const bfKey = updateBlackFlashSequences(handShapes, handKeys, nowMs);
-                    if (bfKey) {
-                        const ci = handKeys.indexOf(bfKey);
-                        armBlackFlashCharge(bfKey, results.multiHandLandmarks[ci >= 0 ? ci : 0], nowMs);
-                    }
-                } else if (!handShapes.some((s) => s.isFist)) {
-                    // Release the "held fist" lock once the fist opens.
-                    bfPoseReleaseRequired = false;
-                    resetBlackFlashHandStates();
                 }
             }
             // Blue is state-driven in Gojo mode; the plain four-finger-spread rule is disabled.
@@ -2808,7 +2404,6 @@
                 frameScores.red = 0;
                 frameScores.blue = 0;
             }
-            frameScores.blackflash = nowMs <= bfBurstUntilMs ? 1 : 0;
         }
 
         frameScores.flick = nowMs <= flickPulseUntilMs ? 1 : 0;
@@ -2839,7 +2434,8 @@
         const settings = [
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
             { action: 'guide', key: KEYBINDS.guide, label: '手势指南 · Guide', on: guideVisible },
-            { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' }
+            { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
+            { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode }
         ];
         if (settingsList) {
             settingsList.innerHTML = settings.map(({ action, key, label, on, note }) => `
@@ -2871,6 +2467,12 @@
         }
     }
 
+    // Long Void switch: the next Void hold uses the long timeline + the 31 s voice.
+    function setVoidLongMode(on) {
+        voidLongMode = !!on;
+        updateKeybindMenu();
+    }
+
     if (menuBtn) {
         menuBtn.addEventListener('click', (event) => {
             event.preventDefault();
@@ -2885,6 +2487,7 @@
                 case 'debug': toggleDebug(); break;
                 case 'guide': setGuideVisibility(!guideVisible); break;
                 case 'voice': setVoiceEnabled(!voiceEnabled); break;
+                case 'voidlong': setVoidLongMode(!voidLongMode); break;
             }
         });
     }
@@ -2895,32 +2498,47 @@
         { foot: '引力：手心里聚起蓝球，四周待机粒子被吸过来、绕着球旋绕；蓝球呼吸浮动、随手旋转' },
         { gesture: '用力前推（手掌压向镜头）/ 手出画面 / 丢失追踪', tech: '释放' },
         { foot: '粒子在屏幕中央炸开；尽量单手使用，另一只手留空，避免双手同时比势被误读' },
-        { sep: '黒閃 · Black Flash' },
-        { gesture: '张开手掌后 5 秒内迅速握拳', tech: '蓄势' },
-        { foot: '拳头四周聚起一大团红黑色细点（半径约 10cm、散开旋转），跟随拳头移动' },
-        { gesture: '拳头向镜头前打出（拳头由小变大 / 持续前推）', tech: '爆发' },
-        { foot: '满屏黑色闪电 + 红色辉光爆开，中间留出一拳的空位；挥拳落空或松手退回' },
+        { foot: '持掌满 1 秒先播苍的语音；满 3 秒才进入构筑（每次保持播一次）' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
-        { foot: '保持 3 秒会自动进入开场动画（流星宇宙 → 粒子白环）；与赫区分：拇指外张的枪形＝赫' },
+        { foot: '比出满 1 秒播放单人版语音；保持 3 秒自动进入开场动画（流星宇宙 → 粒子白环）' },
+        { foot: '设置里打开「长时间无量空处」后：保持 1 秒即进入超长动画（约 34 秒）+ 31 秒语音，语音先结束' },
+        { foot: '与赫区分：拇指外张的枪形＝赫' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '食指向上指，其余三指收拢', tech: '赫' },
         { gesture: '食指+中指并拢、拇指外张（枪形）', tech: '赫' },
         { foot: '斥力：红球出现时，周围的待机粒子被排开，绕出一圈净空' },
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
-        { foot: '任一赫手势保持 2 秒，会随机播放一段赫的语音（每次保持播一次）' },
+        { foot: '任一赫手势保持 1 秒，会随机播放一段赫的语音（每次保持播一次）' },
         { sep: '虚式「茈」 · Imaginary: Purple' },
         { gesture: '点右上「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
         { foot: '点击右上角「茈」开启枪指模式：苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
         { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
-        { foot: '小球射向屏幕正中心并爆开；松手取消蓄势；释放后 2 秒冷却（按钮外圈）' },
+        { foot: '小球射向屏幕正中心并爆开；发射瞬间播放 2026 短语音；松手取消蓄势；释放后 2 秒冷却' },
         { sep: '虚式「茈」 · 双手契印' },
         { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
         { foot: '左侧蓝色粒子球 + 右侧红色粒子球同时变大，向中心靠拢重叠后炸成紫色大爆炸' },
         { foot: '不需要点右上角「茈」；单手同形仍是無量空処' },
+        { foot: '契印专属语音待踩点接入；当前可在左侧「音频」区块手动试听' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）；任何术式触发后 2 秒冷却' }
     ];
+
+    function buildAudioLibrary() {
+        const list = document.getElementById('audio-list');
+        if (!list) return;
+        list.innerHTML = AUDIO_TRACKS.map((track) => `
+            <button class="audio-row" type="button" data-audio="${track.key}" aria-pressed="false" title="播放 ${track.label}">
+                <span class="audio-play" aria-hidden="true">▶</span>
+                <span class="audio-label">${track.label}</span>
+                <span class="audio-dur">${track.dur}</span>
+            </button>`).join('');
+        list.addEventListener('click', (event) => {
+            const row = event.target.closest('.audio-row');
+            if (!row) return;
+            toggleAudioClip(row.dataset.audio);
+        });
+    }
 
     function buildGuide() {
         const items = GUIDE_GOJO;
@@ -2932,6 +2550,7 @@
         gestureGuide.innerHTML = body;
     }
     buildGuide();
+    buildAudioLibrary();
 
     function setGuideVisibility(visible) {
         guideVisible = visible;
@@ -3160,6 +2779,10 @@
             setVoiceEnabled(!voiceEnabled);
             return;
         }
+        if (key === KEYBINDS.voidlong.toLowerCase()) {
+            setVoidLongMode(!voidLongMode);
+            return;
+        }
         if (key === KEYBINDS.auto.toLowerCase()) {
             forcedTech = null;
             forcedUntilMs = 0;
@@ -3205,7 +2828,7 @@
         maybeTriggerPurpleExitExplosion(nextGesture, nowMs);
         updateState(nextGesture);
         maybeTriggerVoidCinematic(nowMs);
-        updateRedVoice(nowMs);
+        updateTechniqueVoices(nowMs);
         updateDebugPanel(nextGesture);
     });
 
@@ -3243,8 +2866,10 @@
         // forced/preview entries fall back to the real clock.
         if (currentTech === 'void' && prevTech !== 'void') {
             voidEnteredAtMs = lastFrameNowMs || nowMs;
+            voidVoicePlayed = false;
         } else if (prevTech === 'void' && currentTech !== 'void') {
             voidHoldAwarded = false;
+            voidVoicePlayed = false;
         }
         // Red hold timer for the 赫 voice clip (both Red forms share the technique entry).
         if (currentTech === 'red' && prevTech !== 'red') {
@@ -3253,13 +2878,12 @@
         } else if (prevTech === 'red' && currentTech !== 'red') {
             redVoicePlayed = false;
         }
-        shakeIntensity = tech === 'blackflash' ? 1.2 : (tech !== 'neutral' ? 0.4 : 0);
+        shakeIntensity = tech !== 'neutral' ? 0.4 : 0;
 
         if(tech === 'purple') { glowColor = '#bb00ff'; setTechniqueName('虚式「茈」'); baseBloomStrength = 4.0; }
         else if(tech === 'void') { glowColor = '#00ffff'; setTechniqueName('領域展開「無量空処」'); baseBloomStrength = 2.0; }
         else if(tech === 'red') { glowColor = '#ff3333'; setTechniqueName('術式反転「赫」'); baseBloomStrength = 2.5; }
         else if(tech === 'blue') { glowColor = '#4d7dff'; setTechniqueName('術式順転「蒼」'); baseBloomStrength = 3.0; }
-        else if(tech === 'blackflash') { glowColor = '#ff0044'; setTechniqueName('黒閃'); baseBloomStrength = 4.2; }
         else if(tech === 'flick') { glowColor = '#bb88ff'; setTechniqueName('虚式「茈」· 放出'); baseBloomStrength = 1.4; }
         else { glowColor = purpleMode ? '#bb00ff' : '#00ffff'; setTechniqueName(''); baseBloomStrength = purpleMode ? 0.35 : 1.0; }
         if (claspCast) {
@@ -3286,10 +2910,6 @@
             else if(tech === 'void') p = getVoid(i);
             else if(tech === 'purple') p = getPurple(i);
             else if(tech === 'blue') p = getBlue(i);
-            else if(tech === 'blackflash') {
-                // The 2D overlay paints the whole 黒閃 display; the base field stays dark.
-                p = { x:0, y:0, z:0, r:0, g:0, b:0, s:0 };
-            }
 
             targetPositions[i*3] = p.x; targetPositions[i*3+1] = p.y; targetPositions[i*3+2] = p.z;
             targetColors[i*3] = p.r; targetColors[i*3+1] = p.g; targetColors[i*3+2] = p.b;
@@ -3470,8 +3090,6 @@
             claspBlueOrb.points.visible = false;
             claspRedOrb.points.visible = false;
         }
-        // 黒閃 visuals (charge swarm + punch blast) are painted by the 2D overlay canvas
-        // (drawBlackFlashOverlay); the additive WebGL field stays dark under it.
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a
         // clean rim around the red core; Blue's release blasts them outward.
@@ -3591,8 +3209,6 @@
         } else if (currentTech === 'blue') {
             particles.rotation.y += 0.02;
             particles.rotation.z += 0.01;
-        } else if (currentTech === 'blackflash') {
-            particles.rotation.set(0, 0, 0); // the burst is radial; spinning it smears the streaks
         } else if (currentTech === 'purple') {
             particles.rotation.z += 0.2;
             particles.rotation.y += 0.05;
@@ -3629,9 +3245,6 @@
 
         updatePurpleButton(nowMs);
         composer.render();
-        // 黒閃 lives on a 2D canvas above the WebGL field (screen blending would erase the
-        // black); the canvas also clears itself once the charge/burst is over.
-        drawBlackFlashOverlay(nowMs);
     }
     animate();
 
