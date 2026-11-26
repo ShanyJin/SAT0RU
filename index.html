@@ -487,10 +487,10 @@
     let purpleSpinPhase = 0;
     let purplePrevAngle = null;
 
-    // --- 虚式「茈」 clasp cast: a Blue orb on the left and a Red orb on the right ---
+    // --- 虚式「茈」 clasp cast: a Blue orb on the RIGHT and a Red orb on the LEFT ---
     // Both use the same ring/haze structure as the other orbs so their spin is readable even
     // on the software renderer. They carry no trail: the effect is their growth and convergence.
-    const CLASP_ORB_COUNT = 1600;
+    const CLASP_ORB_COUNT = 2400;
     function createClaspOrb(colors) {
         const geometry = new THREE.BufferGeometry();
         const positions = new Float32Array(CLASP_ORB_COUNT * 3);
@@ -590,6 +590,120 @@
             orb.positions[i * 3 + 2] = z;
         }
         orb.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // --- 虚式「茈」 clasp cast: the purple entwine ---
+    // Two helix strands (violet + magenta) twist around the same axis. They read as purple
+    // both alone and where they overlap under additive blending. During the collision phase
+    // the coil contracts on a beat (claspCollisionPulse) and the two strands slam together.
+    const CLASP_STRAND_COUNT = 1600;
+    function createClaspStrand(color) {
+        const geometry = new THREE.BufferGeometry();
+        const positions = new Float32Array(CLASP_STRAND_COUNT * 3);
+        const colorArr = new Float32Array(CLASP_STRAND_COUNT * 3);
+        const seeds = [];
+        for (let i = 0; i < CLASP_STRAND_COUNT; i++) {
+            const t = i / (CLASP_STRAND_COUNT - 1);
+            seeds.push({
+                t: Math.min(1, Math.max(0, t + (Math.random() - 0.5) * 0.004)),
+                // Small angular/thickness jitter only: the strand must stay a readable line.
+                theta: (Math.random() - 0.5) * 0.16,
+                rj: 0.94 + Math.random() * 0.12,
+                n1: (Math.random() - 0.5) * 0.55,
+                n2: (Math.random() - 0.5) * 0.45,
+                shimmer: 1.6 + Math.random() * 2.2,
+                phase: Math.random() * Math.PI * 2
+            });
+            // Taper the ends so the strand fades instead of stopping abruptly.
+            const taper = 0.3 + 0.7 * Math.sin(Math.PI * t);
+            const vary = 0.75 + Math.random() * 0.35;
+            colorArr[i * 3] = color.r * taper * vary;
+            colorArr[i * 3 + 1] = color.g * taper * vary;
+            colorArr[i * 3 + 2] = color.b * taper * vary;
+        }
+        geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+        geometry.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
+        const material = new THREE.PointsMaterial({
+            size: 0.5,
+            vertexColors: true,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.9,
+            depthWrite: false
+        });
+        const points = new THREE.Points(geometry, material);
+        points.visible = false;
+        points.frustumCulled = false;
+        scene.add(points);
+        return { geometry, positions, material, points, seeds };
+    }
+    const claspStrandA = createClaspStrand({ r: 0.45, g: 0.22, b: 1.0 }); // blue-violet
+    const claspStrandB = createClaspStrand({ r: 1.0, g: 0.18, b: 0.78 }); // magenta
+    function fillClaspEntwinePositions(strand, nowSec, length, helixRadius, phaseOffset, pulse) {
+        const turns = CLASP_CAST.entwineTurns * Math.PI * 2;
+        const spin = nowSec * CLASP_CAST.entwineSpin;
+        const squash = 1 - pulse * 0.1; // a collision compresses the whole coil
+        const tilt = Math.sin(nowSec * 0.21) * 0.10;
+        const ct = Math.cos(tilt);
+        const st = Math.sin(tilt);
+        for (let i = 0; i < CLASP_STRAND_COUNT; i++) {
+            const s = strand.seeds[i];
+            const angle = s.theta + phaseOffset + s.t * turns + spin;
+            const shimmer = 1 + 0.06 * Math.sin(nowSec * s.shimmer + s.phase);
+            const rr = helixRadius * s.rj * shimmer;
+            const x0 = (s.t - 0.5) * length * squash + s.n1 * 0.6;
+            const y0 = Math.cos(angle) * rr + s.n2 * 0.5;
+            const z0 = Math.sin(angle) * rr * 0.85;
+            strand.positions[i * 3] = x0 * ct - y0 * st;
+            strand.positions[i * 3 + 1] = x0 * st + y0 * ct;
+            strand.positions[i * 3 + 2] = z0;
+        }
+        strand.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Pure layout helpers: the regression pins the direction/size contract here.
+    function claspOrbLayout(ageMs, halfW) {
+        const finalRadius = halfW * CLASP_CAST.orbRadiusFraction;
+        const side = halfW * CLASP_CAST.sideFraction;
+        // Blue grows first, on the right, medium -> huge.
+        const blueP = clamp01(ageMs / CLASP_CAST.blueGrowMs);
+        const blueGrow = 1 - Math.pow(1 - blueP, 2.4);
+        let blueRadius = finalRadius * (CLASP_CAST.blueStartFraction
+            + (1 - CLASP_CAST.blueStartFraction) * blueGrow);
+        let blueOpacity = 0.35 + 0.65 * blueGrow;
+        let blueOn = ageMs >= 0;
+        // Red appears once blue is full: small -> full on the left, 2.5 s.
+        const redP = clamp01((ageMs - CLASP_CAST.redStartMs) / CLASP_CAST.redGrowMs);
+        const redGrow = 1 - Math.pow(1 - redP, 2.2);
+        let redRadius = finalRadius * (CLASP_CAST.redStartFraction
+            + (1 - CLASP_CAST.redStartFraction) * redGrow);
+        let redOpacity = 0.30 + 0.70 * redGrow;
+        let redOn = ageMs >= CLASP_CAST.redStartMs;
+        // Approach: ease in-out toward the centre, compressing as they merge.
+        const convP = clamp01((ageMs - CLASP_CAST.redEndMs) / CLASP_CAST.convergeMs);
+        const travel = convP * convP * (3 - 2 * convP);
+        const scale = 1 - (1 - CLASP_CAST.convergeEndScale) * travel;
+        blueRadius *= scale;
+        redRadius *= scale;
+        const mergeFade = 1 - clamp01((ageMs - CLASP_CAST.convergeEndMs) / CLASP_CAST.mergeFadeMs);
+        blueOpacity *= mergeFade;
+        redOpacity *= mergeFade;
+        blueOn = blueOn && blueOpacity > 0.001;
+        redOn = redOn && redOpacity > 0.001;
+        // Once grown the orbs stay put ("变成大球后就不动"); only their particles orbit.
+        // A tiny settle bob during the first second keeps the growth from feeling pasted on.
+        const bob = ageMs < 1000 ? Math.sin(ageMs * 0.0015) * 0.9 * (1 - ageMs / 1000) : 0;
+        return {
+            blue: { x: side * (1 - travel), y: bob, radius: blueRadius, opacity: blueOpacity, visible: blueOn },
+            red: { x: -side * (1 - travel), y: -bob, radius: redRadius, opacity: redOpacity, visible: redOn }
+        };
+    }
+    function claspCollisionPulse(ageMs) {
+        const since = ageMs - CLASP_CAST.collideStartMs;
+        if (since < 0 || ageMs >= CLASP_CAST.explodeAtMs) return 0;
+        const cyc = (since % CLASP_CAST.collideIntervalMs) / CLASP_CAST.collideIntervalMs;
+        const wave = 0.5 + 0.5 * Math.cos(cyc * Math.PI * 2); // 1 at the slam, 0 midway
+        return Math.pow(wave, 6);
     }
 
     // --- Ambient dust: the standby particles, and proof of Blue's pull / Red's push ---
@@ -1165,7 +1279,7 @@
         { key: 'void', el: document.getElementById('void-voice'), label: '領域展開「無量空処」· 単人', dur: '0:05' },
         { key: 'void-long', el: document.getElementById('void-long-voice'), label: '領域展開「無量空処」· 長時間', dur: '0:31' },
         { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 2026（短）', dur: '0:02' },
-        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印（待接入）', dur: '0:22' }
+        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印', dur: '0:22' }
     ].filter((track) => !!track.el);
     const audioTracksByKey = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, track]));
     const audioPlayCounts = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, 0]));
@@ -1371,23 +1485,54 @@
     // thumbs tucked under. Independent of the top 「茈」 switch. The scan of the reference
     // footage shows MediaPipe often collapses the pose to a single hand, so the trigger only
     // needs a short run of two-hand frames instead of a continuous one.
+    //
+    // The cast is a long-form cinematic (all times relative to the trigger):
+    //   0.0 s  the clasp fires; the blue 蒼 orb appears at the RIGHT edge
+    //   0.5 s  the clasp voice starts (audio/purple-clasp.mp3, 21.9 s)
+    //   1.5 s  blue has grown from medium to huge (≥ half the screen)
+    //   1.5 s  the red 赫 orb appears at the LEFT edge and grows for 2.5 s
+    //   4.0 s  both orbs, symmetric and full size, start a 3 s approach
+    //   7.0 s  they merge at the centre; the purple entwine takes over
+    //   7–13 s two violet/magenta strands twist around each other
+    //  13–20 s they repeatedly slam together and rebound (collision pulses)
+    //  20.0 s  the merged core bursts (the main Purple field explosion)
+    //  23.0 s  aftermath ends. The 21.9 s voice ends at 22.4 s, before the picture.
     const CLASP_CAST = {
         minFrames: 4, // consecutive two-hand clasp frames...
         holdMs: 120, // ...that must also span this long
         gapMs: 400, // a longer detection gap restarts the run
         wristGapMax: 2.2, // wrist distance / palm length
         tipGapMax: 1.3, // index fingertip distance / palm length
-        buildMs: 900, // orbs grow at the screen sides
-        convergeMs: 650, // orbs travel to the centre and overlap
-        fadeMs: 180, // orbs vanish into the blast
+        voiceDelayMs: 500,
+        audioMs: 21891, // audio/purple-clasp.mp3 (documentation / regression only)
+        blueGrowMs: 1500,
+        redStartMs: 1500,
+        redGrowMs: 2500,
+        convergeMs: 3000,
+        entwineMs: 6000,
+        collideMs: 7000,
+        collideIntervalMs: 1400,
+        mergeFadeMs: 600,
         burstMs: 1600, // matches the Purple field explosion
+        fadeMs: 1400,
         cooldownMs: 2000, // release-to-release, like every other technique
-        sideFraction: 0.38, // orb centre at ±this fraction of the view half-width
-        crossOffset: 1.8, // they pass slightly beyond centre before the blast (overlap/cross)
-        orbStartRadius: 0.8,
-        orbRadius: 6.5
+        orbRadiusFraction: 0.50, // final orb radius = a quarter of the view width (diameter = half the screen)
+        sideFraction: 0.52, // orb centre at ±this fraction of the view half-width (fills its side)
+        blueStartFraction: 0.32, // blue starts medium...
+        redStartFraction: 0.10, // ...red starts small
+        convergeEndScale: 0.30, // both compress to 30% as they merge
+        entwineLengthFraction: 1.15, // strand length / view half-width
+        entwineRadiusFraction: 0.17, // strand coil radius / view half-width
+        entwineTurns: 3.2, // twists along each strand
+        entwineSpin: 1.1, // rad/s
+        get redEndMs() { return this.redStartMs + this.redGrowMs; }, // 4000
+        get convergeEndMs() { return this.redEndMs + this.convergeMs; }, // 7000
+        get collideStartMs() { return this.convergeEndMs + this.entwineMs; }, // 13000
+        get explodeAtMs() { return this.collideStartMs + this.collideMs; }, // 20000
+        get burstEndMs() { return this.explodeAtMs + this.burstMs; }, // 21600
+        get endMs() { return this.burstEndMs + this.fadeMs; } // 23000
     };
-    let claspCast = null; // { startMs, phase: 'build' | 'burst', burstStartMs }
+    let claspCast = null; // { startMs, phase, voicePlayed, burstStartMs, collisions }
     let claspRunFrames = 0;
     let claspRunStartMs = 0;
     let claspLastSeenMs = -Infinity;
@@ -1959,7 +2104,13 @@
     function startClaspCast(nowMs) {
         if (blueCharge || purpleShot) return false; // an active charge owns the interaction
         if (nowMs < techCooldownUntilMs || nowMs < gestureLockUntilMs) return false;
-        claspCast = { startMs: nowMs, phase: 'build', burstStartMs: 0 };
+        claspCast = {
+            startMs: nowMs,
+            phase: 'blue',
+            voicePlayed: false,
+            burstStartMs: 0,
+            collisions: -1
+        };
         claspRunFrames = 0;
         claspPoseReleaseRequired = true; // holding the clasp after the blast must not recast
         if (purpleCharge) cancelPurpleCharge();
@@ -2011,17 +2162,53 @@
         shakeIntensity = Math.max(shakeIntensity, 1.3);
     }
 
+    function claspBloomStrength(nowMs) {
+        if (!claspCast) return 1.0;
+        if (claspCast.phase === 'burst' || claspCast.phase === 'fade') return 4.0;
+        if (claspCast.phase === 'purple') {
+            return 1.6 + 2.6 * claspCollisionPulse(Math.max(0, nowMs - claspCast.startMs));
+        }
+        return 1.4;
+    }
+
     function updateClaspCast(nowMs) {
         if (!claspCast) return;
-        if (claspCast.phase === 'build') {
-            if ((nowMs - claspCast.startMs) >= CLASP_CAST.buildMs + CLASP_CAST.convergeMs) {
-                claspCast.phase = 'burst';
-                claspCast.burstStartMs = nowMs;
-                impactClaspCast(nowMs);
-            }
-            return;
+        const age = Math.max(0, nowMs - claspCast.startMs);
+        // The voice is part of the choreography, not of any gesture state: it fires 0.5 s
+        // after the clasp takes, once, and keeps playing through every phase.
+        if (!claspCast.voicePlayed && age >= CLASP_CAST.voiceDelayMs) {
+            claspCast.voicePlayed = true;
+            playAudioClip('purple-clasp');
         }
-        if ((nowMs - claspCast.burstStartMs) >= CLASP_CAST.burstMs) {
+        let phase;
+        if (age < CLASP_CAST.blueGrowMs) phase = 'blue';
+        else if (age < CLASP_CAST.redEndMs) phase = 'red';
+        else if (age < CLASP_CAST.convergeEndMs) phase = 'converge';
+        else if (age < CLASP_CAST.explodeAtMs) phase = 'purple';
+        else if (age < CLASP_CAST.burstEndMs) phase = 'burst';
+        else if (age < CLASP_CAST.endMs) phase = 'fade';
+        else phase = 'ended';
+        claspCast.phase = phase;
+        if (phase === 'purple' || phase === 'fade') {
+            // Discrete collision hits: a small camera kick plus the strand slam in animate().
+            const idx = Math.floor((age - CLASP_CAST.collideStartMs) / CLASP_CAST.collideIntervalMs);
+            if (phase === 'purple' && idx > claspCast.collisions) {
+                claspCast.collisions = idx;
+                shakeIntensity = Math.max(shakeIntensity, 0.6);
+            }
+            const lastSlamMs = CLASP_CAST.collideStartMs + Math.max(0, claspCast.collisions) * CLASP_CAST.collideIntervalMs;
+            if (phase === 'purple' && age - lastSlamMs > 320) shakeIntensity = 0;
+        }
+        if (phase === 'burst' && !claspCast.burstStartMs) {
+            claspCast.burstStartMs = nowMs;
+            impactClaspCast(nowMs);
+        }
+        if (phase === 'fade' && claspCast.burstStartMs) {
+            // The field blast has spent itself; stop the rumble so the aftermath settles.
+            claspCast.burstStartMs = -1;
+            shakeIntensity = 0;
+        }
+        if (phase === 'ended') {
             claspCast = null;
             claspSuppressUntilMs = nowMs + 400;
             updateState('neutral', true);
@@ -2518,9 +2705,9 @@
         { foot: '小球射向屏幕正中心并爆开；发射瞬间播放 2026 短语音；松手取消蓄势；释放后 2 秒冷却' },
         { sep: '虚式「茈」 · 双手契印' },
         { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
-        { foot: '左侧蓝色粒子球 + 右侧红色粒子球同时变大，向中心靠拢重叠后炸成紫色大爆炸' },
+        { foot: '右侧蓝色蒼球先从中球膨胀成半个屏幕大的巨球；1.5 秒后左侧红色赫球用 2.5 秒长大，两球对称' },
+        { foot: '触发 0.5 秒后播契印语音；随后两球用 3 秒慢慢靠拢，紫色双螺旋缠绕、反复碰撞，20 秒时大爆炸，23 秒收尾' },
         { foot: '不需要点右上角「茈」；单手同形仍是無量空処' },
-        { foot: '契印专属语音待踩点接入；当前可在左侧「音频」区块手动试听' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）；任何术式触发后 2 秒冷却' }
     ];
 
@@ -2676,9 +2863,9 @@
     }
 
     function pickGestureFromScores(nowMs) {
-        // During the clasp build/convergence the screen is neutral; the cinematic (not a
-        // gesture) owns it. The burst itself is forced to Purple by impactClaspCast().
-        if (claspCast && claspCast.phase === 'build') {
+        // During the clasp cinematic the screen is neutral; the cinematic (not a gesture)
+        // owns it. The burst itself is forced to Purple by impactClaspCast().
+        if (claspCast) {
             return currentTech === 'neutral' ? 'neutral' : commitTransition('neutral', nowMs);
         }
         if (currentTech === 'flick' && nowMs < flickLockUntilMs) {
@@ -2837,7 +3024,7 @@
             // The clasp cinematic outranks the underlying (neutral) gesture state.
             glowColor = '#bb00ff';
             setTechniqueName('虚式「茈」');
-            baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
+            baseBloomStrength = claspBloomStrength(performance.now());
             bloomPass.strength = baseBloomStrength;
             if (!force && currentTech === tech) return;
         }
@@ -2890,7 +3077,7 @@
             // Re-assert after the per-technique chain (the burst enters as 'purple').
             glowColor = '#bb00ff';
             setTechniqueName('虚式「茈」');
-            baseBloomStrength = claspCast.phase === 'burst' ? 4.0 : 1.5;
+            baseBloomStrength = claspBloomStrength(performance.now());
             bloomPass.strength = baseBloomStrength;
         }
         bloomPass.strength = baseBloomStrength;
@@ -2952,9 +3139,12 @@
         camera.position.z += (zoomTarget - camera.position.z) * 0.05;
 
         const nowMs = performance.now();
-        // Clasp-cast timeline: kept on the render clock so the build/convergence/blast
-        // completes even when the camera loses both hands.
+        // Clasp-cast timeline: kept on the render clock so the whole long cast completes
+        // even when the camera loses both hands.
         updateClaspCast(nowMs);
+        // Bloom follows the cast phase and pumps on each collision beat (the field blast
+        // still re-applies its own kick below).
+        if (claspCast) baseBloomStrength = claspBloomStrength(nowMs);
         // 無量空処 cinematic timeline: same deal — it finishes on its own clock.
         updateVoidCinematic(nowMs);
         // FPS meter for the debug panel.
@@ -2966,13 +3156,16 @@
         }
         // While idling or constructing, the big field is fully dark: skip its per-frame lerp and
         // 240KB attribute upload. This keeps the charge swarm smooth even on weak GPUs.
-        const claspBuild = !!claspCast && claspCast.phase === 'build';
+        const claspHidesField = !!claspCast
+            && claspCast.phase !== 'burst' && claspCast.phase !== 'fade';
         // During the streak phase of the 無量空処 cinematic the big field must stay dark
         // behind the black stage; the final beat fades it back in as the centre ring.
         const cinemaHidingField = !!voidCinematic && voidCinematic.hideField;
-        const fieldIdle = ((currentTech === 'neutral' || claspBuild)
-            && nowMs > neutralSettledAtMs
-            && purpleExplosionUntilMs <= nowMs) || cinemaHidingField;
+        const fieldIdle = claspHidesField
+            || (currentTech === 'neutral'
+                && nowMs > neutralSettledAtMs
+                && purpleExplosionUntilMs <= nowMs)
+            || cinemaHidingField;
         particles.visible = !fieldIdle;
         const pos = particles.geometry.attributes.position.array;
         const col = particles.geometry.attributes.color.array;
@@ -3050,45 +3243,55 @@
             purpleOrb.visible = false;
             purplePath.length = 0;
         }
-        // 虚式「茈」 clasp cast: Blue orb grows on the left, Red orb on the right, both travel
-        // to the centre and overlap (additive red+blue reads as purple), then the field blast
-        // takes over. The orbs fade into the first 180ms of the burst.
+        // 虚式「茈」 clasp cast: the long-form cinematic. Blue 蒼 grows on the RIGHT, red 赫
+        // joins on the LEFT, both approach and compress at the centre, then two purple
+        // strands entwine and collide until the main field blasts at 20 s.
+        const halfH3 = Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
+        const halfW3 = halfH3 * camera.aspect;
         if (claspCast) {
             const age = Math.max(0, nowMs - claspCast.startMs);
-            const buildP = clamp01(age / CLASP_CAST.buildMs);
-            const convP = clamp01((age - CLASP_CAST.buildMs) / CLASP_CAST.convergeMs);
-            const grow = 1 - Math.pow(1 - buildP, 2.2);
-            let radius = CLASP_CAST.orbStartRadius
-                + (CLASP_CAST.orbRadius - CLASP_CAST.orbStartRadius) * grow;
-            const halfH = Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
-            const halfW = halfH * camera.aspect;
-            const side = halfW * CLASP_CAST.sideFraction;
-            const travel = convP < 0.5
-                ? 2 * convP * convP
-                : 1 - Math.pow(-2 * convP + 2, 2) / 2;
-            const bob = Math.sin(nowMs * 0.0015) * 0.9;
-            const arc = Math.sin(travel * Math.PI) * 1.6;
-            const fade = claspCast.phase === 'burst'
-                ? 1 - clamp01((nowMs - claspCast.burstStartMs) / CLASP_CAST.fadeMs)
-                : 1;
-            radius = Math.max(0.3, radius * (0.55 + 0.45 * fade));
-            const show = fade > 0;
-            claspBlueOrb.points.visible = show;
-            claspRedOrb.points.visible = show;
-            if (show) {
-                const cross = travel * CLASP_CAST.crossOffset; // small pass-through at the centre
-                claspBlueOrb.points.position.set(-side * (1 - travel) + cross, bob + arc, 0);
-                claspRedOrb.points.position.set(side * (1 - travel) - cross, -bob - arc, 0);
-                const opacity = (0.35 + 0.65 * grow) * fade;
-                claspBlueOrb.material.opacity = opacity;
-                claspRedOrb.material.opacity = opacity;
-                const spin = nowMs / 1000;
-                fillClaspOrbPositions(claspBlueOrb, spin, radius, 0);
-                fillClaspOrbPositions(claspRedOrb, spin, radius, Math.PI);
+            const layout = claspOrbLayout(age, halfW3);
+            const spin = nowMs / 1000;
+            claspBlueOrb.points.visible = layout.blue.visible;
+            claspRedOrb.points.visible = layout.red.visible;
+            if (layout.blue.visible) {
+                claspBlueOrb.points.position.set(layout.blue.x, layout.blue.y, 0);
+                claspBlueOrb.material.opacity = layout.blue.opacity;
+                claspBlueOrb.material.size = 0.32 + 0.8 * clamp01(layout.blue.radius / (halfW3 * CLASP_CAST.orbRadiusFraction));
+                fillClaspOrbPositions(claspBlueOrb, spin, Math.max(0.3, layout.blue.radius), 0);
+            }
+            if (layout.red.visible) {
+                claspRedOrb.points.position.set(layout.red.x, layout.red.y, 0);
+                claspRedOrb.material.opacity = layout.red.opacity;
+                claspRedOrb.material.size = 0.32 + 0.8 * clamp01(layout.red.radius / (halfW3 * CLASP_CAST.orbRadiusFraction));
+                fillClaspOrbPositions(claspRedOrb, spin, Math.max(0.3, layout.red.radius), Math.PI);
+            }
+            // Purple entwine: fades in as the merged orbs vanish, runs through the
+            // entanglement/collision phases, and blinks out as the field blast takes over.
+            const entAge = age - CLASP_CAST.convergeEndMs;
+            const entIn = clamp01(entAge / 800);
+            const entOut = 1 - clamp01((age - CLASP_CAST.explodeAtMs) / 250);
+            const entOpacity = entIn * entOut;
+            const entShow = entOpacity > 0.001 && age < CLASP_CAST.burstEndMs;
+            claspStrandA.points.visible = entShow;
+            claspStrandB.points.visible = entShow;
+            if (entShow) {
+                const pulse = claspCollisionPulse(age);
+                const breathe = 1 + 0.05 * Math.sin(age * 0.0013);
+                const length = halfW3 * CLASP_CAST.entwineLengthFraction * (0.65 + 0.35 * entIn);
+                const helixR = halfW3 * CLASP_CAST.entwineRadiusFraction
+                    * breathe * (0.35 + 0.65 * entIn) * (1 - 0.72 * pulse);
+                fillClaspEntwinePositions(claspStrandA, spin, length, helixR, 0, pulse);
+                fillClaspEntwinePositions(claspStrandB, spin, length, helixR, Math.PI, pulse);
+                const strandOpacity = (0.55 + 0.45 * entIn) * entOut * (1 + 0.9 * pulse);
+                claspStrandA.material.opacity = Math.min(1, strandOpacity);
+                claspStrandB.material.opacity = Math.min(1, strandOpacity);
             }
         } else {
             claspBlueOrb.points.visible = false;
             claspRedOrb.points.visible = false;
+            claspStrandA.points.visible = false;
+            claspStrandB.points.visible = false;
         }
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a

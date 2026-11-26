@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，100 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，115 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 100 项断言（按顺序）
+### 1.4 115 项断言（按顺序）
 
 1. neutral 初始
 2. 做枪形的自然动作不武装苍（旧「张开→收指→张开」误触的回归）
@@ -101,41 +101,56 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 63. 拇指内扣 → 快速外张（指尖不动）发射
 64. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
 65. 单手摆出与契印相同的两指+拇指内扣：仍是 void，不触发契印动画
-66. 双手扣合（食指尖靠近）触发双手契印（`claspCast` 非空）
-67. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
-68. 快进过 build+converge：进入爆发阶段（`claspCast.phase='burst'`）
-69. 爆发真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
-70. 爆发 1600ms 后契印状态结束（`claspCast=null`）
-71. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
-72. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
-73. 双手扣合姿势但相距很远：不算契印（不退化成双手 void 误触发）
-74. 双手相距很远的同形姿势仍按普通评分展开 void
-75. 無量空処保持不足 3 秒：不触发开场动画
-76. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
-77. 开场动画隐藏 UI（`body.void-cinema`）
-78. 快进到换环时刻：20k 领域场重新显示
-79. 换环时领域场透明度淡入（>0.4）
-80. 换环时星星淡出（opacity <0.7）
-81. 长黑幕结束前：环全亮、黑幕仍全黑（opacity >0.95）
-82. 黑幕淡出完成后：背景透明（overlay <0.05）而环仍全亮（>0.95）
-83. 环收尾段：环正在淡出（0.2 < opacity < 0.8）
-84. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
-85. 动画结束后仍保持手势：不循环重播
-86. 松手后重新结印并保持 3 秒：可以再次播放
-87. 左侧栏存在「长时间无量空处」开关
-88. 点击开关打开（`voidLongMode=true`）
-89. 长版时间轴总长 > 语音时长 + 1s（`endMs 33800 > audioMs 31164 + 1000`）
-90. 长版下無量空処保持不足 1 秒：不触发动画
-91. 保持满 1 秒：领域展开并立即播放长语音，但 8 秒等待内不进动画
-92. 长版不播单人版 `audio/void.mp3`
-93. 长版等待满 8 秒前：不启动开场动画
-94. 等待满 8 秒：启动长版开场动画
-95. 动画启动时不重复播放长语音
-96. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
-97. 再点开关关闭（`voidLongMode=false`）
-98. 左侧音频库列出全部 7 条
-99. 音频库包含契印音轨 `audio/purple-clasp.mp3`
-100. 点击音频行会播放对应音频
+66. 契印长动画时间轴：缠绕→爆炸→余波跨度正好 16 秒（`endMs - convergeEndMs`）
+67. 契印语音（500ms + 21.891s）在动画结束前收尾
+68. 双手扣合触发契印（`claspCast` 非空）
+69. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
+70. 发动即进入 blue 阶段
+71. 发动后不足 0.5 秒：契印语音未播
+72. blue 阶段：蓝球可见且在屏幕右侧、红球尚未出现（`claspOrbLayout`）
+73. blue 长大到终态：直径 ≥ 半个屏幕宽（`claspOrbLayout`，半宽 75 → 直径 ≥37.5）
+74. 跨过 0.5 秒：契印语音播一次
+75. 继续保持：语音不重复播（每次发动一次）
+76. 1.5 秒后红球在左侧出现（蓝球已满）
+77. 红球满长（4 秒）时两球左右对称：|x| 与半径完全一致
+78. 1.5 秒后的阶段为 red
+79. 4 秒后的阶段为 converge（两球靠拢）
+80. 7 秒后进入 purple 缠绕阶段
+81. 碰撞拍点 `claspCollisionPulse → 1`（两螺旋收拢撞击）
+82. 碰撞间隔中点脉冲 → 0（回弹张开）
+83. 20 秒时进入 burst（紫色大爆炸）
+84. 爆炸真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
+85. 23 秒余波结束后契印状态清空（`claspCast=null`）
+86. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
+87. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
+88. 双手扣合姿势但相距很远：不算契印
+89. 双手相距很远的同形姿势仍按普通评分展开 void
+90. 無量空処保持不足 3 秒：不触发开场动画
+91. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
+92. 开场动画隐藏 UI（`body.void-cinema`）
+93. 快进到换环时刻：20k 领域场重新显示
+94. 换环时领域场透明度淡入（>0.4）
+95. 换环时星星淡出（opacity <0.7）
+96. 长黑幕结束前：环全亮、黑幕仍全黑（opacity >0.95）
+97. 黑幕淡出完成后：背景透明（overlay <0.05）而环仍全亮（>0.95）
+98. 环收尾段：环正在淡出（0.2 < opacity < 0.8）
+99. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
+100. 动画结束后仍保持手势：不循环重播
+101. 松手后重新结印并保持 3 秒：可以再次播放
+102. 左侧栏存在「长时间无量空处」开关
+103. 点击开关打开（`voidLongMode=true`）
+104. 长版时间轴总长 > 语音时长 + 1s（`endMs 33800 > audioMs 31164 + 1000`）
+105. 长版下無量空処保持不足 1 秒：不触发动画
+106. 保持满 1 秒：领域展开并立即播放长语音
+107. 长版不播单人版 `audio/void.mp3`
+108. 长版等待满 8 秒前：不启动开场动画
+109. 等待满 8 秒：启动长版开场动画
+110. 动画启动时不重复播放长语音
+111. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
+112. 再点开关关闭（`voidLongMode=false`）
+113. 左侧音频库列出全部 7 条
+114. 音频库包含契印音轨 `audio/purple-clasp.mp3`
+115. 点击音频行会播放对应音频
 
 ### 1.5 加用例的坑
 
@@ -169,9 +184,13 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - **拇指外弹**：用 `thumbUnder1`（拇指内扣）+ `gun1`（拇指外张）模拟跳变；`thumbLerp1` 做慢速外张的
   反例。跳变必须在 `PURPLE_CAST.snapWindowMs`（500ms）内且 `thumbGapRatio` 增幅 ≥0.15 才发射；
   用例之间重新蓄势要 drain 上一发的 2s 冷却（`step(gun1, 70)` 足够）。
-- **双手契印**：用 `clasp2()`（两只手放在 0.455/0.545，`thumbUnderPts`）触发；触发需要攒 4 帧/120ms，
-  给 10 帧足够。动画时间轴走合成时钟：直接改 `claspCast.startMs` 再用 `updateClaspCast(t)` 快进
-  （`finishClasp()` 封装好了）；不要在用例里用 `performance.now()`，否则冷却会写到合成未来。
+- **双手契印（长动画）**：用 `clasp2()`（两只手放在 0.455/0.545，`thumbUnderPts`）触发；触发需要攒
+  4 帧/120ms，给 10 帧足够。时间轴全部由 `CLASP_CAST` 的 getter 派生（`redEndMs 4000 / convergeEndMs 7000 /
+  collideStartMs 13000 / explodeAtMs 20000 / endMs 23000`）；快进用改 `claspCast.startMs` + `updateClaspCast(t)`
+  （`finishClasp()` 封装好收尾，且会先置 `voicePlayed`），不要在用例里用 `performance.now()`，否则冷却会写到合成未来。
+  位置/尺寸/对称性用纯函数 `claspOrbLayout(ageMs, halfW)` 直接断言（不依赖 WebGL 是否画出来），
+  碰撞节拍用 `claspCollisionPulse`。语音 0.5s 门槛用 10~15 帧跨过（33ms/帧，15 帧 ≈0.5s）。
+  注意 `updateClaspCast` 由 `runFrame` → `computeFrameScores` 每帧驱动，语音也是它触发的。
   结束后有「必须松开姿势」锁，要先 `step([], 30)` 再重新扣合；双手分离的负例用 `claspFar2()`。
 - **無量空処开场动画**：`maybeTriggerVoidCinematic` 用合成时钟的 `lastFrameNowMs`，所以
   `step(void1(0.5), …)` 攒够 3 秒就会在 `runFrame` 里自动开播；播报期间 `runFrame` 冻结（镜像
@@ -181,7 +200,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|voidlong|claspbuild|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|voidlong|claspblue|claspred|claspconverge|claspentwine|claspclash|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
@@ -199,7 +218,11 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   验收主人要求的「黑幕消失、环还在」节拍；
 - `voidlong`：直接 `startVoidCinematic(performance.now(), true)`，把相位冻结在长版换环后的
   黑幕保持段——验证 24 秒长黑幕上白环仍亮、bloom 在慢呼吸；
-- `claspbuild`：合成双手扣合触发契印，把 build 冻结在 75%（左右蓝/红两球），用于构图验收；
+- `claspblue`：触发契印，把时间轴冻在蓝球长到 75%——右侧一颗巨大蓝球，左侧还没有红球；
+- `claspred`：冻在红球将满（约 3.7s）——左右对称的一蓝一红巨球；
+- `claspconverge`：冻在靠拢 60%——两球压小、向中心聚拢；
+- `claspentwine`：冻在缠绕段中点——紫/品红双螺旋横贯画面；
+- `claspclash`：冻在碰撞拍点（`collideStartMs + 30ms`）——螺旋收拢撞击、bloom 拉满；
 - `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」。
 - 截 UI（顶栏/侧栏）时加 `&nobanner=1`：否则左上角的测试横幅会盖住菜单按钮；`&noui=1` 用
   `display:none` 直接藏掉侧栏与菜单按钮（应用里的 clean-mode 已删，别再用那个类）。
@@ -294,10 +317,10 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidring&nobanner=1&noui=1" /tmp/shot-voidring.png 36
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidclear&nobanner=1&noui=1" /tmp/shot-voidclear.png 36
+for m in claspblue claspred claspconverge claspentwine claspclash claspburst; do
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspbuild&nobanner=1&noui=1" /tmp/shot-clasp-build.png 22
-xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
-  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspburst&nobanner=1&noui=1" /tmp/shot-clasp-burst.png 22
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=$m&nobanner=1&noui=1" /tmp/shot-$m.png 22
+done
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidlong&nobanner=1&noui=1" /tmp/shot-voidlong.png 36
 ```
@@ -346,8 +369,8 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（100 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（115 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspentwine` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置 4 个开关（D/H/V/L）可切换、音频库 7 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）

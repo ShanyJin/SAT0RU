@@ -30,7 +30,7 @@
 | 无 | `MODE` 固定 `'gojo'`：只保留本作的苍 / 赫 / 無量空処（+ 茈按钮模式与双手契印、flick 尾巴） |
 | `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。可用 id：`neutral void purple red blue flick` |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|voidlong\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 长版换环中 / 契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|voidlong\|claspblue\|claspred\|claspconverge\|claspentwine\|claspclash\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 长版换环中 / 契印蓝球 / 蓝红对称 / 靠拢 / 缠绕 / 碰撞 / 爆发（`&noui=1` 隐藏侧栏） |
 
 按键：`D` 调试面板、`H` 指南分区、`V` 语音、`L` 长时间无量空处、`N` 回识别模式（音乐 / 按键表 / 纯净模式 / 技法轮换 / 独立开场页已删）。
 `N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
@@ -204,16 +204,26 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
   `wristGap<2.2`、`tipGap<1.3`（后两者都除以平均掌长）；
 - 因此**不要求连续双手帧**：`updateClaspDetection()` 在 400ms 内累积 ≥4 帧且持续 ≥120ms 即发动。
 
-**状态机**：`claspCast = { startMs, phase:'build'|'burst', burstStartMs }`。
+**状态机**：`claspCast = { startMs, phase, voicePlayed, burstStartMs, collisions }`，时长轴全部相对发动时刻（`CLASP_CAST` 的 getter 派生）：
 
-- build（0→900ms）：左蓝 / 右红粒子球在屏幕两侧长大；
-- converge（900→1550ms）：两球向中心靠拢，带 1.8 世界单位的交叉偏移，加色混合自然呈紫；
-- 1550ms：`impactClaspCast()` → `forceTechnique('purple', 1600ms)` + 中心点爆炸（与茈命中同源）；
-- +1600ms 结束，`updateState('neutral', true)`；2s 冷却，且必须松开扣合姿势（400ms 无姿势）才能重发。
+- blue（0→1500ms）：右侧蓝色蒼球从中球（32% 终径）膨胀到**半个屏幕宽**（`orbRadiusFraction 0.50` × 视口半宽，直径=半屏宽），
+  环带粒子绕球旋绕；语音在 **500ms** 时起播（`playAudioClip('purple-clasp')`，每次发动一次）；
+- red（1500→4000ms）：左侧红色赫球用 2500ms 从小球长到与蓝球对称（`redStartFraction 0.10`）；
+- converge（4000→7000ms）：两球用 3000ms 缓动向中心靠拢（smoothstep），同时压缩到终径的 30%，
+  7000ms 处重叠、600ms 内淡出（`mergeFadeMs`）；
+- purple（7000→20000ms）：紫/品红两条**双螺旋**（`claspStrandA/B`，各 1600 点）缠绕
+  （`entwineMs 6000`，`entwineTurns 3.2` 圈、自旋 `entwineSpin 1.1`）；13000ms 起进入碰撞段
+  （`collideMs 7000`，`collideIntervalMs 1400`）：螺旋半径按 `claspCollisionPulse` 周期性压扁 72%、
+  亮度加成、每次碰撞给一次 0.6 强度的相机震动——「相互缠绕、相互碰撞」；
+- burst（20000ms）：`impactClaspCast()` → `forceTechnique('purple', 1600ms)` + 中心点爆炸（与茈命中同源），
+  主粒子场回归；
+- fade（21600→23000ms）：爆炸余波收尾，`updateState('neutral', true)`；2s 冷却，且必须松开扣合姿势
+  （400ms 无姿势）才能重发。语音 21.891s（`audioMs`）在 22.39s 结束——**语音先结束、动画后结束**。
 
-**视觉**：`CLASP_ORB_COUNT = 1600` ×2，蓝球（左）/ 红球（右），复用 `ORB_RINGS` 的环带结构；
-`sideFraction 0.38`、`orbStartRadius 0.8 → orbRadius 6.5`、`crossOffset 1.8`；
-build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘埃；爆发复用主粒子场。
+**视觉**：`CLASP_ORB_COUNT = 2400` ×2，蓝球在**右**、红球在**左**，复用 `ORB_RINGS` 的环带结构；
+`sideFraction 0.52`、蓝球起始 32% / 红球起始 10% 终径；球粒子尺寸随球径放大（0.32→1.12）。
+blue/red/converge/purple 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球/螺旋 + 尘埃；burst 复用主粒子场。
+bloom：blue/red 1.4、purple 基础 1.6 + 碰撞脉冲最高 +2.6、burst 4.0（`claspBloomStrength`）。
 
 **边界**：
 
@@ -357,7 +367,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
   （blue 3.0、red 2.5、purple 4.0、void 2.0、flick 1.4），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
-- **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`，
+- **`fieldIdle`**：`（契印尚未进入 burst/fade） || （currentTech==='neutral' && now > neutralSettledAtMs && 无紫爆炸）`，
   或「無量空処 cinematic 的星星阶段（`hideField`）」→ 主粒子场 `particles.visible=false`，
   且跳过 20k 的 lerp/上传/旋转/爆炸计算。
   `neutralSettledAtMs = now + 700`（进入 neutral 后留 700ms 淡出时间）。**这是最大的性能闸门**。
@@ -395,7 +405,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `void` | `audio/void.mp3` | 普通無量空処保持满 1 秒播单人版；长版模式跳过 |
 | `void-long` | `audio/void-long.mp3` | 长版手势满 1 秒（领域展开）时播放（31.164s）；8 秒等待期间继续播，cinematic 启动不重播 |
 | `purple` | `audio/purple-2026.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
-| `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印专属语音，**待主人踩点接入**，目前仅音频库可试听 |
+| `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印发动后 **500ms** 自动播放（21.891s）；每次发动一次，语音在 22.39s 结束、动画 23s 结束 |
 
 - `updateTechniqueVoices(nowMs)` 在 `onResults` 每帧（以及回归驱动 `runFrame`）里检查语音门槛：
   赫/普通無量空処是「进入技法满 `VOICE_HOLD_MS = 1000ms`」，苍是「构筑成型后满
@@ -426,7 +436,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
 | `VOICE_HOLD_MS` | 术式语音门槛 | 1000ms | 苍/赫/普通無量空処保持满 1 秒播一次；见 §11.1 |
-| `AUDIO_TRACKS` | 本地音频清单 | 7 条 | 苍/赫×2/無量空処×2/茈 2026/契印（待接）；左侧栏与语音触发共用 |
+| `AUDIO_TRACKS` | 本地音频清单 | 7 条 | 苍/赫×2/無量空処×2/茈 2026/契印；左侧栏与语音触发共用 |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -436,8 +446,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
 | `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
-| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
-| `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
+| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`；语音 500ms；蓝 1500 / 红 1500+2500 / 靠拢 3000 / 缠绕 6000 / 碰撞 7000 / 爆炸 1600 / 余波 1400，全 23000ms；冷却 2000ms |
+| `CLASP_ORB_COUNT` / `CLASP_STRAND_COUNT` | 契印粒子数 | 2400 ×2 / 1600 ×2 | 蓝球在右、红球在左；紫色双螺旋两条各 1600 |
 | `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
 | `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000（同帧起长语音）/ **等待 8000** / 黑幕淡入 1500 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 动画全 33800ms（从黑幕算）；语音 `audioMs` 31164ms（先结束） |
 | `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
@@ -469,7 +479,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **100 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **115 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/無量空処开场动画/长时间无量空处/音频库）。
 
 ## 14. 关键函数索引（`index.html`）
@@ -496,8 +506,10 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |
-| `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印动画状态机、中心紫色爆炸、2s 冷却 |
-| `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（1600 ×2） |
+| `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印长动画状态机（blue/red/converge/purple/burst/fade）、0.5s 语音、中心紫色爆炸、2s 冷却 |
+| `claspOrbLayout` / `claspCollisionPulse` / `claspBloomStrength` | 两球位置/半径/透明度（纯函数，回归直接断言）、碰撞脉冲、分阶段 bloom |
+| `fillClaspEntwinePositions` / `createClaspStrand` | 紫色双螺旋的每帧布局 |
+| `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（2400 ×2） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（现在只有 red/void/purple/blue 四个） |
 | `getVoid` | 無量空処的白环 + 蓝色球壳目标形状 |

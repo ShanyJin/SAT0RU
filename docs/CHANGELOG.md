@@ -3,6 +3,31 @@
 按时间倒序阅读也行——但建议从下往上，能看清每个决定是被什么逼出来的。
 只记「为什么改/改成了什么」，参数细节看 `docs/ARCHITECTURE.md`。
 
+## 2026-11-26 · 双手契印重做成长动画（23 秒，右蓝左红，双螺旋紫色碰撞）
+
+- 主人给了一段 21.9 秒的契印台词，并要求把手势发动后的演出按台词踩点：
+  触发后 0.5 秒起播语音；先出**右边蓝球**（1.5 秒从中球膨胀到半个屏幕大，之后静止、只有粒子在绕）；
+  1.5 秒后**左边红球**用 2.5 秒长到对称；两球 3 秒慢慢靠近；随后紫色相互缠绕、相互碰撞、
+  爆炸共 16 秒；整体动画比 21.9 秒的音频长，语音先结束。
+- 旧的契印是 3.15 秒的短演出（build 900 / converge 650 / burst 1600），蓝在左、红在右、
+  没有语音、紫色只是一次性爆炸。现在 `CLASP_CAST` 改成 getter 派生的长轴：
+  `blueGrowMs 1500 / redStartMs 1500 / redGrowMs 2500 / convergeMs 3000 / entwineMs 6000 /
+  collideMs 7000 / burstMs 1600 / fadeMs 1400`，派生 `redEndMs 4000 / convergeEndMs 7000 /
+  collideStartMs 13000 / explodeAtMs 20000 / burstEndMs 21600 / endMs 23000`。
+  阶段 `blue → red → converge → purple → burst → fade`，`claspCast.voicePlayed` 保证每次发动只播一次
+  `audio/purple-clasp.mp3`（0.5 秒门槛，`updateClaspCast` 里触发）。
+- 新增视觉：球径按视口宽度换算（`orbRadiusFraction 0.50`，终态直径=半屏宽，加外圈雾层实际更满），
+  球心 `sideFraction 0.52`；两球粒子数 1600→**2400**、点尺寸随球径放大；
+  紫色段新增 `claspStrandA/B`（蓝紫 + 品红，各 1600 点）双螺旋 `fillClaspEntwinePositions`，
+  13000ms 起 `claspCollisionPulse` 每 1.4 秒收拢一次、bloom 拉到 4.2、附带 0.6 相机震动；
+  bloom 按阶段由 `claspBloomStrength` 计算；blue/red/converge/purple 期间强制 `fieldIdle`。
+- 纯函数 `claspOrbLayout(ageMs, halfW)` 供回归直接断言方向/大小/对称，不依赖 WebGL 实际出图。
+- 指南/README/AGENTS/ARCHITECTURE/TESTING 同步；截图演示从 `claspbuild/claspburst` 改为
+  `claspblue/claspred/claspconverge/claspentwine/claspclash/claspburst`。
+  回归 **100→115 项**：契印段重写为 21 项（0.5s 语音、右蓝左红、半屏大小、对称、各阶段切换、
+  碰撞节拍、20s 爆发、23s 收尾、时间轴跨度 16s、语音先结束等）。`LOGICTEST PASS 115/115`
+  （Xvfb + 有头 Firefox 截图确认五个阶段）。
+
 ## 2026-11-26 · 长时间无量空处修正：长语音改到 1 秒触发时播放
 
 - 主人指出上一版「8 秒等待期间没有语音」是错的：比出手势满 1 秒、领域展开时就要播长语音，

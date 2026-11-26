@@ -86,12 +86,14 @@
         const clasp2 = () => [mkHand(0.455, 0.65, claspPts), mkHand(0.545, 0.65, claspPts)];
         const claspFar2 = () => [mkHand(0.30, 0.65, claspPts), mkHand(0.70, 0.65, claspPts)];
         // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
+        // The voice flag is pre-set so skipping ahead cannot re-fire the 0.5 s clip.
         const finishClasp = () => {
             if (!claspCast) return;
-            claspCast.startMs = t - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
+            claspCast.voicePlayed = true;
+            claspCast.startMs = t - CLASP_CAST.explodeAtMs;
             updateClaspCast(t);
-            if (claspCast && claspCast.phase === 'burst') {
-                claspCast.burstStartMs = t - CLASP_CAST.burstMs - 1;
+            if (claspCast) {
+                claspCast.startMs = t - CLASP_CAST.endMs - 1;
                 updateClaspCast(t);
             }
         };
@@ -122,6 +124,9 @@
             cooldownLeftMs: Math.max(0, claspCooldownUntilMs - performance.now()),
             blueVisible: claspBlueOrb.points.visible,
             redVisible: claspRedOrb.points.visible,
+            entwineVisible: claspStrandA.points.visible || claspStrandB.points.visible,
+            bluePointSize: claspBlueOrb.material.size,
+            redPointSize: claspRedOrb.material.size,
             blueScreen: (() => {
                 const v = claspBlueOrb.points.position.clone().project(camera);
                 return { x: (v.x * 0.5 + 0.5) * window.innerWidth, y: (-v.y * 0.5 + 0.5) * window.innerHeight };
@@ -530,18 +535,66 @@
             step(void1(0.5), 20);
             markState('one hand clasp-like is void, not cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
             step([], 100);
-            // Two hands: the clasp itself must start the cinematic and suppress Void.
-            step(clasp2(), 10);
+            // Two hands, long-form cinematic: voice at 0.5 s; blue grows on the RIGHT
+            // 0–1.5 s; red grows on the LEFT 1.5–4 s; the two approach 4–7 s; purple then
+            // entwines/collides/explodes for 16 s (blast at 20 s, aftermath to 23 s). The
+            // 21.9 s audio ends before the animation does.
+            markState('clasp purple choreography spans 16 s', '16000',
+                String(CLASP_CAST.endMs - CLASP_CAST.convergeEndMs));
+            markState('clasp audio ends before the animation', 'yes',
+                CLASP_CAST.voiceDelayMs + CLASP_CAST.audioMs < CLASP_CAST.endMs ? 'yes' : 'no');
+            const claspVoice0 = audioPlayCounts['purple-clasp'];
+            step(clasp2(), 10); // ~0.3 s: cast started, voice not due yet
             markState('clasp cast starts', 'cast', claspCast ? 'cast' : 'idle');
             markState('clasp pose does not become void', 'neutral', currentTech);
-            // Fast-forward through build + convergence on the synthetic clock.
-            claspCast.startMs = t - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
+            markState('clasp starts in the blue phase', 'blue', claspCast ? claspCast.phase : 'ended');
+            markState('clasp voice waits for 0.5 s', 'silent',
+                audioPlayCounts['purple-clasp'] === claspVoice0 ? 'silent' : 'played');
+            markState('clasp blue orb sits on the right, red absent', 'right', (() => {
+                const l = claspOrbLayout(700, 75);
+                return (l.blue.visible && !l.red.visible && l.blue.x > 0) ? 'right' : 'wrong';
+            })());
+            markState('clasp blue grows to at least half the screen', 'big', (() => {
+                const halfW = 75; // so the full view width is 150; half of it is 75
+                const l = claspOrbLayout(CLASP_CAST.blueGrowMs, halfW);
+                return (l.blue.radius * 2 >= halfW) ? 'big' : 'small';
+            })());
+            step(clasp2(), 15); // cross 0.5 s while still holding
+            markState('clasp voice starts 0.5 s after the trigger', 'played',
+                audioPlayCounts['purple-clasp'] === claspVoice0 + 1 ? 'played' : 'silent');
+            step(clasp2(), 10);
+            markState('clasp voice plays once per cast', 'once',
+                audioPlayCounts['purple-clasp'] === claspVoice0 + 1 ? 'once' : 'replayed');
+            markState('clasp red grows on the left after the blue', 'left', (() => {
+                const l = claspOrbLayout(CLASP_CAST.blueGrowMs + 300, 75);
+                return (l.blue.radius > 0 && l.red.visible && l.red.x < 0) ? 'left' : 'wrong';
+            })());
+            markState('clasp orbs are symmetric when red is full', 'symmetric', (() => {
+                const l = claspOrbLayout(CLASP_CAST.redEndMs, 75);
+                return (Math.abs(Math.abs(l.blue.x) - Math.abs(l.red.x)) < 0.001
+                    && Math.abs(l.blue.radius - l.red.radius) < 0.001) ? 'symmetric' : 'asymmetric';
+            })());
+            // Jump the state machine to each phase on the synthetic clock.
+            claspCast.startMs = t - CLASP_CAST.redStartMs - 100;
             updateClaspCast(t);
-            markState('clasp bursts into purple', 'burst', claspCast ? claspCast.phase : 'ended');
+            markState('clasp red phase follows the blue', 'red', claspCast ? claspCast.phase : 'ended');
+            claspCast.startMs = t - CLASP_CAST.redEndMs - 100;
+            updateClaspCast(t);
+            markState('clasp converge phase follows the red', 'converge', claspCast ? claspCast.phase : 'ended');
+            claspCast.startMs = t - CLASP_CAST.collideStartMs - 10;
+            updateClaspCast(t);
+            markState('clasp purple entwine phase starts after 7 s', 'purple', claspCast ? claspCast.phase : 'ended');
+            markState('clasp strands slam together on the beat', 'slam',
+                claspCollisionPulse(CLASP_CAST.collideStartMs) > 0.9 ? 'slam' : 'idle');
+            markState('clasp strands rebound between collisions', 'open',
+                claspCollisionPulse(CLASP_CAST.collideStartMs + CLASP_CAST.collideIntervalMs * 0.5) < 0.05 ? 'open' : 'closed');
+            claspCast.startMs = t - CLASP_CAST.explodeAtMs;
+            updateClaspCast(t);
+            markState('clasp bursts into purple at 20 s', 'burst', claspCast ? claspCast.phase : 'ended');
             markState('clasp blast is active', 'yes', purpleExplosionUntilMs > t ? 'yes' : 'no');
-            claspCast.burstStartMs = t - CLASP_CAST.burstMs - 1;
+            claspCast.startMs = t - CLASP_CAST.endMs - 1;
             updateClaspCast(t);
-            markState('clasp cast ends', 'ended', claspCast ? 'active' : 'ended');
+            markState('clasp cast ends after the aftermath', 'ended', claspCast ? 'active' : 'ended');
             // A held clasp cannot immediately recast (pose must be released).
             step(clasp2(), 10);
             markState('clasp cooldown blocks recast', 'idle', claspCast ? 'cast' : 'idle');
@@ -663,7 +716,9 @@
             // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
-            const isClaspDemo = endMode === 'claspbuild' || endMode === 'claspburst';
+            const isClaspDemo = endMode === 'claspblue' || endMode === 'claspred'
+                || endMode === 'claspconverge' || endMode === 'claspentwine'
+                || endMode === 'claspclash' || endMode === 'claspburst';
             const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
             if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
                 step([], 200);
@@ -678,43 +733,36 @@
                     if (menuBtn) menuBtn.style.display = 'none';
                 }
                 if (isClaspDemo) {
-                    // 虚式「茈」 two-hand clasp: trigger on synthetic hands, then retime the
-                    // cinematic onto the render clock so animate() draws it for the screenshot.
+                    // 虚式「茈」 two-hand clasp: trigger on synthetic hands, then freeze the
+                    // long cinematic at one age so animate() draws the requested beat. The
+                    // wrapper is demo-only (this file is not the app).
                     step(clasp2(), 10);
                     if (claspCast) {
                         const now = performance.now();
-                        if (endMode === 'claspbuild') {
-                            // Freeze the build at ~75%: both grown orbs sit at the screen sides.
-                            // The wrapper and interval are demo-only (this file is not the app).
-                            // setInterval keeps the visual age fresh even at 1–3fps.
-                            claspCast.startMs = now - CLASP_CAST.buildMs * 0.75;
-                            const baseUpdate = updateClaspCast;
-                            updateClaspCast = (ms) => {
-                                if (claspCast && claspCast.phase === 'build') {
-                                    // animate() calls this right before drawing, so the visual
-                                    // age stays at 75% of the build at any frame rate.
-                                    claspCast.startMs = ms - CLASP_CAST.buildMs * 0.75;
-                                    return;
-                                }
-                                baseUpdate(ms);
-                            };
-                        } else {
-                            claspCast.startMs = now - CLASP_CAST.buildMs - CLASP_CAST.convergeMs - 1;
-                            updateClaspCast(now); // -> burst
-                            const baseUpdate = updateClaspCast;
-                            updateClaspCast = (ms) => {
-                                if (claspCast && claspCast.phase === 'burst') {
-                                    // Keep the blast mid-progress for the screenshot (life 0.42 = far-travelled streaks).
-                                    purpleExplosionUntilMs = ms + TUNING.purpleExplosionDurationMs * 0.42;
-                                    claspCooldownUntilMs = ms + CLASP_CAST.cooldownMs;
-                                    forcedTech = 'purple';
-                                    forcedUntilMs = ms + 400;
-                                    return;
-                                }
-                                baseUpdate(ms);
-                            };
-                        }
-                        document.title = endMode === 'claspbuild' ? 'CLASP BUILD DEMO' : 'CLASP BURST DEMO';
+                        const demoAge = {
+                            claspblue: CLASP_CAST.blueGrowMs * 0.75,
+                            claspred: CLASP_CAST.redEndMs - 300,
+                            claspconverge: CLASP_CAST.redEndMs + CLASP_CAST.convergeMs * 0.6,
+                            claspentwine: CLASP_CAST.convergeEndMs + CLASP_CAST.entwineMs * 0.5,
+                            claspclash: CLASP_CAST.collideStartMs + 30,
+                            claspburst: CLASP_CAST.explodeAtMs + CLASP_CAST.burstMs * 0.42
+                        }[endMode];
+                        claspCast.voicePlayed = true; // do not fire audio when the frozen age resets
+                        claspCast.startMs = now - demoAge;
+                        updateClaspCast(now); // set the phase for this beat
+                        updateClaspCast = (ms) => {
+                            if (!claspCast) return;
+                            claspCast.startMs = ms - demoAge; // hold the visual age at any fps
+                            if (claspCast.phase === 'burst') {
+                                // Keep the blast mid-progress for the screenshot.
+                                const life = 1 - (demoAge - CLASP_CAST.explodeAtMs) / CLASP_CAST.burstMs;
+                                purpleExplosionUntilMs = ms + TUNING.purpleExplosionDurationMs * life;
+                                claspCooldownUntilMs = ms + CLASP_CAST.cooldownMs;
+                                forcedTech = 'purple';
+                                forcedUntilMs = ms + 400;
+                            }
+                        };
+                        document.title = 'CLASP DEMO · ' + endMode.toUpperCase();
                     }
                 } else if (endMode === 'void') {
                     // 無量空処: pin the domain field without needing the camera. The white

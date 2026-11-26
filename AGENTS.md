@@ -20,9 +20,10 @@
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
   前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开，发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）；
   松手取消；释放后 2 秒冷却
-- **虚式「茈」· 双手契印**（无需按钮）：双手交叉扣住、食指朝上、拇指内扣 →
-  左侧蓝球 + 右侧红球长大 → 向中心靠拢重叠 → 紫色大爆炸；单手同形仍是無量空処；
-  专属语音待主人踩点接入（`audio/purple-clasp.mp3` 已在音频库可手动试听）
+- **虚式「茈」· 双手契印**（无需按钮，约 23 秒长动画）：双手交叉扣住、食指朝上、拇指内扣 →
+  **右侧蓝球**从中球长到**半个屏幕宽**（1.5 秒）→ **左侧红球**再用 2.5 秒长到对称 →
+  两球 3 秒靠拢、压缩重叠 → **紫色双螺旋**缠绕 6 秒、碰撞回弹 7 秒 → 第 20 秒紫色大爆炸 → 23 秒收尾；
+  **发动 0.5 秒后自动播契印语音**（`audio/purple-clasp.mp3`，21.9 秒，比动画先结束）；单手同形仍是無量空処
 - **左侧栏「音频」区块**：7 个本地音频各一行，点击播放/停止，同一时间只播一条
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
@@ -45,7 +46,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 100 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 115 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -58,7 +59,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `vendor/` | MediaPipe Hands、three.js r160、字体（本地化） |
 | `tools/serve.py` | 静态服务器（wasm/data MIME） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
-| `audio/` | 本地语音 7 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（待接）；零外网请求 |
+| `audio/` | 本地语音 7 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）；零外网请求 |
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
@@ -82,9 +83,12 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `purplePoseInfo`、`purpleWorldAnchor`、`firePurpleCharge`、`impactPurpleShot`、`purpleOrb`、
   `fillPurpleOrbPositions`、`updatePurpleButton`；拇指外弹看 `PURPLE_CAST.snapWindowMs/snapJump`、
   `thumbUnderAtMs/thumbUnderRatio`
-- 茈的双手契印 → `CLASP_CAST`、`claspPoseInfo`、`updateClaspDetection`、`startClaspCast`、
-  `updateClaspCast`、`impactClaspCast`、`claspCast`、`claspBlueOrb/claspRedOrb`、
-  `fillClaspOrbPositions`；阈值 `wristGapMax/tipGapMax`，时间轴 `buildMs/convergeMs/burstMs`
+- 茈的双手契印（长动画）→ `CLASP_CAST`、`claspPoseInfo`、`updateClaspDetection`、`startClaspCast`、
+  `updateClaspCast`、`impactClaspCast`、`claspCast`、`claspBlueOrb/claspRedOrb`、`claspOrbLayout`、
+  `fillClaspOrbPositions`、`claspStrandA/claspStrandB`、`createClaspStrand`、`fillClaspEntwinePositions`、
+  `claspCollisionPulse`、`claspBloomStrength`；阈值 `wristGapMax/tipGapMax`，语音延迟 `voiceDelayMs`（0.5 秒），
+  时间轴 `blueGrowMs/redStartMs/redGrowMs/convergeMs/entwineMs/collideMs/burstMs/fadeMs`
+  （`redEndMs/convergeEndMs/collideStartMs/explodeAtMs/burstEndMs/endMs` 为 getter 派生的绝对时刻）
 - 無量空処的判定/视觉 → `computeHandScores()` 的 `void` 分支、`GOJO_GESTURES`、`getVoid()`；
   阈值 `fingerGap<0.075`、`thumbGapRatio<0.75`（拇指内扣，避开赫枪形的 >0.75）
 - 無量空処定格 3 秒开场动画 → `VOID_CINEMA`、`VOID_STREAK_COUNT`、`startVoidCinematic`、
@@ -100,5 +104,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 100/100 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 115/115 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。
