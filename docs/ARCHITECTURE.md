@@ -97,8 +97,9 @@ MediaPipe 归一化坐标 → three.js 世界坐标（z=0 平面）：
 
 ### 4.2 `blueCharge` 数据
 
-`{ key, x, y, size, hist, startedMs, lastSeenMs, ... }`，`armBlueCharge()` 建立，`releaseBlueCharge()` 销毁。
-构筑中 pill 显示 `術式順転「蒼」 · 構築中`；`CHARGE.maxChargeMs = 15000` 安全阀。
+`{ key, x, y, size, prevSize, growSamples, growStartMs, growStartSize, startedMs, lastSeenMs, ... }`，
+`armBlueCharge()` 建立，`releaseBlueCharge()` 销毁。
+构筑中 pill 显示 `術式順転「蒼」 · 構築中`；`CHARGE.maxChargeMs = 30000` 安全阀。
 
 ### 4.3 构筑视觉（`chargeOrb`，4000 点）
 
@@ -129,16 +130,18 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 
 ### 4.5 释放触发（`releaseBlueCharge`）
 
-约 120ms 滑窗（`windowMs`，至少 `minSpanMs 60` 的历史）判定，任一满足：
+**只认持续前推**（手掌朝镜头方向靠近 = 掌尺寸增长），不再把横向手速当释放信号：
 
 | 途径 | 条件 |
 |---|---|
-| 前甩 | 窗均值手速 ≥ `speedThresh 1.6`/s **且**位移 ≥ `minTravel 0.10`，连续 `fastFrames 2` 次确认 |
-| 前推 | 手掌尺寸增速 ≥ `growthThresh 1.7`/s 且相对增幅 ≥ `minGrowth 0.14` |
+| 前推 | 掌尺寸连续增长 ≥ `pushMinSamples 3` 个采样且持续 ≥ `pushMinMs 110`，累计增幅 ≥ `pushMinGrowth 0.24`，平均增速 ≥ `pushMinRate 1.7`/s；某采样增幅 < `growTolerance 0.002` 立即断链 |
 | 合掌 | 两掌心距 < `palmGap 0.13`，持续 `palmGapFrames 2` |
 | 出手 | 掌心越出画面边距 `outMargin 0.10`，持续 `outFrames 2` |
-| 丢追踪 | `lostMs 700`（刚快速移动过则 `lostFastMs 260`） |
-| 安全阀 | `maxChargeMs 15000` |
+| 丢追踪 | `lostMs 1000` |
+| 安全阀 | `maxChargeMs 30000` |
+
+连续增长链是关键：单帧关键点跳变（手指/手型变化）会在下一样本因不再增长而断链，绝不可能凑满
+3 个采样 + 110ms。慢速平移、横向快挥、转腕、指赫都只让球跟手，不释放。参数全在 `CHARGE.*`。
 
 释放即：`chargeOrb` 消失、主粒子场在**屏幕中央**绽放（`BLUE_SEQ.animMs = 2500ms`，见 §6 爆炸），
 尘埃层同步炸开（§5），随后 2.5s 触发锁 + 8s 全局冷却。
@@ -231,6 +234,8 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 | `BLUE_SEQ.openFrames/fistFrames` | 苍帧数 | 3/2 | 帧 ≈ 33ms |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2500ms | |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
+| `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
+| `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
 | `CHARGE.growMs` | 球展开时长 | 2000ms | 越快越大越快 |
 | `CHARGE.followTauMs` | 跟手阻尼 | 90ms | 大=拖尾更重 |
 | `CHARGE.pathMs` | 拖尾路径 | 320ms | |
@@ -246,7 +251,9 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 - **MediaPipe Hands (legacy)** 是 2D 关键点逐帧检测：极端光照、逆光、手太远仍会丢；丢手由桥接/冷却兜底。
   升级路径：MediaPipe Tasks `HandLandmarker`（新模型、世界坐标、时序更稳）——替换 `hands` 初始化与
   `onResults` 即可，`computeHandScores` 之后不动。
-- 「前甩/前推」用 2D 手速与掌尺寸增速做代理（无深度），逆光抖动时可能误判 → 调 `CHARGE.*`。
+- 「前推」只能用 2D 掌尺寸增速做代理（无深度）。单帧/两帧关键点跳变已由连续增长链过滤；
+  极低帧率或逆光导致关键点反复抖动时，增长链可能被频繁打断（表现为难释放，而不是误释放）→ 调 `CHARGE.*`。
+  横向挥手永远不释放，这是刻意设计。
 - screen 混合叠在摄像头上：画面极亮（对着窗户）粒子会偏淡，属预期；可降曝光或加 bloom。
 - 无摄像头/拒绝授权时 MediaPipe 弹 "Failed to acquire camera"，**模态框会卡住页面 JS**——自动化验收必须
   覆写 `window.alert`（测试页已做）。

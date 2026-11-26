@@ -746,33 +746,35 @@
     let techCooldownUntilMs = 0;
     // Gojo Blue (苍) detector: per-hand open -> fist -> open cycles.
     // Completing the cycle on either hand (one or both) arms a charge: a blue orb shrinks into a
-    // spinning point in that hand instead of blooming immediately. The blast releases on a forward
-    // fling, when the hand leaves the frame, or when tracking is lost. Only one hand is followed.
+    // spinning point in that hand instead of blooming immediately. The blast releases on a
+    // sustained forward push (palm growing toward the camera), when the hand leaves the frame,
+    // or when tracking is lost. Slow drags and sideways swings just carry the orb along.
+    // Only one hand is followed.
     let bluePulseUntilMs = 0;
     let gestureLockUntilMs = 0;
     let pendingBlueInstant = false;
     let lastHandShapes = [];
     const blueHandStates = {};
     const BLUE_SEQ = { stageWindowMs: 1200, openFrames: 3, fistFrames: 2, handGraceMs: 500, animMs: 2500, cooldownMs: 2500 };
-    let blueCharge = null; // active construction: { key, x, y, size, hist, startedMs, lastSeenMs, ... }
+    let blueCharge = null; // active construction: { key, x, y, size, growSamples, startedMs, lastSeenMs, ... }
     const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
     let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
     const orbPathHistory = []; // recent orb positions -> the swarm trails along this path
     const CHARGE = {
-        windowMs: 120, // fling is judged over this sliding window, not per frame
-        minSpanMs: 60, // need at least this much history before judging
-        speedThresh: 1.6, // window-averaged hand speed (normalized units/s)
-        minTravel: 0.10, // ...and real travel within the window, so jitter can't count
-        growthThresh: 1.7, // palm-size growth/s (hand pushed toward the camera)
-        minGrowth: 0.14, // ...and real relative growth within the window
-        fastFrames: 2, // consecutive fast evaluations (~0.1s) to confirm a fling
+        // Release is a deliberate forward push only: palm scale must grow for a sustained
+        // stretch, not just jump once. Window averages are avoided because a single landmark
+        // jump stays inside the window for several frames and would fake a fling.
+        pushMinGrowth: 0.24, // total relative palm-scale growth across the push (24%)
+        pushMinRate: 1.7, // ...and its average rate (relative scale per second)
+        pushMinMs: 110, // growth must persist this long; filters 1-2 frame landmark jumps
+        pushMinSamples: 3, // ...with at least this many consecutive growing detections
+        growTolerance: 0.002, // a sample must add 0.2% palm scale to extend the push
         outMargin: 0.10, // palm center beyond this margin of the frame...
         outFrames: 2, // ...for this many frames => hand left the frame
-        lostMs: 700, // tracking lost while nearly still => release only after this long
-        lostFastMs: 260, // tracking lost right after a fast move => release sooner
+        lostMs: 1000, // tracking lost: wait this long before treating it as gone
         palmGap: 0.13, // two palms closer than this => 合掌 release
         palmGapFrames: 2,
-        maxChargeMs: 15000, // safety valve so a stuck charge cannot hang forever
+        maxChargeMs: 30000, // safety valve so a stuck charge cannot hang forever
         growMs: 2000, // the ball billows out from the palm into the big state over this window
         followTauMs: 90, // damped follow time constant (drag feel)
         pathMs: 320 // how much of the orb's recent path the swarm trails over
@@ -1015,12 +1017,14 @@
             x: p.cx,
             y: p.cy,
             size: p.size,
-            hist: [],
             startedMs: nowMs,
             lastSeenMs: nowMs,
-            lastSpeed: 0,
             lastGrowth: 0,
-            fastFrames: 0,
+            prevSize: p.size,
+            prevSizeMs: nowMs,
+            growSamples: 0,
+            growStartMs: nowMs,
+            growStartSize: p.size,
             outFrames: 0,
             palmFrames: 0,
             prevAngle: null
@@ -1058,13 +1062,14 @@
     }
 
     // Tracks the anchored hand while charging. Returns 'charge' to keep constructing,
-    // 'release' to fire the blast. Dragging with large amplitude or rotating the wrist is
-    // explicitly allowed: fling signals are averaged over ~120ms and need back-to-back
-    // confirmation, so only a forceful swing (or leaving the frame / losing tracking) fires.
+    // 'release' to fire the blast. Dragging and wrist rotation just carry the orb along;
+    // only a sustained forward push (palm scale growing toward the camera), leaving the
+    // frame, 合掌, or lost tracking fires.
     function updateBlueCharge(landmarks, keys, nowMs) {
         const c = blueCharge;
         let lm = null;
         let idx = -1;
+        let reanchored = false;
         for (let i = 0; i < landmarks.length; i++) {
             if (keys[i] === c.key) {
                 lm = landmarks[i];
@@ -1086,21 +1091,22 @@
             }
             if (lm) {
                 c.key = keys[idx];
-                c.hist.length = 0; // re-anchored: don't judge the jump between hands
+                reanchored = true; // don't judge the jump between hands
                 c.prevAngle = null;
             }
         }
         if (!lm) {
             const since = nowMs - c.lastSeenMs;
-            // Losing tracking right after a fast move means the hand probably flew off;
-            // losing it while nearly still is usually a detection hiccup, so wait longer.
-            const movingFast = c.lastSpeed >= 1.0 || c.lastGrowth >= 1.0;
-            const lostLimit = movingFast ? CHARGE.lostFastMs : CHARGE.lostMs;
-            return (since > lostLimit || nowMs - c.startedMs > CHARGE.maxChargeMs) ? 'release' : 'charge';
+            // Detection hiccups are common; give the hand a full second to come back
+            // before treating the charge as lost.
+            return (since > CHARGE.lostMs || nowMs - c.startedMs > CHARGE.maxChargeMs) ? 'release' : 'charge';
         }
         const p = palmState(lm);
-        c.hist.push({ x: p.cx, y: p.cy, s: p.size, t: nowMs });
-        while (c.hist.length > 1 && (nowMs - c.hist[0].t) > CHARGE.windowMs) c.hist.shift();
+        if (reanchored) {
+            c.prevSize = p.size;
+            c.prevSizeMs = nowMs;
+            c.growSamples = 0;
+        }
 
         const outOfFrame = p.cx < -CHARGE.outMargin || p.cx > 1 + CHARGE.outMargin
             || p.cy < -CHARGE.outMargin || p.cy > 1 + CHARGE.outMargin;
@@ -1126,26 +1132,35 @@
         }
         c.prevAngle = palmAngle;
 
-        // Window-averaged fling signals (single-frame landmark jitter is filtered out).
-        const base = c.hist[0];
-        const spanMs = nowMs - base.t;
-        let fastNow = false;
-        if (spanMs >= CHARGE.minSpanMs) {
-            const dist = Math.hypot(p.cx - base.x, p.cy - base.y);
-            const relGrowth = (p.size - base.s) / Math.max(base.s, 0.001);
-            c.lastSpeed = dist / (spanMs / 1000);
-            c.lastGrowth = relGrowth / (spanMs / 1000);
-            fastNow = (c.lastSpeed >= CHARGE.speedThresh && dist >= CHARGE.minTravel)
-                || (c.lastGrowth >= CHARGE.growthThresh && relGrowth >= CHARGE.minGrowth);
+        // Forward-push detector: require consecutive growing palm-scale samples. A single
+        // landmark jump resets on the next sample, so it can never satisfy the streak.
+        const growRatio = p.size / Math.max(c.prevSize, 0.001);
+        if (growRatio > 1 + CHARGE.growTolerance) {
+            if (c.growSamples === 0) {
+                c.growStartSize = c.prevSize;
+                c.growStartMs = c.prevSizeMs;
+            }
+            c.growSamples += 1;
+        } else {
+            c.growSamples = 0;
         }
-        c.fastFrames = fastNow ? c.fastFrames + 1 : 0;
+        const growMs = nowMs - c.growStartMs;
+        let pushNow = false;
+        c.lastGrowth = 0;
+        if (c.growSamples >= CHARGE.pushMinSamples && growMs >= CHARGE.pushMinMs) {
+            const growth = (p.size - c.growStartSize) / Math.max(c.growStartSize, 0.001);
+            c.lastGrowth = growth / Math.max(growMs / 1000, 0.001);
+            pushNow = growth >= CHARGE.pushMinGrowth && c.lastGrowth >= CHARGE.pushMinRate;
+        }
+        c.prevSize = p.size;
+        c.prevSizeMs = nowMs;
 
         c.x = p.cx;
         c.y = p.cy;
         c.size = p.size;
         c.lastSeenMs = nowMs;
         const tooLong = (nowMs - c.startedMs) > CHARGE.maxChargeMs;
-        return (c.outFrames >= CHARGE.outFrames || c.fastFrames >= CHARGE.fastFrames
+        return (c.outFrames >= CHARGE.outFrames || pushNow
             || c.palmFrames >= CHARGE.palmGapFrames || tooLong) ? 'release' : 'charge';
     }
 
@@ -1390,7 +1405,7 @@
         { gesture: '单手或双手：张开 → 握拳 → 再张开', tech: '构筑' },
         { foot: '引力：构筑时四周待机粒子被吸过来，绕着蓝球旋绕并随手动' },
         { foot: '蓝球从小球展开成环绕手心的大片粒子状态，呼吸浮动、随手旋转' },
-        { foot: '用力前甩 / 合掌 / 手出画面 / 丢失追踪 → 释放（粒子被炸开）' },
+        { foot: '用力前推（手掌压向镜头）/ 合掌 / 手出画面 / 丢失追踪 → 释放（粒子被炸开）' },
         { foot: '释放后演出约 2.5 秒，随后 8 秒内不触发任何术式' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '食指向上指，其余三指收拢', tech: '赫' },
@@ -1550,7 +1565,7 @@
             `bluePulse: ${Math.max(0, bluePulseUntilMs - nowMs).toFixed(0)}ms`,
             `gestureLock: ${Math.max(0, gestureLockUntilMs - nowMs).toFixed(0)}ms`,
             `cooldown: ${Math.max(0, techCooldownUntilMs - nowMs).toFixed(0)}ms`,
-            `charge: ${blueCharge ? `ON spd:${(blueCharge.lastSpeed || 0).toFixed(2)} gro:${(blueCharge.lastGrowth || 0).toFixed(2)}` : 'off'}`,
+            `charge: ${blueCharge ? `ON gro:${(blueCharge.lastGrowth || 0).toFixed(2)}/s streak:${blueCharge.growSamples}/${CHARGE.pushMinSamples} +${((blueCharge.size / Math.max(blueCharge.growStartSize, 0.001) - 1) * 100).toFixed(0)}%` : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,

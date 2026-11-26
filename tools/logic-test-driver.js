@@ -74,6 +74,20 @@
             for (let i = 0; i < n; i++) { x += dx; runFrame(open1(x), t); t += 33; }
             return x;
         };
+        const armBlue1 = (x = 0.5) => {
+            step(open1(x), 8);
+            step(fist1(x), 6);
+            step(open1(x), 6);
+            return !!blueCharge;
+        };
+        // A test failure may leave a blast + 8s cooldown behind; clear it so the next
+        // assertion starts from a fresh idle state instead of cascading.
+        const recoverBlue = (x = 0.5) => {
+            if (blueCharge) return x;
+            step([], 280);
+            armBlue1(x);
+            return x;
+        };
 
         const log = [];
         const mark = (name, expect) => {
@@ -122,30 +136,42 @@
             step([], 260); // drain again before the Blue suite
 
             // --- 苍1: single hand cycle arms a charge instead of blooming ---
-            step(open1(0.5), 8);
-            step(fist1(0.5), 6);
-            step(open1(0.5), 6);
-            markState('blue1 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
-            mark('no bloom yet', 'neutral');
+            markState('blue1 charge armed (no bloom)', 'charge',
+                armBlue1() ? (currentTech === 'neutral' ? 'charge' : 'bloomed') : 'idle');
 
-            // Large-amplitude drag (~0.36 units/s) must not interrupt.
-            const cx = drift(0.5, -0.012, 20);
-            markState('drag keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+            // Slow drag (~0.36 units/s): the orb must simply follow the hand.
+            let cx = drift(0.5, -0.012, 20);
+            markState('slow drag keeps charge', 'charge', blueCharge ? 'charge' : 'released');
 
-            // Wrist "rotation": palm size wobbles ±5% frame to frame. Must not interrupt.
-            for (let i = 0; i < 24; i++) {
-                runFrame(scaledOpen1(cx, 0.75, i % 2 ? 1.05 : 1.0), t);
+            // Finger pose changes plus a 3-frame palm-size step (+24%): landmark wobble from
+            // moving fingers must not be mistaken for a forward thrust.
+            for (let i = 0; i < 8; i++) {
+                runFrame(scaledOpen1(cx, 0.75, i % 2 ? 1.08 : 1.0), t);
                 t += 33;
             }
-            markState('rotation wobble keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+            step(scaledOpen1(cx, 0.75, 1.0), 5); // settle so the old window baseline is 1.0
+            for (let i = 0; i < 3; i++) {
+                runFrame(scaledOpen1(cx, 0.75, 1.24), t);
+                t += 33;
+            }
+            markState('finger/size jitter keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+            cx = recoverBlue(cx);
+
+            // Brisk sideways swipe (~1.8 units/s) is not a forward thrust: must not fire.
+            cx = drift(cx, 0.06, 4);
+            markState('fast sideways swipe keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+            cx = recoverBlue(cx);
 
             // Pointing at the charging hand (Red) must not hijack the charge.
             step(red1(cx), 10);
             markState('point during charge keeps charge', 'charge', blueCharge ? 'charge' : 'released');
 
-            // Forceful fling (7+ units/s over the window) releases the blast.
-            drift(cx, 0.24, 3);
-            mark('fling releases', 'blue');
+            // Only a sustained forward push (palm scale growing toward the camera) releases.
+            for (let f = 1.0; f <= 1.5; f += 0.07) {
+                runFrame(scaledOpen1(cx, 0.75, f), t);
+                t += 33;
+            }
+            mark('forward push releases', 'blue');
 
             step(RED2, 40); mark('anim: other gestures ignored', 'blue');
             step(RED2, 60); mark('cooldown: red ignored', 'neutral');
@@ -156,7 +182,7 @@
             step(FIST2, 6);
             step(OPEN2, 6);
             markState('blue2 charge armed', 'charge', blueCharge ? 'charge' : 'idle');
-            step([], 24);
+            step([], 34);
             mark('tracking loss releases', 'blue');
             step([], 250); // drain the post-release cooldown
 
@@ -194,7 +220,13 @@
                         blueCharge.x = 0.5;
                         blueCharge.y = 0.52;
                         blueCharge.startedMs = performance.now() - 2200;
-                        if (endMode === 'blue') drift(0.5, 0.09, 3);
+                        if (endMode === 'blue') {
+                            // Forward push: palm scale grows toward the camera.
+                            for (let f = 1.0; f <= 1.5; f += 0.05) {
+                                runFrame(scaledOpen1(0.5, 0.75, f), t);
+                                t += 33;
+                            }
+                        }
                         if (endMode === 'charge') {
                             // Slow orbit so the screenshot shows the swarm trailing behind the orb.
                             const t0 = performance.now();
