@@ -14,7 +14,8 @@
   保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；比出满 1 秒播单人版语音；
   **定格 >3 秒**自动播开场动画（旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场；
   环出现后黑幕再保持 10 秒，随后黑幕先淡出、背景透明环还在，最后环淡出；一次保持只播一次）；
-  左侧栏「长时间无量空处」开关打开后改成 1 秒触发 ~34 秒长动画 + 31 秒长语音（语音先结束）
+  左侧栏「长时间无量空处」开关打开后：手势满 1 秒先展开领域，**原地保持 8 秒**才进入 ~34 秒长动画
+  （黑幕淡入也放慢到 1.5 秒）+ 31 秒长语音，语音先结束；松手则 8 秒等待从头计
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
   前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开，发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）；
   松手取消；释放后 2 秒冷却
@@ -43,7 +44,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 98 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 99 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -73,7 +74,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `updateTechniqueVoices`、`blueCharge.startedMs`（苍语音计时）、`audioPlayCounts`、`buildAudioLibrary`、
   `#audio-section`/`#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`（赫/無量空処 1 秒）、
   `BLUE_SEQ.voiceDelayMs`（苍构筑后 2 秒）
-- 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
+- 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/startDelayMs/fadeInMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
   `maybeTriggerVoidCinematic`、`startVoidCinematic(nowMs, true)`、`#settings-list` 的 `voidlong` 行（L 键）；
   正常时长轴仍是 `VOID_CINEMA`
 - 茈的模式/蓄势/发射/视觉 → `purpleMode`、`setPurpleMode`、`PURPLE_CAST`、`updatePurpleMode`、
@@ -98,5 +99,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 98/98 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 99/99 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

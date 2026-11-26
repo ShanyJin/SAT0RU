@@ -662,8 +662,9 @@
     // and a 2.6 s visual tail after the 31 s voice ends. The rule is "audio first, animation
     // last": endMs (33.8 s) > audioMs (31.164 s), so the picture always outlives the music.
     const VOID_CINEMA_LONG = {
-        holdMs: 1000, // voice + cinematic start together 1 s into the hold
-        fadeInMs: 600,
+        holdMs: 1000, // the domain opens 1 s into the hold (long-mode gesture trigger)
+        startDelayMs: 8000, // ...then wait 8 s on the open domain before the black-hole cinematic
+        fadeInMs: 1500, // slower fade into the black stage (normal mode stays at 600 ms)
         formDelayMs: 400,
         formMs: 2200,
         ringAtMs: 4000,
@@ -862,7 +863,8 @@
         if (currentTech !== 'void') return;
         const useLong = voidLongMode;
         const C = useLong ? VOID_CINEMA_LONG : VOID_CINEMA;
-        if (nowMs - voidEnteredAtMs < C.holdMs) return;
+        // Long mode holds the open domain for an extra 8 s before the black hole opens.
+        if (nowMs - voidEnteredAtMs < C.holdMs + (C.startDelayMs || 0)) return;
         startVoidCinematic(nowMs, useLong);
         // Long mode: music and picture start on the same frame. The short clip is skipped
         // by updateTechniqueVoices while this mode is armed.
@@ -2497,7 +2499,7 @@
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
         { foot: '比出满 1 秒播放单人版语音；保持 3 秒自动进入开场动画（流星宇宙 → 粒子白环）' },
-        { foot: '设置里打开「长时间无量空处」后：保持 1 秒即进入超长动画（约 34 秒）+ 31 秒语音，语音先结束' },
+        { foot: '设置里打开「长时间无量空处」后：保持 1 秒展开领域，原地再保持 8 秒才进入超长动画（约 34 秒）+ 31 秒语音，语音先结束' },
         { foot: '与赫区分：拇指外张的枪形＝赫' },
         { sep: '術式反転「赫」 · Reversal: Red' },
         { gesture: '食指向上指，其余三指收拢', tech: '赫' },

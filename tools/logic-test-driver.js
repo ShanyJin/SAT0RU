@@ -626,7 +626,10 @@
             step(void1(0.5), 20); // enter the domain
             markState('long void under 1 s no cinematic', 'no', voidCinematic ? 'yes' : 'no');
             step(void1(0.5), 20); // cross the 1 s long hold
-            markState('long void starts long cinematic', 'yes',
+            step(void1(0.5), 200); // ~6.6 s more: still inside the 8 s pre-black wait
+            markState('long void waits 8 s before cinematic', 'no', voidCinematic ? 'yes' : 'no');
+            step(void1(0.5), 60); // ~2 s more: the 8 s wait has elapsed since the 1 s trigger
+            markState('long void starts long cinematic after 8 s', 'yes',
                 (voidCinematic && voidCinematic.long) ? 'yes' : 'no');
             markState('long void plays the long voice', 'played',
                 audioPlayCounts['void-long'] === lv0 + 1 ? 'played' : 'silent');
