@@ -39,6 +39,31 @@
         const GUN_PTS = buildPose(['ring', 'pinky'], false); // index+middle up, thumb flared
         const open1 = (x, y = 0.75) => [mkHand(x, y, OPEN_PTS)];
         const fist1 = (x, y = 0.75) => [mkHand(x, y, FIST_PTS)];
+        // Bent-but-not-curled hand: every finger folds ~55° at the PIP and ~88° at the DIP,
+        // yet the tips stay far from the wrist. This is the pose that used to sneak through
+        // as an open palm and arm Blue; it must read as "not open" now.
+        const bendFinger = (pts, mcpIdx, deg) => {
+            const a = deg * Math.PI / 180;
+            const rot = (vx, vy, angle) => [
+                vx * Math.cos(angle) - vy * Math.sin(angle),
+                vx * Math.sin(angle) + vy * Math.cos(angle)
+            ];
+            const pip = pts[mcpIdx + 1];
+            const dip = pts[mcpIdx + 2];
+            const tip = pts[mcpIdx + 3];
+            let d = rot(dip[0] - pip[0], dip[1] - pip[1], a);
+            const ndip = [pip[0] + d[0], pip[1] + d[1]];
+            d = rot(tip[0] - dip[0], tip[1] - dip[1], a * 1.6);
+            const ntip = [ndip[0] + d[0], ndip[1] + d[1]];
+            pts[mcpIdx + 2] = ndip;
+            pts[mcpIdx + 3] = ntip;
+        };
+        const bentPts = (deg = 55) => {
+            const pts = OPEN.map((p) => p.slice());
+            for (const name of ['index', 'middle', 'ring', 'pinky']) bendFinger(pts, FINGER_MCP[name], deg);
+            return pts;
+        };
+        const bent1 = (x, y = 0.75) => [mkHand(x, y, bentPts(55))];
         const red1 = (x, y = 0.75) => [mkHand(x, y, RED_PTS)];
         const gun1 = (x, y = 0.75) => [mkHand(x, y, GUN_PTS)];
         const scaledOpen1 = (x, y, f) => {
@@ -124,7 +149,10 @@
             cooldownLeftMs: Math.max(0, claspCooldownUntilMs - performance.now()),
             blueVisible: claspBlueOrb.points.visible,
             redVisible: claspRedOrb.points.visible,
-            entwineVisible: claspStrandA.points.visible || claspStrandB.points.visible,
+            entwineVisible: typeof claspCore !== 'undefined' ? claspCore.points.visible : false,
+            vortexVisible: typeof claspCore !== 'undefined'
+                ? (claspCore.points.visible || claspRingA.points.visible || claspRingB.points.visible)
+                : false,
             bluePointSize: claspBlueOrb.material.size,
             redPointSize: claspRedOrb.material.size,
             blueScreen: (() => {
@@ -352,6 +380,12 @@
             markState('short open hold does not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
             step(fist1(0.5), 2); // a fist breaks the open-palm hold
             step([], 10);
+            // Openness is strict now: bent fingers (tips still far from the wrist) are not
+            // an open palm, so a long bend-hold must never arm Blue.
+            step(bent1(0.5), 100);
+            markState('bent fingers do not arm blue', 'idle', blueCharge ? 'charge' : 'idle');
+            markState('bent fingers stay neutral', 'neutral', currentTech);
+            step([], 20);
             markState('blue1 charge armed (no bloom)', 'charge',
                 armBlue1() ? (currentTech === 'neutral' ? 'charge' : 'bloomed') : 'idle');
 
@@ -373,14 +407,25 @@
             markState('finger/size jitter keeps charge', 'charge', blueCharge ? 'charge' : 'released');
             cx = recoverBlue(cx);
 
-            // Brisk sideways swipe (~1.8 units/s) is not a forward thrust: must not fire.
+            // A fast sideways fling (~1.8 units/s) now releases the charge; only slow drags
+            // merely carry the orb along.
             cx = drift(cx, 0.06, 4);
-            markState('fast sideways swipe keeps charge', 'charge', blueCharge ? 'charge' : 'released');
-            cx = recoverBlue(cx);
+            markState('fast sideways fling releases blue', 'released', blueCharge ? 'charge' : 'released');
+            mark('fling release blooms blue', 'blue');
+            cx = recoverBlue(0.5);
 
             // Pointing at the charging hand (Red) must not hijack the charge.
             step(red1(cx), 10);
             markState('point during charge keeps charge', 'charge', blueCharge ? 'charge' : 'released');
+
+            // Clenching the charging hand into a fist fires the blast right away (within a
+            // couple of frames), instead of the old slow lost-tracking wait.
+            step(fist1(cx), 3);
+            markState('fist releases the blue charge', 'released', blueCharge ? 'charge' : 'released');
+            mark('fist release blooms blue', 'blue');
+            step([], 250); // drain the post-release cooldown
+            armBlue1(cx);
+            markState('blue re-armed for the push test', 'charge', blueCharge ? 'charge' : 'idle');
 
             // Only a sustained forward push (palm scale growing toward the camera) releases.
             for (let f = 1.0; f <= 1.5; f += 0.07) {
@@ -583,11 +628,44 @@
             markState('clasp converge phase follows the red', 'converge', claspCast ? claspCast.phase : 'ended');
             claspCast.startMs = t - CLASP_CAST.collideStartMs - 10;
             updateClaspCast(t);
-            markState('clasp purple entwine phase starts after 7 s', 'purple', claspCast ? claspCast.phase : 'ended');
-            markState('clasp strands slam together on the beat', 'slam',
+            markState('clasp purple vortex phase starts after 7 s', 'purple', claspCast ? claspCast.phase : 'ended');
+            markState('clasp vortex core appears at the centre', 'visible', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const l = claspVortexLayout(CLASP_CAST.convergeEndMs + 1000, 75);
+                return l.core.visible && l.core.radius > 0 ? 'visible' : 'hidden';
+            })());
+            markState('clasp vortex fills a readable share of the view', 'big', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const l = claspVortexLayout(CLASP_CAST.convergeEndMs + 2000, 75);
+                return l.core.radius >= 75 * 0.18 ? 'big' : 'small';
+            })());
+            markState('clasp vortex gyro rings tilt apart', 'varied', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const l = claspVortexLayout(CLASP_CAST.convergeEndMs + 2000, 75);
+                const rings = l.rings.filter((ring) => ring.visible);
+                const tilts = new Set(rings.map((ring) => ring.tilt.toFixed(2)));
+                return rings.length >= 3 && tilts.size >= 2 ? 'varied' : 'flat';
+            })());
+            markState('clasp vortex slams on the beat', 'slam',
                 claspCollisionPulse(CLASP_CAST.collideStartMs) > 0.9 ? 'slam' : 'idle');
-            markState('clasp strands rebound between collisions', 'open',
+            markState('clasp vortex rebounds between collisions', 'open',
                 claspCollisionPulse(CLASP_CAST.collideStartMs + CLASP_CAST.collideIntervalMs * 0.5) < 0.05 ? 'open' : 'closed');
+            markState('clasp shockwave expands after a collision', 'expanding', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const a = claspVortexLayout(CLASP_CAST.collideStartMs + 100, 75);
+                const b = claspVortexLayout(CLASP_CAST.collideStartMs + 500, 75);
+                return (a.shock.visible && b.shock.visible && b.shock.radius > a.shock.radius + 1) ? 'expanding' : 'static';
+            })());
+            markState('clasp shockwave fades before the next beat', 'faded', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const l = claspVortexLayout(CLASP_CAST.collideStartMs + CLASP_CAST.collideIntervalMs - 50, 75);
+                return l.shock.visible ? 'visible' : 'faded';
+            })());
+            markState('clasp vortex hides for the blast', 'hidden', (() => {
+                if (typeof claspVortexLayout !== 'function') return 'missing';
+                const l = claspVortexLayout(CLASP_CAST.explodeAtMs, 75);
+                return l.core.visible ? 'visible' : 'hidden';
+            })());
             claspCast.startMs = t - CLASP_CAST.explodeAtMs;
             updateClaspCast(t);
             markState('clasp bursts into purple at 20 s', 'burst', claspCast ? claspCast.phase : 'ended');
@@ -607,6 +685,22 @@
             step(claspFar2(), 20);
             markState('far two-hand pose is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
             markState('far two-hand pose stays void', 'void', currentTech);
+            step([], 100);
+
+            // MediaPipe often drops one hand mid-clasp. The remaining index-up hand used to
+            // read as 赫; with a recent near-two-hand history it must not, and the clasp must
+            // still cast from the frames already accumulated.
+            step(clasp2(), 2);
+            markState('clasp warming before a hand drops', 'warming',
+                claspCast ? 'cast' : (claspRunFrames > 0 ? 'warming' : 'idle'));
+            step(red1(0.5), 30);
+            markState('dropped-hand clasp does not fire red', 'ok',
+                currentTech === 'red' ? 'red' : 'ok');
+            markState('dropped-hand clasp still casts', 'cast', claspCast ? 'cast' : 'idle');
+            finishClasp();
+            step([], 220); // drain the cast cooldown
+            step(red1(0.5), 30);
+            markState('lone index hand still fires red', 'red', currentTech);
             step([], 100);
 
             // --- 無量空処 hold-3s: the domain cinematic enters by itself ---
@@ -701,7 +795,7 @@
 
             // --- Audio block: one row per local clip; clicking plays it ---
             const audioRows = document.querySelectorAll('#audio-list .audio-row');
-            markState('audio block lists every clip', '7', String(audioRows.length));
+            markState('audio block lists every clip', '9', String(audioRows.length));
             markState('audio block includes the clasp track', 'yes',
                 document.querySelector('#audio-list [data-audio="purple-clasp"]') ? 'yes' : 'no');
             const pc0 = audioPlayCounts['purple-clasp'];
@@ -710,6 +804,69 @@
             markState('audio row click plays the clip', 'played',
                 (audioPlayCounts['purple-clasp'] === pc0 + 1 && lastAudioKey === 'purple-clasp')
                     ? 'played' : 'silent');
+            // The two new clips are click-only: no gesture may ever fire them.
+            markState('audio block includes the failure clip', 'yes',
+                document.querySelector('#audio-list [data-audio="fail"]') ? 'yes' : 'no');
+            markState('audio block includes the creed clip', 'yes',
+                document.querySelector('#audio-list [data-audio="creed"]') ? 'yes' : 'no');
+            const failRow = document.querySelector('#audio-list [data-audio="fail"]');
+            const failClicks0 = audioPlayCounts.fail || 0;
+            if (failRow) failRow.click();
+            markState('failure clip plays on click', 'played',
+                ((audioPlayCounts.fail || 0) === failClicks0 + 1 && lastAudioKey === 'fail')
+                    ? 'played' : 'silent');
+            const creedRow = document.querySelector('#audio-list [data-audio="creed"]');
+            const creedClicks0 = audioPlayCounts.creed || 0;
+            if (creedRow) creedRow.click();
+            markState('creed clip plays on click', 'played',
+                ((audioPlayCounts.creed || 0) === creedClicks0 + 1 && lastAudioKey === 'creed')
+                    ? 'played' : 'silent');
+
+            // --- Left rail: three small sub-menu tabs at the top ---
+            const railTabs = document.querySelectorAll('#left-rail .rail-tab');
+            markState('left rail has three sub-menu tabs', '3', String(railTabs.length));
+            markState('rail tab order', 'main,guide,about',
+                Array.from(railTabs).map((b) => b.dataset.tab).join(','));
+            const mainPanel = document.querySelector('#rail-panel-main');
+            const guidePanel = document.querySelector('#rail-panel-guide');
+            const aboutPanel = document.querySelector('#rail-panel-about');
+            markState('main tab is open by default', 'main',
+                (mainPanel && !mainPanel.hidden && guidePanel && guidePanel.hidden
+                    && aboutPanel && aboutPanel.hidden) ? 'main' : 'other');
+            markState('main tab holds settings and audio', 'both',
+                (mainPanel && mainPanel.contains(document.getElementById('settings-list'))
+                    && mainPanel.contains(document.getElementById('audio-list'))) ? 'both' : 'missing');
+            if (railTabs[1]) railTabs[1].click();
+            markState('guide tab switches the panel', 'guide',
+                (guidePanel && !guidePanel.hidden && mainPanel && mainPanel.hidden) ? 'guide' : 'other');
+            if (railTabs[2]) railTabs[2].click();
+            markState('about tab switches the panel', 'about',
+                (aboutPanel && !aboutPanel.hidden && guidePanel && guidePanel.hidden) ? 'about' : 'other');
+            if (railTabs[0]) railTabs[0].click();
+            markState('main tab returns', 'main', (mainPanel && !mainPanel.hidden) ? 'main' : 'hidden');
+            markState('settings keep debug/voice/voidlong/sfx', 'debug,voice,voidlong,sfx',
+                Array.from(document.querySelectorAll('#settings-list [data-action]'))
+                    .map((row) => row.dataset.action).join(','));
+
+            // --- 音效 switch: release SFX can be turned off independently of the voices ---
+            const sfxQuery = () => document.querySelector('#settings-list [data-action="sfx"]');
+            markState('settings include a sound-effects switch', 'yes', sfxQuery() ? 'yes' : 'no');
+            const sfx0 = (typeof sfxPlayCounts !== 'undefined') ? (sfxPlayCounts.blue || 0) : -1;
+            if (typeof playSfx === 'function') playSfx('blue');
+            markState('sound effects play when enabled', 'played',
+                (typeof sfxPlayCounts !== 'undefined' && sfxPlayCounts.blue === sfx0 + 1)
+                    ? 'played' : 'silent');
+            if (sfxQuery()) sfxQuery().click();
+            markState('sound-effects switch toggles off', 'off',
+                (typeof sfxEnabled !== 'undefined' && !sfxEnabled
+                    && sfxQuery() && sfxQuery().getAttribute('aria-checked') === 'false') ? 'off' : 'on');
+            if (typeof playSfx === 'function') playSfx('blue');
+            markState('sound effects stay silent when switched off', 'silent',
+                (typeof sfxPlayCounts !== 'undefined' && sfxPlayCounts.blue === sfx0 + 1)
+                    ? 'silent' : 'played');
+            if (sfxQuery()) sfxQuery().click(); // back on for the demos
+            markState('sound-effects switch toggles back on', 'on',
+                (typeof sfxEnabled !== 'undefined' && sfxEnabled) ? 'on' : 'off');
 
             step([], 10); mark('end', null);
 
@@ -717,7 +874,7 @@
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
             const isClaspDemo = endMode === 'claspblue' || endMode === 'claspred'
-                || endMode === 'claspconverge' || endMode === 'claspentwine'
+                || endMode === 'claspconverge' || endMode === 'claspvortex'
                 || endMode === 'claspclash' || endMode === 'claspburst';
             const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
             if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
@@ -743,7 +900,7 @@
                             claspblue: CLASP_CAST.blueGrowMs * 0.75,
                             claspred: CLASP_CAST.redEndMs - 300,
                             claspconverge: CLASP_CAST.redEndMs + CLASP_CAST.convergeMs * 0.6,
-                            claspentwine: CLASP_CAST.convergeEndMs + CLASP_CAST.entwineMs * 0.5,
+                            claspvortex: CLASP_CAST.convergeEndMs + CLASP_CAST.vortexMs * 0.5,
                             claspclash: CLASP_CAST.collideStartMs + 30,
                             claspburst: CLASP_CAST.explodeAtMs + CLASP_CAST.burstMs * 0.42
                         }[endMode];
@@ -841,9 +998,8 @@
                     }
                     document.title = endMode === 'purplecharge' ? 'PURPLE CHARGE DEMO' : 'PURPLE BURST DEMO';
                 } else {
-                    step(open1(0.5), 8);
-                    step(fist1(0.5), 6);
-                    step(open1(0.5), 6);
+                    // 蒼 arms on a strict 2 s open-palm hold now (no open>fist>open cycle).
+                    step(open1(0.5), 100);
                     if (blueCharge) {
                         // Center the orb and pretend the construction has converged.
                         blueCharge.x = 0.5;
@@ -883,5 +1039,7 @@
         banner.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:' + (fails.length ? '#a00' : '#080') + ';color:#fff;font:13px/1.5 monospace;padding:10px 14px;white-space:pre;border-radius:6px';
         banner.textContent = 'LOGICTEST ' + (fails.length ? 'FAIL' : 'PASS') + '\n' + log.join('\n');
         if (!new URLSearchParams(location.search).has('nobanner')) document.body.appendChild(banner);
-        document.title = 'LOGICTEST ' + (fails.length ? 'FAIL ' + fails.slice(0, 4).join(' | ') : 'PASS');
+        document.title = 'LOGICTEST ' + (fails.length
+            ? 'FAIL ' + fails.length + ': ' + fails.map((line) => line.replace(/ -> .*$/, '')).join(' | ')
+            : 'PASS');
     }

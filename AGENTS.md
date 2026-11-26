@@ -6,7 +6,8 @@
 
 主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），默认「五条悟模式」：
 
-- **術式順転「蒼」**（引力）：张开手掌对着镜头保持 2 秒 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）；
+- **術式順転「蒼」**（引力）：**四指完全伸直的张开手掌**对着镜头保持 2 秒 → 构筑蓝色粒子球 →
+  用力前推 / **握拳（2 帧）** / **快速甩出** / 合掌释放（慢移、横挥只跟手；弯着手指的手不算张开）；
   构筑成型再满 2 秒才播苍语音（`audio/blue.mp3`，每次构筑一次；提前释放/取消不播）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场；
   任一赫手势保持 1 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
@@ -22,9 +23,13 @@
   松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮，约 23 秒长动画）：双手交叉扣住、食指朝上、拇指内扣 →
   **右侧蓝球**从中球长到**半个屏幕宽**（1.5 秒）→ **左侧红球**再用 2.5 秒长到对称 →
-  两球 3 秒靠拢、压缩重叠 → **紫色双螺旋**缠绕 6 秒、碰撞回弹 7 秒 → 第 20 秒紫色大爆炸 → 23 秒收尾；
-  **发动 0.5 秒后自动播契印语音**（`audio/purple-clasp.mp3`，21.9 秒，比动画先结束）；单手同形仍是無量空処
-- **左侧栏「音频」区块**：7 个本地音频各一行，点击播放/停止，同一时间只播一条
+  两球 3 秒靠拢、压缩重叠 → **紫色星系漩涡** 6 秒（三臂星核差速旋转 + 三道倾斜陀螺环进动 + 周期性冲击波）
+  然后碰撞回弹 7 秒 → 第 20 秒紫色大爆炸 → 23 秒收尾；
+  **发动 0.5 秒后自动播契印语音**（`audio/purple-clasp.mp3`，21.9 秒，比动画先结束）；单手同形仍是無量空処；
+  双手扣合期间 MediaPipe 掉成单手时，残留的食指手不会误判成赫（近手上下文 + 600ms 嫌疑窗）
+- **左侧栏**：顶部分「模式与音频 / 指南 / 关于」三个小菜单（点击切换，H 切指南）；「模式与音频」里是
+  设置开关（调试 D / 指南 H / 语音 V / 长时间无量空处 L / **释放音效 SFX**）与「音频」区块：
+  **9 个本地音频**各一行，点击播放/停止，同一时间只播一条；失败 / 校训两条只手动点击、不接任何手势
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
 其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
@@ -46,7 +51,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 115 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 149 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -59,7 +64,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `vendor/` | MediaPipe Hands、three.js r160、字体（本地化） |
 | `tools/serve.py` | 静态服务器（wasm/data MIME） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
-| `audio/` | 本地语音 7 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）；零外网请求 |
+| `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
@@ -67,15 +72,19 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 去哪改（grep 锚点）
 
-- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`
+- 手势判定/阈值 → `handShape()`、`computeHandScores()`、`TUNING`、`CHARGE`、`BLUE_SEQ`；
+  张开手掌的严格判定 → `handShape()` 里的 `straightFinger`（四指链条伸展比 ≥0.90 + 指节夹角 <41°）
 - 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`（2 秒）、
-  构筑后语音延迟 → `BLUE_SEQ.voiceDelayMs`（2 秒）
+  构筑后语音延迟 → `BLUE_SEQ.voiceDelayMs`（2 秒）；释放分支 → `CHARGE.fistFrames`（握拳）、
+  `CHARGE.flingMinSpeed/flingMinDisplacement/flingRunFrames/flingMaxSampleGapMs`（甩出）、`updateBlueCharge` 的 fling 块
 - 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`；语音 → `VOICE_HOLD_MS`、`updateTechniqueVoices`、
   `redEnteredAtMs`（`updateState` 写入）、`audio/he-1|2.mp3`
 - 音频库/语音 → `AUDIO_TRACKS`、`playAudioClip`、`toggleAudioClip`、`stopAudioClip`、`primeAudio`、
   `updateTechniqueVoices`、`blueCharge.startedMs`（苍语音计时）、`audioPlayCounts`、`buildAudioLibrary`、
-  `#audio-section`/`#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`（赫/無量空処 1 秒）、
-  `BLUE_SEQ.voiceDelayMs`（苍构筑后 2 秒）
+  `#rail-panel-main` 的 `#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`
+  （赫/無量空処 1 秒）、`BLUE_SEQ.voiceDelayMs`（苍构筑后 2 秒）
+- 释放音效 → `sfxEnabled`、`setSfxEnabled`、`playSfx('blue'|'purple'|'purpleBurst'|'clasp')`、
+  `ensureSfxContext`、`sfxTone`、`sfxNoiseBurst`、`sfxPlayCounts`（WebAudio 合成，零外网）
 - 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/startDelayMs/fadeInMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
   `maybeTriggerVoidCinematic`、`startVoidCinematic(nowMs, true)`、`#settings-list` 的 `voidlong` 行（L 键）；
   正常时长轴仍是 `VOID_CINEMA`
@@ -83,12 +92,15 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `purplePoseInfo`、`purpleWorldAnchor`、`firePurpleCharge`、`impactPurpleShot`、`purpleOrb`、
   `fillPurpleOrbPositions`、`updatePurpleButton`；拇指外弹看 `PURPLE_CAST.snapWindowMs/snapJump`、
   `thumbUnderAtMs/thumbUnderRatio`
-- 茈的双手契印（长动画）→ `CLASP_CAST`、`claspPoseInfo`、`updateClaspDetection`、`startClaspCast`、
+- 茈的双手契印（长动画）→ `CLASP_CAST`、`claspPoseInfo`、`claspHandsNear`、`updateClaspDetection`、`startClaspCast`、
   `updateClaspCast`、`impactClaspCast`、`claspCast`、`claspBlueOrb/claspRedOrb`、`claspOrbLayout`、
-  `fillClaspOrbPositions`、`claspStrandA/claspStrandB`、`createClaspStrand`、`fillClaspEntwinePositions`、
-  `claspCollisionPulse`、`claspBloomStrength`；阈值 `wristGapMax/tipGapMax`，语音延迟 `voiceDelayMs`（0.5 秒），
-  时间轴 `blueGrowMs/redStartMs/redGrowMs/convergeMs/entwineMs/collideMs/burstMs/fadeMs`
-  （`redEndMs/convergeEndMs/collideStartMs/explodeAtMs/burstEndMs/endMs` 为 getter 派生的绝对时刻）
+  `fillClaspOrbPositions`、`claspCore/claspRingA/B/C/claspShock`、`createClaspCore/createClaspRing/createClaspShock`、
+  `fillClaspCorePositions`、`fillClaspRingPositions`、`fillClaspShockPositions`、`claspVortexLayout`、
+  `claspCollisionPulse`、`claspBloomStrength`；阈值 `wristGapMax/tipGapMax/nearWristGapMax/suspectMs`，
+  语音延迟 `voiceDelayMs`（0.5 秒），
+  时间轴 `blueGrowMs/redStartMs/redGrowMs/convergeMs/vortexMs/collideMs/burstMs/fadeMs`
+  （`redEndMs/convergeEndMs/collideStartMs/explodeAtMs/burstEndMs/endMs` 为 getter 派生的绝对时刻）；
+  漩涡参数 `vortexRadiusFraction/vortexSpin/ringRadiusFractions/ringTilts/ringSpins/shockMaxFraction/shockMs`
 - 無量空処的判定/视觉 → `computeHandScores()` 的 `void` 分支、`GOJO_GESTURES`、`getVoid()`；
   阈值 `fingerGap<0.075`、`thumbGapRatio<0.75`（拇指内扣，避开赫枪形的 >0.75）
 - 無量空処定格 3 秒开场动画 → `VOID_CINEMA`、`VOID_STREAK_COUNT`、`startVoidCinematic`、
@@ -98,11 +110,12 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   （`blackFadeAtMs/ringOutAtMs/endMs` 为 getter 派生的绝对时刻）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
 - 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-section`
-- 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、
-  `updateKeybindMenu()`（设置开关 D/H/V/L）、`setRailOpen()`、`setGuideVisibility()`
+- 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
+  （`#rail-panel-main/guide/about`）、`setRailTab()`、`toggleGuideTab()`、`railTab`、
+  `updateKeybindMenu()`（设置开关 D/H/V/L/SFX）、`setRailOpen()`
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 115/115 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 149/149 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

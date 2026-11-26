@@ -111,8 +111,19 @@
         .rail-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 12px; }
         .rail-title { font-size: 15px; font-weight: 600; letter-spacing: .02em; }
         .rail-sub { font-size: 10px; font-weight: 500; letter-spacing: .09em; text-transform: uppercase; color: var(--text-tertiary); }
-        .rail-section { padding-top: 12px; margin-top: 12px; border-top: 1px solid var(--stroke); }
-        .rail-section:first-of-type { padding-top: 0; margin-top: 0; border-top: 0; }
+        .rail-tabs { display: flex; gap: 6px; margin: 2px 0 0; padding-bottom: 10px; border-bottom: 1px solid var(--stroke); }
+        .rail-tab {
+            flex: 1; min-width: 0; padding: 7px 2px;
+            font-size: 11.5px; font-weight: 500; letter-spacing: .02em;
+            color: var(--text-secondary); background: var(--bg-surface);
+            border: 1px solid var(--stroke); border-radius: var(--radius-sm); cursor: pointer;
+            transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
+        }
+        .rail-tab:hover { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        .rail-tab.active { color: var(--text-primary); background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
+        .rail-panel { padding-top: 12px; }
+        .rail-panel[hidden] { display: none !important; }
+        .panel-title-gap { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--stroke); }
         .rail-foot { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--stroke); font-size: 10.5px; line-height: 1.6; color: var(--text-tertiary); }
         #debug-panel { position: fixed; top: 68px; right: 16px; z-index: 90; display: none; box-sizing: border-box; width: 300px; max-height: calc(100vh - 84px); padding: 12px 14px; color: var(--text-secondary); font: 12px/1.45 var(--mono); white-space: pre; overflow: hidden; pointer-events: none; background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%); border: 1px solid var(--stroke); border-top-color: var(--stroke-light); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 
@@ -225,6 +236,8 @@
     <audio id="void-long-voice" src="/audio/void-long.mp3" preload="auto"></audio>
     <audio id="purple-voice" src="/audio/purple-2026.mp3" preload="auto"></audio>
     <audio id="purple-clasp-voice" src="/audio/purple-clasp.mp3" preload="auto"></audio>
+    <audio id="fail-voice" src="/audio/fail.mp3" preload="auto"></audio>
+    <audio id="creed-voice" src="/audio/creed.mp3" preload="auto"></audio>
     <div id="grain"></div>
     <div id="idle-flash"></div>
 
@@ -252,19 +265,22 @@
                 <div class="rail-sub" id="rail-mode">SAT0RU · GOJO MODE</div>
             </div>
         </div>
-        <section class="rail-section" id="settings-section">
+        <div class="rail-tabs" role="tablist" aria-label="控制栏菜单">
+            <button class="rail-tab active" type="button" role="tab" data-tab="main" aria-selected="true">模式与音频</button>
+            <button class="rail-tab" type="button" role="tab" data-tab="guide" aria-selected="false">指南</button>
+            <button class="rail-tab" type="button" role="tab" data-tab="about" aria-selected="false">关于</button>
+        </div>
+        <section class="rail-panel" id="rail-panel-main" data-panel="main" role="tabpanel">
             <div class="panel-title">设置 · Settings</div>
             <div id="settings-list"></div>
-        </section>
-        <section class="rail-section" id="audio-section">
-            <div class="panel-title">音频 · Audio</div>
+            <div class="panel-title panel-title-gap">音频 · Audio</div>
             <div id="audio-list"></div>
         </section>
-        <section class="rail-section" id="guide-section">
+        <section class="rail-panel" id="rail-panel-guide" data-panel="guide" role="tabpanel" hidden>
             <div class="panel-title">手势指南 · Gesture Guide</div>
             <div id="gesture-guide"></div>
         </section>
-        <section class="rail-section" id="about-section">
+        <section class="rail-panel" id="rail-panel-about" data-panel="about" role="tabpanel" hidden>
             <div class="panel-title">关于 · About</div>
             <div id="about-body">
                 <div class="about-block">
@@ -592,39 +608,23 @@
         orb.geometry.attributes.position.needsUpdate = true;
     }
 
-    // --- 虚式「茈」 clasp cast: the purple entwine ---
-    // Two helix strands (violet + magenta) twist around the same axis. They read as purple
-    // both alone and where they overlap under additive blending. During the collision phase
-    // the coil contracts on a beat (claspCollisionPulse) and the two strands slam together.
-    const CLASP_STRAND_COUNT = 1600;
-    function createClaspStrand(color) {
+    // --- 虚式「茈」 clasp cast: the purple vortex ---
+    // At 7 s the merged orbs hand over to a rotating violet galaxy core wrapped in three
+    // tilted gyro rings. On every collision beat (claspCollisionPulse) the core compresses,
+    // the rings brighten, and a shockwave ring expands outward. Everything is additive, so
+    // the layers read as one living purple nebula instead of a rigid coil.
+    const CLASP_CORE_COUNT = 3200;
+    const CLASP_RING_COUNT = 800;
+    const CLASP_SHOCK_COUNT = 700;
+
+    function createClaspPoints(count, size) {
         const geometry = new THREE.BufferGeometry();
-        const positions = new Float32Array(CLASP_STRAND_COUNT * 3);
-        const colorArr = new Float32Array(CLASP_STRAND_COUNT * 3);
-        const seeds = [];
-        for (let i = 0; i < CLASP_STRAND_COUNT; i++) {
-            const t = i / (CLASP_STRAND_COUNT - 1);
-            seeds.push({
-                t: Math.min(1, Math.max(0, t + (Math.random() - 0.5) * 0.004)),
-                // Small angular/thickness jitter only: the strand must stay a readable line.
-                theta: (Math.random() - 0.5) * 0.16,
-                rj: 0.94 + Math.random() * 0.12,
-                n1: (Math.random() - 0.5) * 0.55,
-                n2: (Math.random() - 0.5) * 0.45,
-                shimmer: 1.6 + Math.random() * 2.2,
-                phase: Math.random() * Math.PI * 2
-            });
-            // Taper the ends so the strand fades instead of stopping abruptly.
-            const taper = 0.3 + 0.7 * Math.sin(Math.PI * t);
-            const vary = 0.75 + Math.random() * 0.35;
-            colorArr[i * 3] = color.r * taper * vary;
-            colorArr[i * 3 + 1] = color.g * taper * vary;
-            colorArr[i * 3 + 2] = color.b * taper * vary;
-        }
+        const positions = new Float32Array(count * 3);
+        const colorArr = new Float32Array(count * 3);
         geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
         geometry.setAttribute('color', new THREE.BufferAttribute(colorArr, 3));
         const material = new THREE.PointsMaterial({
-            size: 0.5,
+            size,
             vertexColors: true,
             blending: THREE.AdditiveBlending,
             transparent: true,
@@ -635,30 +635,175 @@
         points.visible = false;
         points.frustumCulled = false;
         scene.add(points);
-        return { geometry, positions, material, points, seeds };
+        return { geometry, positions, colorArr, material, points, seeds: [] };
     }
-    const claspStrandA = createClaspStrand({ r: 0.45, g: 0.22, b: 1.0 }); // blue-violet
-    const claspStrandB = createClaspStrand({ r: 1.0, g: 0.18, b: 0.78 }); // magenta
-    function fillClaspEntwinePositions(strand, nowSec, length, helixRadius, phaseOffset, pulse) {
-        const turns = CLASP_CAST.entwineTurns * Math.PI * 2;
-        const spin = nowSec * CLASP_CAST.entwineSpin;
-        const squash = 1 - pulse * 0.1; // a collision compresses the whole coil
-        const tilt = Math.sin(nowSec * 0.21) * 0.10;
+
+    // Galaxy core: three spiral arms, white-violet centre -> magenta arms -> blue-violet rim.
+    function createClaspCore() {
+        const core = createClaspPoints(CLASP_CORE_COUNT, 0.46);
+        const cA = [0.58, 0.40, 0.95]; // lavender core (never pure white: additive + bloom clips)
+        const cB = [0.92, 0.24, 0.72]; // magenta arms
+        const cC = [0.26, 0.36, 1.00]; // blue-violet rim
+        for (let i = 0; i < CLASP_CORE_COUNT; i++) {
+            const t = Math.pow(Math.random(), 0.72); // 0 = centre, 1 = rim
+            core.seeds.push({
+                t,
+                angle: (i % 3) * (Math.PI * 2 / 3) + t * 2.9
+                    + (Math.random() - 0.5) * (0.20 + 0.42 * t),
+                z: (Math.random() - 0.5) * (0.05 + 0.05 * t),
+                shimmer: 1.2 + Math.random() * 2.6,
+                phase: Math.random() * Math.PI * 2
+            });
+            const mix = t < 0.55
+                ? { f: t / 0.55, from: cA, to: cB }
+                : { f: (t - 0.55) / 0.45, from: cB, to: cC };
+            const vary = 0.42 + Math.random() * 0.42;
+            for (let k = 0; k < 3; k++) {
+                const c = mix.from[k] + (mix.to[k] - mix.from[k]) * mix.f;
+                core.colorArr[i * 3 + k] = c * vary;
+            }
+        }
+        return core;
+    }
+
+    // Gyro ring: five energy arcs; the gaps come from vertex brightness, not geometry.
+    function createClaspRing(color) {
+        const ring = createClaspPoints(CLASP_RING_COUNT, 0.42);
+        for (let i = 0; i < CLASP_RING_COUNT; i++) {
+            const theta = Math.random() * Math.PI * 2;
+            const arc = 0.45 + 0.55 * (0.5 + 0.5 * Math.sin(theta * 5 + 1.1));
+            ring.seeds.push({
+                theta,
+                rj: 0.95 + Math.random() * 0.10 + (Math.random() < 0.05 ? 0.22 : 0),
+                zj: (Math.random() - 0.5) * 0.10,
+                shimmer: 1.4 + Math.random() * 2.8,
+                phase: Math.random() * Math.PI * 2
+            });
+            const vary = arc * (0.34 + Math.random() * 0.36);
+            ring.colorArr[i * 3] = color.r * vary;
+            ring.colorArr[i * 3 + 1] = color.g * vary;
+            ring.colorArr[i * 3 + 2] = color.b * vary;
+        }
+        return ring;
+    }
+
+    // Collision shockwave: a hot white-violet band that expands and fades on every beat.
+    function createClaspShock() {
+        const shock = createClaspPoints(CLASP_SHOCK_COUNT, 0.6);
+        for (let i = 0; i < CLASP_SHOCK_COUNT; i++) {
+            shock.seeds.push({
+                theta: Math.random() * Math.PI * 2,
+                rj: 0.93 + Math.random() * 0.14,
+                zj: (Math.random() - 0.5) * 0.05
+            });
+            const vary = 0.42 + Math.random() * 0.36;
+            shock.colorArr[i * 3] = 0.80 * vary;
+            shock.colorArr[i * 3 + 1] = 0.52 * vary;
+            shock.colorArr[i * 3 + 2] = 0.95 * vary;
+        }
+        return shock;
+    }
+    const claspCore = createClaspCore();
+    const claspRingA = createClaspRing({ r: 0.58, g: 0.30, b: 1.0 }); // blue-violet
+    const claspRingB = createClaspRing({ r: 1.0, g: 0.20, b: 0.82 }); // magenta
+    const claspRingC = createClaspRing({ r: 0.42, g: 0.55, b: 1.0 }); // icy blue
+    const claspShock = createClaspShock();
+
+    function fillClaspCorePositions(core, nowSec, radius, pulse) {
+        const spin = nowSec * CLASP_CAST.vortexSpin;
+        const squash = 1 - 0.10 * pulse;
+        const breathe = 1 + 0.04 * Math.sin(nowSec * 1.6);
+        for (let i = 0; i < CLASP_CORE_COUNT; i++) {
+            const s = core.seeds[i];
+            // Differential rotation: the centre turns faster, so the arms wind up as it runs.
+            const angle = s.angle + spin * (1.3 - 1.0 * s.t);
+            const rr = radius * s.t * breathe * squash
+                * (1 + 0.06 * Math.sin(nowSec * s.shimmer + s.phase));
+            core.positions[i * 3] = Math.cos(angle) * rr;
+            core.positions[i * 3 + 1] = Math.sin(angle) * rr * 0.66;
+            core.positions[i * 3 + 2] = s.z * radius;
+        }
+        core.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function fillClaspRingPositions(ring, nowSec, radius, tilt, spin, precess, pulse) {
+        const squash = 1 - 0.16 * pulse;
         const ct = Math.cos(tilt);
         const st = Math.sin(tilt);
-        for (let i = 0; i < CLASP_STRAND_COUNT; i++) {
-            const s = strand.seeds[i];
-            const angle = s.theta + phaseOffset + s.t * turns + spin;
-            const shimmer = 1 + 0.06 * Math.sin(nowSec * s.shimmer + s.phase);
-            const rr = helixRadius * s.rj * shimmer;
-            const x0 = (s.t - 0.5) * length * squash + s.n1 * 0.6;
-            const y0 = Math.cos(angle) * rr + s.n2 * 0.5;
-            const z0 = Math.sin(angle) * rr * 0.85;
-            strand.positions[i * 3] = x0 * ct - y0 * st;
-            strand.positions[i * 3 + 1] = x0 * st + y0 * ct;
-            strand.positions[i * 3 + 2] = z0;
+        const cp = Math.cos(precess);
+        const sp = Math.sin(precess);
+        for (let i = 0; i < CLASP_RING_COUNT; i++) {
+            const s = ring.seeds[i];
+            const a = s.theta + nowSec * spin;
+            const rr = radius * s.rj * squash
+                * (1 + 0.05 * Math.sin(nowSec * s.shimmer + s.phase));
+            const x0 = Math.cos(a) * rr;
+            const y0 = Math.sin(a) * rr;
+            const z0 = s.zj * radius;
+            // Tilt about x, then precess about z: a gyroscope ring seen at an angle.
+            const y1 = y0 * ct - z0 * st;
+            const zLimit = radius * CLASP_CAST.ringZClamp;
+            const z1 = Math.max(-zLimit, Math.min(zLimit, y0 * st + z0 * ct));
+            ring.positions[i * 3] = x0 * cp - y1 * sp;
+            ring.positions[i * 3 + 1] = x0 * sp + y1 * cp;
+            ring.positions[i * 3 + 2] = z1;
         }
-        strand.geometry.attributes.position.needsUpdate = true;
+        ring.geometry.attributes.position.needsUpdate = true;
+    }
+
+    function fillClaspShockPositions(shock, radius, width) {
+        for (let i = 0; i < CLASP_SHOCK_COUNT; i++) {
+            const s = shock.seeds[i];
+            const rr = radius + s.rj * width;
+            shock.positions[i * 3] = Math.cos(s.theta) * rr;
+            shock.positions[i * 3 + 1] = Math.sin(s.theta) * rr * 0.78;
+            shock.positions[i * 3 + 2] = s.zj * radius;
+        }
+        shock.geometry.attributes.position.needsUpdate = true;
+    }
+
+    // Pure layout contract for the vortex (the regression pins visibility and scale here).
+    function claspVortexLayout(ageMs, halfW) {
+        const since = ageMs - CLASP_CAST.convergeEndMs;
+        const active = since >= 0 && ageMs < CLASP_CAST.explodeAtMs;
+        const entIn = clamp01(since / 800);
+        const pulse = claspCollisionPulse(ageMs);
+        const breathe = 1 + 0.05 * Math.sin(ageMs * 0.0013);
+        const coreRadius = halfW * CLASP_CAST.vortexRadiusFraction
+            * (0.35 + 0.65 * entIn) * breathe * (1 - 0.10 * pulse);
+        const rings = CLASP_CAST.ringTilts.map((tilt, i) => ({
+            visible: active && entIn > 0.01,
+            radius: halfW * CLASP_CAST.ringRadiusFractions[i]
+                * (1.28 - 0.28 * entIn) * breathe * (1 - 0.16 * pulse),
+            tilt: tilt + Math.sin(ageMs * 0.0005 + i * 1.7) * 0.16,
+            spin: CLASP_CAST.ringSpins[i],
+            precess: Math.sin(ageMs * 0.0003 + i) * 0.35,
+            opacity: clamp01((0.55 + 0.45 * entIn) * (1 + 0.55 * pulse))
+        }));
+        const shockSince = ageMs - CLASP_CAST.collideStartMs;
+        const shockProgress = shockSince >= 0
+            ? (shockSince % CLASP_CAST.collideIntervalMs) / CLASP_CAST.shockMs
+            : 1;
+        const shockOn = active && shockSince >= 0 && shockProgress < 1;
+        const shockStart = coreRadius * 1.15;
+        const shockEnd = halfW * CLASP_CAST.shockMaxFraction;
+        const shockOut = 1 - Math.pow(1 - clamp01(shockProgress), 2.2);
+        return {
+            active,
+            core: {
+                visible: active && entIn > 0.01,
+                radius: coreRadius,
+                opacity: clamp01(0.72 * entIn * (1 + 0.30 * pulse))
+            },
+            rings,
+            shock: {
+                visible: shockOn,
+                progress: clamp01(shockProgress),
+                radius: shockStart + (shockEnd - shockStart) * shockOut,
+                width: (shockEnd - shockStart) * 0.10,
+                opacity: shockOn ? Math.pow(1 - clamp01(shockProgress), 1.4) : 0
+            }
+        };
     }
 
     // Pure layout helpers: the regression pins the direction/size contract here.
@@ -1279,7 +1424,10 @@
         { key: 'void', el: document.getElementById('void-voice'), label: '領域展開「無量空処」· 単人', dur: '0:05' },
         { key: 'void-long', el: document.getElementById('void-long-voice'), label: '領域展開「無量空処」· 長時間', dur: '0:31' },
         { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 2026（短）', dur: '0:02' },
-        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印', dur: '0:22' }
+        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印', dur: '0:22' },
+        // Click-only clips: nothing in the gesture pipeline fires these two.
+        { key: 'fail', el: document.getElementById('fail-voice'), label: '失败 · 人声', dur: '0:01' },
+        { key: 'creed', el: document.getElementById('creed-voice'), label: '校训 · 人声', dur: '0:03' }
     ].filter((track) => !!track.el);
     const audioTracksByKey = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, track]));
     const audioPlayCounts = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, 0]));
@@ -1368,6 +1516,107 @@
     window.addEventListener('pointerdown', primeAudio, { once: true });
     window.addEventListener('keydown', primeAudio, { once: true });
 
+    // --- Release sound effects ------------------------------------------------------------
+    // Short synthesized hits for the moment a technique lets go (Blue blast, Purple shot,
+    // clasp detonation). WebAudio only: no asset, no network. The left-rail 音效 switch
+    // mutes them without touching the voice clips.
+    let sfxEnabled = true;
+    const sfxPlayCounts = { blue: 0, purple: 0, purpleBurst: 0, clasp: 0 };
+    let sfxCtx = null;
+    let sfxMaster = null;
+    let sfxNoiseBuffer = null;
+
+    function ensureSfxContext() {
+        if (sfxCtx) {
+            if (sfxCtx.state === 'suspended') {
+                const attempt = sfxCtx.resume();
+                if (attempt && attempt.catch) attempt.catch(() => {});
+            }
+            return sfxCtx;
+        }
+        const Ctor = window.AudioContext || window.webkitAudioContext;
+        if (!Ctor) return null;
+        try {
+            sfxCtx = new Ctor();
+            sfxMaster = sfxCtx.createGain();
+            sfxMaster.gain.value = 0.5;
+            sfxMaster.connect(sfxCtx.destination);
+            const len = Math.floor(sfxCtx.sampleRate * 0.7);
+            sfxNoiseBuffer = sfxCtx.createBuffer(1, len, sfxCtx.sampleRate);
+            const data = sfxNoiseBuffer.getChannelData(0);
+            for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+        } catch (err) {
+            sfxCtx = null;
+            return null;
+        }
+        if (sfxCtx.state === 'suspended') {
+            const attempt = sfxCtx.resume();
+            if (attempt && attempt.catch) attempt.catch(() => {});
+        }
+        return sfxCtx;
+    }
+
+    function sfxTone(ctx, type, f0, f1, durSec, peak) {
+        const t0 = ctx.currentTime;
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(f0, t0);
+        osc.frequency.exponentialRampToValueAtTime(Math.max(12, f1), t0 + durSec);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durSec);
+        osc.connect(gain);
+        gain.connect(sfxMaster);
+        osc.start(t0);
+        osc.stop(t0 + durSec + 0.03);
+    }
+
+    function sfxNoiseBurst(ctx, durSec, peak, filterType, f0, f1) {
+        if (!sfxNoiseBuffer) return;
+        const t0 = ctx.currentTime;
+        const src = ctx.createBufferSource();
+        src.buffer = sfxNoiseBuffer;
+        const filter = ctx.createBiquadFilter();
+        filter.type = filterType;
+        filter.frequency.setValueAtTime(f0, t0);
+        filter.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t0 + durSec);
+        const gain = ctx.createGain();
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + 0.015);
+        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durSec);
+        src.connect(filter);
+        filter.connect(gain);
+        gain.connect(sfxMaster);
+        src.start(t0);
+        src.stop(t0 + durSec + 0.03);
+    }
+
+    function playSfx(kind) {
+        if (!sfxEnabled) return;
+        sfxPlayCounts[kind] = (sfxPlayCounts[kind] || 0) + 1;
+        const ctx = ensureSfxContext();
+        if (!ctx) return;
+        try {
+            if (kind === 'blue') {
+                sfxNoiseBurst(ctx, 0.55, 0.24, 'lowpass', 900, 90);
+                sfxTone(ctx, 'sine', 155, 44, 0.62, 0.24);
+            } else if (kind === 'purple') {
+                sfxTone(ctx, 'sawtooth', 240, 1400, 0.2, 0.1);
+                sfxNoiseBurst(ctx, 0.16, 0.06, 'highpass', 600, 2400);
+            } else if (kind === 'purpleBurst') {
+                sfxNoiseBurst(ctx, 0.5, 0.2, 'lowpass', 1000, 120);
+                sfxTone(ctx, 'sine', 120, 38, 0.55, 0.28);
+            } else if (kind === 'clasp') {
+                sfxNoiseBurst(ctx, 1.0, 0.24, 'lowpass', 1300, 80);
+                sfxTone(ctx, 'sine', 84, 27, 1.1, 0.34);
+                sfxTone(ctx, 'triangle', 168, 55, 0.8, 0.14);
+            }
+        } catch (err) { /* audio is decoration; never let it break a frame */ }
+    }
+    window.addEventListener('pointerdown', () => ensureSfxContext(), { once: true });
+    window.addEventListener('keydown', () => ensureSfxContext(), { once: true });
+
     // 赫: either Red form held for 1 s -> one of the two clips at random, once per hold.
     let redEnteredAtMs = 0;
     let redVoicePlayed = false;
@@ -1441,6 +1690,11 @@
         lostMs: 1000, // tracking lost: wait this long before treating it as gone
         palmGap: 0.13, // two palms closer than this => 合掌 release
         palmGapFrames: 2,
+        fistFrames: 2, // clenching the charging hand => release after this many frames
+        flingMinSpeed: 1.4, // a fast fling (view-widths per second) also releases...
+        flingMinDisplacement: 0.08, // ...once consecutive fast frames cover this distance...
+        flingRunFrames: 2, // ...for at least this many frames in a row...
+        flingMaxSampleGapMs: 120, // ...without a tracking hiccup gap (ignores teleports)
         maxChargeMs: 30000, // safety valve so a stuck charge cannot hang forever
         growMs: 2000, // the ball billows out from the palm into the big state over this window
         followTauMs: 90, // damped follow time constant (drag feel)
@@ -1492,7 +1746,7 @@
     //   1.5 s  blue has grown from medium to huge (≥ half the screen)
     //   1.5 s  the red 赫 orb appears at the LEFT edge and grows for 2.5 s
     //   4.0 s  both orbs, symmetric and full size, start a 3 s approach
-    //   7.0 s  they merge at the centre; the purple entwine takes over
+    //   7.0 s  they merge at the centre; the purple vortex takes over
     //   7–13 s two violet/magenta strands twist around each other
     //  13–20 s they repeatedly slam together and rebound (collision pulses)
     //  20.0 s  the merged core bursts (the main Purple field explosion)
@@ -1503,13 +1757,15 @@
         gapMs: 400, // a longer detection gap restarts the run
         wristGapMax: 2.2, // wrist distance / palm length
         tipGapMax: 1.3, // index fingertip distance / palm length
+        nearWristGapMax: 2.9, // two hands this close share a clasp context even before the pose
+        suspectMs: 600, // a dropped hand keeps that context alive this long
         voiceDelayMs: 500,
         audioMs: 21891, // audio/purple-clasp.mp3 (documentation / regression only)
         blueGrowMs: 1500,
         redStartMs: 1500,
         redGrowMs: 2500,
         convergeMs: 3000,
-        entwineMs: 6000,
+        vortexMs: 6000,
         collideMs: 7000,
         collideIntervalMs: 1400,
         mergeFadeMs: 600,
@@ -1521,13 +1777,19 @@
         blueStartFraction: 0.32, // blue starts medium...
         redStartFraction: 0.10, // ...red starts small
         convergeEndScale: 0.30, // both compress to 30% as they merge
-        entwineLengthFraction: 1.15, // strand length / view half-width
-        entwineRadiusFraction: 0.17, // strand coil radius / view half-width
-        entwineTurns: 3.2, // twists along each strand
-        entwineSpin: 1.1, // rad/s
+        vortexRadiusFraction: 0.26, // galaxy-core radius / view half-width
+        vortexSpin: 0.55, // base rotation (rad/s); the core rotates differentially
+        ringRadiusFractions: [0.50, 0.36, 0.62], // the three gyro rings
+        // Keep the tilts shallow: a steeply tilted ring swings particles toward the camera,
+        // and there each point sprite grows into a big flat square instead of reading as a ring.
+        ringTilts: [0.72, -0.55, 0.95],
+        ringZClamp: 0.34, // |z| never exceeds this fraction of the ring radius
+        ringSpins: [0.9, -1.25, 0.62], // alternating directions
+        shockMaxFraction: 1.08, // collision shockwave ends at this fraction of the half-width
+        shockMs: 900, // ...and lives this long (collideIntervalMs is 1400)
         get redEndMs() { return this.redStartMs + this.redGrowMs; }, // 4000
         get convergeEndMs() { return this.redEndMs + this.convergeMs; }, // 7000
-        get collideStartMs() { return this.convergeEndMs + this.entwineMs; }, // 13000
+        get collideStartMs() { return this.convergeEndMs + this.vortexMs; }, // 13000
         get explodeAtMs() { return this.collideStartMs + this.collideMs; }, // 20000
         get burstEndMs() { return this.explodeAtMs + this.burstMs; }, // 21600
         get endMs() { return this.burstEndMs + this.fadeMs; } // 23000
@@ -1539,6 +1801,8 @@
     let claspCooldownUntilMs = 0;
     let claspPoseReleaseRequired = false;
     let claspSuppressUntilMs = 0;
+    let claspNearMs = -Infinity; // last frame two hands were close enough to be clasping
+    let claspSawRealPose = false; // the current run included at least one true two-hand pose
     const videoElement = document.querySelector('.input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
@@ -1580,8 +1844,9 @@
     const purpleHint = document.getElementById('purple-hint');
     let purpleMode = false; // top-bar right 「茈」 switch: the button selects the technique, it does not cast
     const settingsList = document.getElementById('settings-list');
-    const guideSection = document.getElementById('guide-section');
     const leftRail = document.getElementById('left-rail');
+    const railTabButtons = Array.from(document.querySelectorAll('#left-rail .rail-tab'));
+    const railPanels = Array.from(document.querySelectorAll('#left-rail .rail-panel'));
     const menuBtn = document.getElementById('menu-btn');
     let railOpen = true;
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
@@ -1589,7 +1854,7 @@
     const gestureGuide = document.getElementById('gesture-guide');
     const triggerWordEl = document.getElementById('trigger-word-text');
     const idleFlash = document.getElementById('idle-flash');
-    let guideVisible = true;
+    let railTab = 'main';
     let voiceEnabled = false;
     let voiceStatus = 'OFF';
     let recognition = null;
@@ -1707,7 +1972,32 @@
         const wristDist = (point) => Math.hypot(lm[point].x - lm[0].x, lm[point].y - lm[0].y);
         const extended = (tip, pip) => wristDist(tip) > wristDist(pip) * 1.12;
         const curled = (tip, pip) => wristDist(tip) < wristDist(pip) * 0.92;
-        const isOpen = [8, 12, 16, 20].every((tip) => extended(tip, tip - 2));
+        const pointDist = (a, b) => Math.hypot(lm[a].x - lm[b].x, lm[a].y - lm[b].y);
+        // Angle at joint b: +1 when a and c sit on the same side (folded), -1 when the
+        // two segments continue straight through the joint.
+        const jointCos = (a, b, c) => {
+            const v1x = lm[a].x - lm[b].x;
+            const v1y = lm[a].y - lm[b].y;
+            const v2x = lm[c].x - lm[b].x;
+            const v2y = lm[c].y - lm[b].y;
+            const denom = Math.hypot(v1x, v1y) * Math.hypot(v2x, v2y);
+            return denom < 1e-6 ? 1 : (v1x * v2x + v1y * v2y) / denom;
+        };
+        // A finger counts as open only when BOTH joints are nearly straight (<~41°) and
+        // the chain MCP→PIP→DIP→TIP actually stretches out. Bent fingers (even when the
+        // tip still happens to sit far from the wrist) fail here, which is what used to
+        // sneak a half-curled hand into Blue.
+        const straightFinger = (tip) => {
+            const mcp = tip - 3;
+            const pip = tip - 2;
+            const dip = tip - 1;
+            const chain = pointDist(mcp, pip) + pointDist(pip, dip) + pointDist(dip, tip);
+            const reach = pointDist(mcp, tip);
+            return chain > 1e-6 && reach >= chain * 0.90
+                && jointCos(mcp, pip, dip) < -0.75
+                && jointCos(pip, dip, tip) < -0.75;
+        };
+        const isOpen = [8, 12, 16, 20].every((tip) => extended(tip, tip - 2) && straightFinger(tip));
         const isFist = [8, 12, 16, 20].every((tip) => curled(tip, tip - 2));
 
         return {
@@ -1827,6 +2117,10 @@
             growStartSize: p.size,
             outFrames: 0,
             palmFrames: 0,
+            fistFrames: 0,
+            flingRun: 0,
+            flingTravel: 0,
+            path: [{ x: p.cx, y: p.cy, t: nowMs }],
             prevAngle: null
         };
         const w = handPointToWorld(p.cx, p.cy);
@@ -1850,6 +2144,7 @@
         chargeOrb.visible = false;
         bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
         gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
+        playSfx('blue');
         pendingBlueInstant = true;
     }
 
@@ -1918,6 +2213,9 @@
                 c.key = keys[idx];
                 reanchored = true; // don't judge the jump between hands
                 c.prevAngle = null;
+                c.path = [];
+                c.flingRun = 0;
+                c.flingTravel = 0;
             }
         }
         if (!lm) {
@@ -1960,12 +2258,40 @@
         // Shared sustained-forward-push detector. Blue and 茈 both use this exact chain.
         const pushNow = updatePushTracker(c, p.size, nowMs);
 
+        // Fist release: closing the charging hand fires immediately (2 consecutive frames
+        // so a single-frame landmark glitch cannot let go).
+        const anchoredShape = handShape(lm);
+        c.fistFrames = anchoredShape.isFist ? c.fistFrames + 1 : 0;
+
+        // Fling release: consecutive per-frame steps above flingMinSpeed that together cover
+        // flingMinDisplacement. Judging the newest step (not the oldest window sample) keeps a
+        // long static hold from averaging the throw speed down; slow drags still stay below it.
+        c.path.push({ x: p.cx, y: p.cy, t: nowMs });
+        if (c.path.length > 4) c.path.shift();
+        let flingNow = false;
+        if (c.path.length >= 2) {
+            const prev = c.path[c.path.length - 2];
+            const dtMs = nowMs - prev.t;
+            const stepDist = Math.hypot(p.cx - prev.x, p.cy - prev.y);
+            if (dtMs > 0 && dtMs <= CHARGE.flingMaxSampleGapMs
+                && (stepDist / (dtMs / 1000)) >= CHARGE.flingMinSpeed) {
+                c.flingRun += 1;
+                c.flingTravel += stepDist;
+            } else {
+                c.flingRun = 0;
+                c.flingTravel = 0;
+            }
+            flingNow = c.flingRun >= CHARGE.flingRunFrames
+                && c.flingTravel >= CHARGE.flingMinDisplacement;
+        }
+
         c.x = p.cx;
         c.y = p.cy;
         c.size = p.size;
         c.lastSeenMs = nowMs;
         const tooLong = (nowMs - c.startedMs) > CHARGE.maxChargeMs;
-        return (c.outFrames >= CHARGE.outFrames || pushNow
+        return (c.outFrames >= CHARGE.outFrames || pushNow || flingNow
+            || c.fistFrames >= CHARGE.fistFrames
             || c.palmFrames >= CHARGE.palmGapFrames || tooLong) ? 'release' : 'charge';
     }
 
@@ -2063,6 +2389,7 @@
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
         setTechniqueName('虚式「茈」 · 射出');
         playAudioClip('purple'); // the short 2026 line belongs to the button-mode shot
+        playSfx('purple');
         shakeIntensity = Math.max(shakeIntensity, 0.5);
     }
 
@@ -2079,6 +2406,7 @@
             purpleExplosionSourceSizes[i] = targetSizes[i];
         }
         triggerPurpleExplosion(nowMs);
+        playSfx('purpleBurst');
         setTechniqueName('虚式「茈」');
     }
 
@@ -2086,19 +2414,38 @@
     // The reference pose interlocks the fingers; MediaPipe often merges the hands into one
     // detection or keeps them a few frames apart, so the pose test is deliberately loose:
     // both indexes up, at least one middle up, both thumbs tucked, wrists and index tips near.
-    function claspPoseInfo(landmarks, shapes) {
-        if (!landmarks || landmarks.length !== 2 || !shapes || shapes.length !== 2) return false;
+    // Palm-relative distances between two hands; null when there is no usable pair.
+    function claspGaps(landmarks) {
+        if (!landmarks || landmarks.length !== 2) return null;
         const [a, b] = landmarks;
         const palm = (Math.hypot(a[0].x - a[9].x, a[0].y - a[9].y)
             + Math.hypot(b[0].x - b[9].x, b[0].y - b[9].y)) / 2;
-        if (palm < 0.001) return false;
-        const wristGap = Math.hypot(a[0].x - b[0].x, a[0].y - b[0].y) / palm;
-        const tipGap = Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y) / palm;
+        if (palm < 0.001) return null;
+        return {
+            wristGap: Math.hypot(a[0].x - b[0].x, a[0].y - b[0].y) / palm,
+            tipGap: Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y) / palm
+        };
+    }
+
+    function claspPoseInfo(landmarks, shapes) {
+        if (!shapes || shapes.length !== 2) return false;
+        const gaps = claspGaps(landmarks);
+        if (!gaps) return false;
         return shapes[0].indexUp === 1 && shapes[1].indexUp === 1
             && (shapes[0].middleUp === 1 || shapes[1].middleUp === 1)
             && shapes[0].thumbGapRatio < 0.75 && shapes[1].thumbGapRatio < 0.75
-            && wristGap < CLASP_CAST.wristGapMax
-            && tipGap < CLASP_CAST.tipGapMax;
+            && gaps.wristGap < CLASP_CAST.wristGapMax
+            && gaps.tipGap < CLASP_CAST.tipGapMax;
+    }
+
+    // Two hands physically close in a clasp-family shape (index up, thumb tucked): the
+    // clasp context, even if the full pose test is not met yet. Gating on shape keeps plain
+    // open palms and fists from arming the dropped-hand suspect window.
+    function claspHandsNear(landmarks, shapes) {
+        if (!shapes || shapes.length !== 2) return false;
+        if (!shapes.every((s) => s.indexUp === 1 && s.thumbGapRatio < 0.75)) return false;
+        const gaps = claspGaps(landmarks);
+        return !!gaps && gaps.wristGap < CLASP_CAST.nearWristGapMax;
     }
 
     function startClaspCast(nowMs) {
@@ -2118,30 +2465,36 @@
         return true;
     }
 
-    function updateClaspDetection(nowMs, pose) {
+    function updateClaspDetection(nowMs, pose, suspect = false) {
         if (MODE !== 'gojo') return;
+        const poseLike = pose || suspect;
         if (claspCast) {
-            if (pose) claspLastSeenMs = nowMs;
+            if (poseLike) claspLastSeenMs = nowMs;
             return;
         }
         if (claspPoseReleaseRequired) {
-            if (!pose && (nowMs - claspLastSeenMs) > 400) claspPoseReleaseRequired = false;
+            if (!poseLike && (nowMs - claspLastSeenMs) > 400) claspPoseReleaseRequired = false;
             else return;
         }
         if (nowMs < claspCooldownUntilMs) return;
-        if (!pose) {
+        if (!poseLike) {
             if ((nowMs - claspLastSeenMs) > CLASP_CAST.gapMs) claspRunFrames = 0;
             return;
         }
         if (claspRunFrames === 0 || (nowMs - claspLastSeenMs) > CLASP_CAST.gapMs) {
             claspRunFrames = 1;
             claspRunStartMs = nowMs;
+            claspSawRealPose = false;
         } else {
             claspRunFrames += 1;
         }
+        if (pose) claspSawRealPose = true;
         claspLastSeenMs = nowMs;
+        // A run built only from one-hand suspect frames never casts: the real two-hand pose
+        // must have been seen at least once, so a lone hand waving near another cannot fire.
         if (claspRunFrames >= CLASP_CAST.minFrames
-            && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs) {
+            && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs
+            && claspSawRealPose) {
             startClaspCast(nowMs);
         }
     }
@@ -2157,6 +2510,7 @@
             purpleExplosionSourceSizes[i] = targetSizes[i];
         }
         triggerPurpleExplosion(nowMs);
+        playSfx('clasp');
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + CLASP_CAST.cooldownMs);
         claspCooldownUntilMs = nowMs + CLASP_CAST.cooldownMs;
         shakeIntensity = Math.max(shakeIntensity, 1.3);
@@ -2166,7 +2520,9 @@
         if (!claspCast) return 1.0;
         if (claspCast.phase === 'burst' || claspCast.phase === 'fade') return 4.0;
         if (claspCast.phase === 'purple') {
-            return 1.6 + 2.6 * claspCollisionPulse(Math.max(0, nowMs - claspCast.startMs));
+            // Keep the additively blended nebula from clipping to white: a modest base with
+            // a punch on each collision beat, instead of a permanent 2+ bloom wash.
+            return 1.05 + 1.85 * claspCollisionPulse(Math.max(0, nowMs - claspCast.startMs));
         }
         return 1.4;
     }
@@ -2521,7 +2877,13 @@
         // Two-hand clasp: accumulate a short run of frames instead of demanding a continuous
         // two-hand read (MediaPipe drops one hand for stretches of the interlocked pose).
         const claspPose = MODE === 'gojo' && claspPoseInfo(results.multiHandLandmarks, handShapes);
-        if (MODE === 'gojo') updateClaspDetection(nowMs, claspPose);
+        if (MODE === 'gojo' && claspHandsNear(results.multiHandLandmarks, handShapes)) claspNearMs = nowMs;
+        // When one hand vanishes mid-clasp the remaining index-up hand looks exactly like 赫.
+        // Two hands were just close together, so treat it as a clasp suspect instead.
+        const claspSuspect = MODE === 'gojo' && !claspPose && handShapes.length === 1
+            && (nowMs - claspNearMs) <= CLASP_CAST.suspectMs
+            && handShapes[0].indexUp === 1;
+        if (MODE === 'gojo') updateClaspDetection(nowMs, claspPose, claspSuspect);
         if (claspCast) {
             if (blueCharge) cancelBlueCharge();
             if (purpleCharge) cancelPurpleCharge();
@@ -2533,7 +2895,7 @@
             if (purpleMode) {
                 // The clasp belongs to the same technique family; never arm the one-hand
                 // purple charge from hands that are currently forming the clasp.
-                if (claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+                if (claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
                     if (purpleCharge) cancelPurpleCharge();
                     return frameScores;
                 }
@@ -2548,7 +2910,7 @@
             const gojoLocked = nowMs < gestureLockUntilMs;
             const techCoolingDown = nowMs < techCooldownUntilMs;
             const othersOwnHands = gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red'
-                || claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
+                || claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
 
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
@@ -2586,7 +2948,7 @@
             // A clasping silhouette reads exactly like Void on a single hand. While a clasp is
             // warming (or has just fired), the clasp owns those hands and no technique may
             // claim them; the cast itself starts above and returns early.
-            if (claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+            if (claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
                 frameScores.void = 0;
                 frameScores.red = 0;
                 frameScores.blue = 0;
@@ -2620,9 +2982,9 @@
     function updateKeybindMenu() {
         const settings = [
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
-            { action: 'guide', key: KEYBINDS.guide, label: '手势指南 · Guide', on: guideVisible },
             { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
-            { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode }
+            { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode },
+            { action: 'sfx', key: 'SFX', label: '音效 · Release SFX', on: sfxEnabled }
         ];
         if (settingsList) {
             settingsList.innerHTML = settings.map(({ action, key, label, on, note }) => `
@@ -2672,18 +3034,18 @@
             if (!row) return;
             switch (row.dataset.action) {
                 case 'debug': toggleDebug(); break;
-                case 'guide': setGuideVisibility(!guideVisible); break;
                 case 'voice': setVoiceEnabled(!voiceEnabled); break;
                 case 'voidlong': setVoidLongMode(!voidLongMode); break;
+                case 'sfx': setSfxEnabled(!sfxEnabled); break;
             }
         });
     }
 
     const GUIDE_GOJO = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
-        { gesture: '张开手掌对着镜头，保持 2 秒', tech: '构筑' },
+        { gesture: '四指伸直的张开手掌对着镜头，保持 2 秒', tech: '构筑' },
         { foot: '引力：手心里聚起蓝球，四周待机粒子被吸过来、绕着球旋绕；蓝球呼吸浮动、随手旋转' },
-        { gesture: '用力前推（手掌压向镜头）/ 手出画面 / 丢失追踪', tech: '释放' },
+        { gesture: '用力前推 / 握拳 / 快速甩出 / 手出画面 / 丢失追踪', tech: '释放' },
         { foot: '粒子在屏幕中央炸开；尽量单手使用，另一只手留空，避免双手同时比势被误读' },
         { foot: '持掌满 2 秒进入构筑；构筑成型再满 2 秒才播苍的语音（每次构筑播一次）' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
@@ -2706,7 +3068,7 @@
         { sep: '虚式「茈」 · 双手契印' },
         { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
         { foot: '右侧蓝色蒼球先从中球膨胀成半个屏幕大的巨球；1.5 秒后左侧红色赫球用 2.5 秒长大，两球对称' },
-        { foot: '触发 0.5 秒后播契印语音；随后两球用 3 秒慢慢靠拢，紫色双螺旋缠绕、反复碰撞，20 秒时大爆炸，23 秒收尾' },
+        { foot: '触发 0.5 秒后播契印语音；随后两球用 3 秒慢慢靠拢，紫色星系漩涡自旋、反复碰撞出冲击波，20 秒时大爆炸，23 秒收尾' },
         { foot: '不需要点右上角「茈」；单手同形仍是無量空処' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）；任何术式触发后 2 秒冷却' }
     ];
@@ -2739,11 +3101,32 @@
     buildGuide();
     buildAudioLibrary();
 
-    function setGuideVisibility(visible) {
-        guideVisible = visible;
-        if (guideSection) guideSection.style.display = visible ? 'block' : 'none';
+    // 音效 switch: mutes only the synthesized release hits; voices keep their own switch.
+    function setSfxEnabled(enabled) {
+        sfxEnabled = !!enabled;
         updateKeybindMenu();
     }
+
+    // Left-rail sub-menus: one panel at a time, tabs across the top of the rail.
+    function setRailTab(name) {
+        const valid = railPanels.some((panel) => panel.dataset.panel === name);
+        railTab = valid ? name : 'main';
+        railTabButtons.forEach((btn) => {
+            const on = btn.dataset.tab === railTab;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-selected', on ? 'true' : 'false');
+        });
+        railPanels.forEach((panel) => { panel.hidden = panel.dataset.panel !== railTab; });
+        if (!railOpen) setRailOpen(true);
+    }
+
+    function toggleGuideTab() {
+        setRailTab(railTab === 'guide' ? 'main' : 'guide');
+    }
+
+    railTabButtons.forEach((btn) => {
+        btn.addEventListener('click', () => setRailTab(btn.dataset.tab));
+    });
 
     function setVoiceEnabled(enabled) {
         const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -2945,7 +3328,7 @@
     }
 
     setDebugVisibility();
-    setGuideVisibility(true);
+    setRailTab('main');
     setRailOpen(true);
     updateKeybindMenu();
     window.addEventListener('keydown', (event) => {
@@ -2958,8 +3341,7 @@
             return;
         }
         if (key === KEYBINDS.guide.toLowerCase()) {
-            setGuideVisibility(!guideVisible);
-            updateKeybindMenu();
+            toggleGuideTab();
             return;
         }
         if (key === KEYBINDS.voice.toLowerCase()) {
@@ -3119,7 +3501,7 @@
         forcedTech = initialTech;
         forcedUntilMs = Infinity;
         updateState(initialTech, true);
-        setGuideVisibility(false);
+        setRailTab('main');
     }
 
     const cameraUtils = new Camera(videoElement, {
@@ -3244,8 +3626,9 @@
             purplePath.length = 0;
         }
         // 虚式「茈」 clasp cast: the long-form cinematic. Blue 蒼 grows on the RIGHT, red 赫
-        // joins on the LEFT, both approach and compress at the centre, then two purple
-        // strands entwine and collide until the main field blasts at 20 s.
+        // joins on the LEFT, both approach and compress at the centre; from 7 s a purple
+        // vortex (galaxy core + gyro rings + collision shockwaves) takes over until the main
+        // field blasts at 20 s.
         const halfH3 = Math.tan((camera.fov * Math.PI) / 360) * camera.position.z;
         const halfW3 = halfH3 * camera.aspect;
         if (claspCast) {
@@ -3266,32 +3649,39 @@
                 claspRedOrb.material.size = 0.32 + 0.8 * clamp01(layout.red.radius / (halfW3 * CLASP_CAST.orbRadiusFraction));
                 fillClaspOrbPositions(claspRedOrb, spin, Math.max(0.3, layout.red.radius), Math.PI);
             }
-            // Purple entwine: fades in as the merged orbs vanish, runs through the
-            // entanglement/collision phases, and blinks out as the field blast takes over.
-            const entAge = age - CLASP_CAST.convergeEndMs;
-            const entIn = clamp01(entAge / 800);
-            const entOut = 1 - clamp01((age - CLASP_CAST.explodeAtMs) / 250);
-            const entOpacity = entIn * entOut;
-            const entShow = entOpacity > 0.001 && age < CLASP_CAST.burstEndMs;
-            claspStrandA.points.visible = entShow;
-            claspStrandB.points.visible = entShow;
-            if (entShow) {
-                const pulse = claspCollisionPulse(age);
-                const breathe = 1 + 0.05 * Math.sin(age * 0.0013);
-                const length = halfW3 * CLASP_CAST.entwineLengthFraction * (0.65 + 0.35 * entIn);
-                const helixR = halfW3 * CLASP_CAST.entwineRadiusFraction
-                    * breathe * (0.35 + 0.65 * entIn) * (1 - 0.72 * pulse);
-                fillClaspEntwinePositions(claspStrandA, spin, length, helixR, 0, pulse);
-                fillClaspEntwinePositions(claspStrandB, spin, length, helixR, Math.PI, pulse);
-                const strandOpacity = (0.55 + 0.45 * entIn) * entOut * (1 + 0.9 * pulse);
-                claspStrandA.material.opacity = Math.min(1, strandOpacity);
-                claspStrandB.material.opacity = Math.min(1, strandOpacity);
+            // Purple vortex: the core fades in as the merged orbs vanish, the three gyro
+            // rings keep their own tilts/spins, and each collision beat fires a shockwave.
+            const vortex = claspVortexLayout(age, halfW3);
+            const pulse = claspCollisionPulse(age);
+            claspCore.points.visible = vortex.core.visible;
+            claspRingA.points.visible = vortex.rings[0].visible;
+            claspRingB.points.visible = vortex.rings[1].visible;
+            claspRingC.points.visible = vortex.rings[2].visible;
+            claspShock.points.visible = vortex.shock.visible;
+            if (vortex.core.visible) {
+                fillClaspCorePositions(claspCore, spin, Math.max(0.3, vortex.core.radius), pulse);
+                claspCore.material.opacity = Math.min(1, vortex.core.opacity);
+                claspCore.material.size = 0.26 + 0.30 * clamp01(vortex.core.radius / (halfW3 * CLASP_CAST.vortexRadiusFraction));
+                const ringMeshes = [claspRingA, claspRingB, claspRingC];
+                vortex.rings.forEach((ring, i) => {
+                    if (!ring.visible) return;
+                    fillClaspRingPositions(ringMeshes[i], spin, Math.max(0.3, ring.radius),
+                        ring.tilt, ring.spin, ring.precess, pulse);
+                    ringMeshes[i].material.opacity = ring.opacity;
+                });
+            }
+            if (vortex.shock.visible) {
+                fillClaspShockPositions(claspShock, vortex.shock.radius, vortex.shock.width);
+                claspShock.material.opacity = 0.7 * vortex.shock.opacity;
             }
         } else {
             claspBlueOrb.points.visible = false;
             claspRedOrb.points.visible = false;
-            claspStrandA.points.visible = false;
-            claspStrandB.points.visible = false;
+            claspCore.points.visible = false;
+            claspRingA.points.visible = false;
+            claspRingB.points.visible = false;
+            claspRingC.points.visible = false;
+            claspShock.points.visible = false;
         }
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a

@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，115 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，149 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,123 +34,194 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 115 项断言（按顺序）
+### 1.4 149 项断言（按顺序）
 
-1. neutral 初始
-2. 做枪形的自然动作不武装苍（旧「张开→收指→张开」误触的回归）
-3. 赫 枪形触发
-4. 赫 枪形收手退场
-5. 赫 食指指触发
-6. 两形态互换不断档
-7. 短暂丢手（8 帧）桥接仍红
-8. 收手退场
-9. 2s 后赫恢复（旧的 8s 锁已废）
-10. 2s 冷却内重指不触发
-11. 2s 冷却结束赫恢复
-12. 冷却期回摆不误触苍
-13. 冷却结束双手指赫恢复
-14. 赫 语音：保持不足 1s 不播
-15. 赫 语音：保持满 1s 播一次（`audioPlayCounts` +1）
-16. 赫 语音：随机挑的是本地 `audio/he-1|2.mp3`
-17. 赫 语音：同一次保持只播一次
-18. 赫 语音：枪形保持 1s 同样触发
-19. 苍 语音：持掌不足 2 秒不播
-20. 苍 语音：构筑后不足 2 秒仍不播
-21. 苍 语音：构筑满 2 秒播一次
-22. 苍 语音：播的是本地 `audio/blue.mp3`
-23. 苍 语音：每次构筑只播一次
-24. 苍：短持掌（~1.3s）不武装
-25. 苍：持掌 2 秒武装构筑球（不立即绽放，`currentTech` 仍 neutral）
-26. 慢速拖动 ~0.36/s 不打断，球只跟手
-27. 手指/掌尺寸抖动不打断（交替 ±8% 缩放 + 3 帧 +24% 关键点跳变）
-28. 快速横向挥手 ~1.8/s 不打断
-29. 构筑期指赫不打断
-30. 持续前推释放（掌尺寸 1.0→1.5，连续增长 ≥110ms、累计 ≥24%，blue）
-31. 动画中其他手势被忽略
-32. 冷却期赫被忽略
-33. 苍：双手持掌构筑
-34. 丢追踪释放（丢手 34 帧 ≈1.1s 后，blue）
-35. 合掌构筑武装（双手持掌 2s）
-36. 合掌释放（blue）
-37. 只张开 20 帧不触发（<2s）
-38. 握拳→张开不触发
-39. 赫枪形仍是赫、不是無量空処（拇指外张）
-40. 無量空処手势触发（两指举起 + 拇指内扣）
-41. 無量空処语音：保持不足 1s 不播
-42. 無量空処保持（手势持续）
-43. 無量空処语音：保持满 1s 播一次
-44. 無量空処语音：播的是本地 `audio/void.mp3`
-45. 無量空処语音：同一次保持只播一次
-46. 無量空処松手退场
-47. 右上「茈」按钮存在
-48. 点击「茈」开启模式（`purpleMode` + `aria-pressed=true`）
-49. 再点关闭（`purpleMode=false` + `aria-pressed=false`）
-50. 茈模式枪形蓄势出小球（`purpleCharge` 非空）
-51. 茈模式枪形不触发赫（`currentTech` 仍 neutral）
-52. 姿势丢失 280ms 后蓄势取消（`purpleCharge=null`）
-53. 捏合蓄势出小球
-54. 拇指内扣的待发姿势本身也能蓄势出小球
-55. 前推发射（`purpleShot` 非空）
-56. 发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）
-57. 飞行 380ms 后命中，`currentTech=purple`
-58. 命中后 2s 冷却内不能再蓄势
-59. 2s 冷却结束后恢复蓄势
-60. 拇指在下、指尖上挑的 flick 发射（旧路径仍保留）
-61. 重新蓄势（为拇指外弹用例准备）
-62. 拇指**慢慢**外张（~660ms）不发射，蓄势保持
-63. 拇指内扣 → 快速外张（指尖不动）发射
-64. 同样外弹但中途丢 2 帧追踪：蓄势不取消，手重现为外张时仍发射
-65. 单手摆出与契印相同的两指+拇指内扣：仍是 void，不触发契印动画
-66. 契印长动画时间轴：缠绕→爆炸→余波跨度正好 16 秒（`endMs - convergeEndMs`）
-67. 契印语音（500ms + 21.891s）在动画结束前收尾
-68. 双手扣合触发契印（`claspCast` 非空）
-69. 契印姿势不会被判成 void（`currentTech` 保持 neutral）
-70. 发动即进入 blue 阶段
-71. 发动后不足 0.5 秒：契印语音未播
-72. blue 阶段：蓝球可见且在屏幕右侧、红球尚未出现（`claspOrbLayout`）
-73. blue 长大到终态：直径 ≥ 半个屏幕宽（`claspOrbLayout`，半宽 75 → 直径 ≥37.5）
-74. 跨过 0.5 秒：契印语音播一次
-75. 继续保持：语音不重复播（每次发动一次）
-76. 1.5 秒后红球在左侧出现（蓝球已满）
-77. 红球满长（4 秒）时两球左右对称：|x| 与半径完全一致
-78. 1.5 秒后的阶段为 red
-79. 4 秒后的阶段为 converge（两球靠拢）
-80. 7 秒后进入 purple 缠绕阶段
-81. 碰撞拍点 `claspCollisionPulse → 1`（两螺旋收拢撞击）
-82. 碰撞间隔中点脉冲 → 0（回弹张开）
-83. 20 秒时进入 burst（紫色大爆炸）
-84. 爆炸真的触发紫色爆炸（`purpleExplosionUntilMs > now`）
-85. 23 秒余波结束后契印状态清空（`claspCast=null`）
-86. 结束后仍保持扣合姿势：冷却+姿势未释放，不能立刻重发
-87. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
-88. 双手扣合姿势但相距很远：不算契印
-89. 双手相距很远的同形姿势仍按普通评分展开 void
-90. 無量空処保持不足 3 秒：不触发开场动画
-91. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
-92. 开场动画隐藏 UI（`body.void-cinema`）
-93. 快进到换环时刻：20k 领域场重新显示
-94. 换环时领域场透明度淡入（>0.4）
-95. 换环时星星淡出（opacity <0.7）
-96. 长黑幕结束前：环全亮、黑幕仍全黑（opacity >0.95）
-97. 黑幕淡出完成后：背景透明（overlay <0.05）而环仍全亮（>0.95）
-98. 环收尾段：环正在淡出（0.2 < opacity < 0.8）
-99. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
-100. 动画结束后仍保持手势：不循环重播
-101. 松手后重新结印并保持 3 秒：可以再次播放
-102. 左侧栏存在「长时间无量空处」开关
-103. 点击开关打开（`voidLongMode=true`）
-104. 长版时间轴总长 > 语音时长 + 1s（`endMs 33800 > audioMs 31164 + 1000`）
-105. 长版下無量空処保持不足 1 秒：不触发动画
-106. 保持满 1 秒：领域展开并立即播放长语音
-107. 长版不播单人版 `audio/void.mp3`
-108. 长版等待满 8 秒前：不启动开场动画
-109. 等待满 8 秒：启动长版开场动画
-110. 动画启动时不重复播放长语音
-111. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
-112. 再点开关关闭（`voidLongMode=false`）
-113. 左侧音频库列出全部 7 条
-114. 音频库包含契印音轨 `audio/purple-clasp.mp3`
-115. 点击音频行会播放对应音频
+名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
+
+**苍 / 赫 基础与语音**
+
+1. neutral
+2. gun motion does not arm blue
+3. red gun form shows
+4. red gun releases on drop
+5. red pointing shows
+6. red form handoff stays red
+7. red survives brief pose gap
+8. red releases on drop
+9. red recovers after 2s
+10. red 2s cooldown blocks retrigger
+11. red 2s cooldown recovers
+12. blue blocked by red cooldown
+13. red after cooldown
+14. red voice waits for the 1 s hold
+15. red voice fires after a 1 s hold
+16. red voice picks a local clip
+17. red voice plays once per hold
+18. red voice fires on the gun form too
+19. blue voice waits for the 2 s hold
+20. blue voice waits 2 s after the charge
+21. blue voice fires 2 s after the charge
+22. blue voice picks the local clip
+23. blue voice plays once per charge
+
+
+**苍 释放（弯指负例、握拳、甩出、前推、合掌、丢手）**
+
+24. short open hold does not arm blue
+25. bent fingers do not arm blue
+26. bent fingers stay neutral
+27. blue1 charge armed (no bloom)
+28. slow drag keeps charge
+29. finger/size jitter keeps charge
+30. fast sideways fling releases blue
+31. fling release blooms blue
+32. point during charge keeps charge
+33. fist releases the blue charge
+34. fist release blooms blue
+35. blue re-armed for the push test
+36. forward push releases
+37. anim: other gestures ignored
+38. cooldown: red ignored
+39. blue2 charge armed
+40. tracking loss releases
+41. palms charge armed
+42. palms together releases
+
+
+**负例与 無量空処 基础**
+
+43. open only no trigger
+44. fist>open alone no trigger
+45. red gun is not void
+46. void gesture triggers
+47. void voice waits for the 1 s hold
+48. void holds while gesture held
+49. void voice fires after a 1 s hold
+50. void voice picks the local clip
+51. void voice plays once per hold
+52. void releases when gesture drops
+
+
+**茈 按钮模式**
+
+53. purple mode button exists
+54. purple mode button toggles on
+55. purple mode button toggles off
+56. purple gun arms orb
+57. purple mode blocks red gun
+58. purple pose drop cancels
+59. purple pinch arms orb
+60. purple thumb-under arms orb
+61. purple forward push fires
+62. purple shot plays the 2026 clip
+63. purple shot impacts
+64. purple 2s cooldown blocks recharge
+65. purple cooldown recovers
+66. purple thumb-under flick fires
+67. purple rearmed for snap tests
+68. purple slow thumb-out stays charging
+69. purple thumb-out snap fires
+70. purple snap survives tracking gap
+
+
+**双手契印（含漩涡与掉手）**
+
+71. one hand clasp-like is void, not cast
+72. clasp purple choreography spans 16 s
+73. clasp audio ends before the animation
+74. clasp cast starts
+75. clasp pose does not become void
+76. clasp starts in the blue phase
+77. clasp voice waits for 0.5 s
+78. clasp blue orb sits on the right, red absent
+79. clasp blue grows to at least half the screen
+80. clasp voice starts 0.5 s after the trigger
+81. clasp voice plays once per cast
+82. clasp red grows on the left after the blue
+83. clasp orbs are symmetric when red is full
+84. clasp red phase follows the blue
+85. clasp converge phase follows the red
+86. clasp purple vortex phase starts after 7 s
+87. clasp vortex core appears at the centre
+88. clasp vortex fills a readable share of the view
+89. clasp vortex gyro rings tilt apart
+90. clasp vortex slams on the beat
+91. clasp vortex rebounds between collisions
+92. clasp shockwave expands after a collision
+93. clasp shockwave fades before the next beat
+94. clasp vortex hides for the blast
+95. clasp bursts into purple at 20 s
+96. clasp blast is active
+97. clasp cast ends after the aftermath
+98. clasp cooldown blocks recast
+99. clasp recast after cooldown
+100. far two-hand pose is not clasp
+101. far two-hand pose stays void
+102. clasp warming before a hand drops
+103. dropped-hand clasp does not fire red
+104. dropped-hand clasp still casts
+105. lone index hand still fires red
+
+
+**無量空処 定格 3 秒开场动画**
+
+106. void under 3s no cinematic
+107. void held 3s starts cinematic
+108. cinematic hides UI chrome
+109. cinematic ring reveals void field
+110. cinematic field fades in
+111. cinematic streaks dissolve
+112. ring holds on black before fade
+113. black stage fades, ring stays
+114. ring fades at the tail
+115. cinematic ends and restores UI
+116. cinematic no loop while holding
+117. cinematic replays after re-entry
+
+
+**长时间无量空处**
+
+118. long void switch exists
+119. long void switch toggles on
+120. long timeline outlives its voice
+121. long void under 1 s no cinematic
+122. long void plays the long voice at the 1 s trigger
+123. long void skips the short voice
+124. long void waits 8 s before cinematic
+125. long void starts long cinematic after 8 s
+126. long voice does not replay at cinematic start
+127. long cinematic ends after the voice
+128. long void switch toggles off
+
+
+**音频库（9 条）**
+
+129. audio block lists every clip
+130. audio block includes the clasp track
+131. audio row click plays the clip
+132. audio block includes the failure clip
+133. audio block includes the creed clip
+134. failure clip plays on click
+135. creed clip plays on click
+
+
+**左侧栏三菜单 + 释放音效**
+
+136. left rail has three sub-menu tabs
+137. rail tab order
+138. main tab is open by default
+139. main tab holds settings and audio
+140. guide tab switches the panel
+141. about tab switches the panel
+142. main tab returns
+143. settings keep debug/voice/voidlong/sfx
+144. settings include a sound-effects switch
+145. sound effects play when enabled
+146. sound-effects switch toggles off
+147. sound effects stay silent when switched off
+148. sound-effects switch toggles back on
+
+149. end（收尾标记）
 
 ### 1.5 加用例的坑
 
@@ -168,7 +239,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   <30 帧。苍的计时读 `blueCharge.startedMs`：构筑成型（2s）后还要再 60 帧左右才播，断「不足 2s」
   给 ~44 帧；`blueCharge` 消失即复位 `blueVoicePlayed`，提前释放/取消不播。测完语音可直接
   `cancelBlueCharge()` 清场（不要让它走释放，否则会带出 2.5s 演出 + 2s 锁）。
-- **音频库**：`AUDIO_TRACKS` 按页面里实际存在的 `<audio>` 过滤；回归页有完整侧栏，应得 7 行。
+- **音频库**：`AUDIO_TRACKS` 按页面里实际存在的 `<audio>` 过滤；回归页有完整侧栏，应得 9 行。
   点击态用 `toggleAudioClip(key)` 或直接 `row.click()`，断言 `audioPlayCounts[key]` +1 与 `.playing` 类；
   同一时间只播一条的行为由 `playAudioClip` 先暂停其它轨道保证。
 - **长时间无量空处**：`longBtn.click()` 切换 `voidLongMode`；打开后保持 void 1 秒：
@@ -200,7 +271,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|voidlong|claspblue|claspred|claspconverge|claspentwine|claspclash|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|voidclear|voidlong|claspblue|claspred|claspconverge|claspvortex|claspclash|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏与菜单按钮看构图）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
@@ -221,7 +292,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - `claspblue`：触发契印，把时间轴冻在蓝球长到 75%——右侧一颗巨大蓝球，左侧还没有红球；
 - `claspred`：冻在红球将满（约 3.7s）——左右对称的一蓝一红巨球；
 - `claspconverge`：冻在靠拢 60%——两球压小、向中心聚拢；
-- `claspentwine`：冻在缠绕段中点——紫/品红双螺旋横贯画面；
+- `claspvortex`：冻在漩涡段中点——紫色三臂星系 + 三道倾斜陀螺环（可直接目检旋臂与环是否分得开）；
 - `claspclash`：冻在碰撞拍点（`collideStartMs + 30ms`）——螺旋收拢撞击、bloom 拉满；
 - `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」。
 - 截 UI（顶栏/侧栏）时加 `&nobanner=1`：否则左上角的测试横幅会盖住菜单按钮；`&noui=1` 用
@@ -317,7 +388,7 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidring&nobanner=1&noui=1" /tmp/shot-voidring.png 36
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidclear&nobanner=1&noui=1" /tmp/shot-voidclear.png 36
-for m in claspblue claspred claspconverge claspentwine claspclash claspburst; do
+for m in claspblue claspred claspconverge claspvortex claspclash claspburst; do
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=$m&nobanner=1&noui=1" /tmp/shot-$m.png 22
 done
@@ -369,9 +440,9 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（115 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspentwine` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
-- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置 4 个开关（D/H/V/L）可切换、音频库 7 行可播放/停止、右上提示随「茈」模式变化
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（149 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
+- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/SFX）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点
