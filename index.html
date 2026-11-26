@@ -25,6 +25,8 @@
             background: linear-gradient(to bottom, rgba(18,18,20,.55), rgba(18,18,20,.12) 140px, rgba(18,18,20,0) 320px),
                         radial-gradient(ellipse at center, rgba(18,18,20,0) 55%, rgba(18,18,20,.42) 100%); }
         #output_canvas { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); z-index: 2; pointer-events: none; }
+        /* Black stage for the 無量空処 cinematic: above the camera, below the WebGL canvas. */
+        #void-cinema { position: fixed; inset: 0; z-index: 1; background: #000; opacity: 0; pointer-events: none; }
         #three-canvas { position: fixed; inset: 0; z-index: 3; mix-blend-mode: screen; pointer-events: none; }
         #grain {
             position: fixed; inset: 0; z-index: 4; pointer-events: none; opacity: .05;
@@ -161,6 +163,10 @@
         }
 
         body.clean-mode #ui, body.clean-mode #left-rail, body.clean-mode #debug-panel, body.clean-mode #trigger-word-text { display: none !important; }
+        /* The domain cinematic is pure visuals: no chrome, no hand skeleton. */
+        body.void-cinema #ui, body.void-cinema #left-rail, body.void-cinema #debug-panel,
+        body.void-cinema #trigger-word-text { display: none !important; }
+        body.void-cinema #output_canvas { visibility: hidden; }
 
         @media (max-width: 900px) {
             #ui { gap: 10px; padding: 0 10px; }
@@ -189,6 +195,7 @@
 
     <video class="input_video"></video>
     <div class="stage-shade"></div>
+    <div id="void-cinema"></div>
     <canvas id="output_canvas"></canvas>
     <div id="grain"></div>
     <div id="idle-flash"></div>
@@ -575,6 +582,308 @@
     dust.frustumCulled = false;
     scene.add(dust);
     let lastDustMs = 0;
+
+    // --- 無量空処 cinematic: the PR #7 opening streak cosmos, ported into this scene ---
+    // Triggered by holding the Void domain for 3 s. No title/Enter UI is drawn here; the
+    // final beat hands the centre over to the app's own white void ring (the 20k field).
+    const VOID_CINEMA = {
+        holdMs: 3000,
+        fadeInMs: 600,
+        formDelayMs: 400,
+        formMs: 2200,
+        ringAtMs: 4000,
+        ringFadeMs: 1000,
+        blackFadeAtMs: 5200,
+        blackFadeMs: 1000,
+        endMs: 6200
+    };
+    const VOID_STREAK_COUNT = 1200;
+    const VOID_STREAK_VERTEX_COUNT = VOID_STREAK_COUNT * 2;
+    const VOID_STREAK_PALETTE = [
+        { r: 0.0, g: 0.90, b: 1.0 },
+        { r: 0.49, g: 0.30, b: 1.0 },
+        { r: 1.0, g: 0.20, b: 0.60 },
+        { r: 1.0, g: 0.78, b: 0.10 },
+        { r: 0.0, g: 1.0, b: 0.70 },
+        { r: 1.0, g: 0.45, b: 0.30 },
+        { r: 0.55, g: 0.80, b: 1.0 },
+        { r: 0.85, g: 0.15, b: 1.0 }
+    ];
+    const voidStreakPositions = new Float32Array(VOID_STREAK_VERTEX_COUNT * 3);
+    const voidStreakColors = new Float32Array(VOID_STREAK_VERTEX_COUNT * 3);
+    const voidStreakTargetPositions = new Float32Array(VOID_STREAK_VERTEX_COUNT * 3);
+    const voidStreakTargetColors = new Float32Array(VOID_STREAK_VERTEX_COUNT * 3);
+    const voidStreakMeta = [];
+    for (let i = 0; i < VOID_STREAK_COUNT; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(2 * Math.random() - 1);
+        voidStreakMeta.push({
+            dx: Math.sin(phi) * Math.cos(theta),
+            dy: Math.sin(phi) * Math.sin(theta),
+            dz: Math.cos(phi),
+            colorIdx: Math.floor(Math.random() * VOID_STREAK_PALETTE.length),
+            baseLen: 3 + Math.random() * 12,
+            speed: 0.5 + Math.random() * 1.5
+        });
+    }
+    const voidStreakGeometry = new THREE.BufferGeometry();
+    voidStreakGeometry.setAttribute('position', new THREE.BufferAttribute(voidStreakPositions, 3));
+    voidStreakGeometry.setAttribute('color', new THREE.BufferAttribute(voidStreakColors, 3));
+    const voidStreakMaterial = new THREE.LineBasicMaterial({
+        vertexColors: true,
+        blending: THREE.AdditiveBlending,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false
+    });
+    const voidStreaks = new THREE.LineSegments(voidStreakGeometry, voidStreakMaterial);
+    voidStreaks.visible = false;
+    voidStreaks.frustumCulled = false;
+    voidStreaks.scale.setScalar(0.8);
+    scene.add(voidStreaks);
+
+    let voidCinematic = null;
+    let voidEnteredAtMs = 0;
+    let voidHoldAwarded = false;
+    let lastFrameNowMs = 0;
+    const voidCinemaEl = document.getElementById('void-cinema');
+
+    function setVoidStreakFormationTargets() {
+        for (let i = 0; i < VOID_STREAK_COUNT; i++) {
+            const m = voidStreakMeta[i];
+            const v0 = i * 2;
+            const v1 = v0 + 1;
+            const pal = VOID_STREAK_PALETTE[m.colorIdx];
+            const t = i / VOID_STREAK_COUNT;
+            if (t < 0.15) {
+                // Event horizon: a tight white-hot ring.
+                const a = Math.random() * Math.PI * 2;
+                const rx = Math.cos(a);
+                const ry = Math.sin(a);
+                const rz = (Math.random() - 0.5) * 0.15;
+                const rInner = 22 + Math.random() * 3;
+                const rOuter = rInner + 2 + Math.random() * 3;
+                voidStreakTargetPositions[v0 * 3] = rx * rInner;
+                voidStreakTargetPositions[v0 * 3 + 1] = ry * rInner;
+                voidStreakTargetPositions[v0 * 3 + 2] = rz * rInner;
+                voidStreakTargetPositions[v1 * 3] = rx * rOuter;
+                voidStreakTargetPositions[v1 * 3 + 1] = ry * rOuter;
+                voidStreakTargetPositions[v1 * 3 + 2] = rz * rOuter;
+                voidStreakTargetColors[v0 * 3] = 1; voidStreakTargetColors[v0 * 3 + 1] = 1; voidStreakTargetColors[v0 * 3 + 2] = 1;
+                voidStreakTargetColors[v1 * 3] = pal.r * 0.6; voidStreakTargetColors[v1 * 3 + 1] = pal.g * 0.6; voidStreakTargetColors[v1 * 3 + 2] = pal.b * 0.6;
+            } else if (t < 0.35) {
+                // Inner radial burst.
+                const innerR = 1 + Math.random() * 4;
+                const outerR = innerR + m.baseLen * 0.6;
+                voidStreakTargetPositions[v0 * 3] = m.dx * innerR;
+                voidStreakTargetPositions[v0 * 3 + 1] = m.dy * innerR;
+                voidStreakTargetPositions[v0 * 3 + 2] = m.dz * innerR;
+                voidStreakTargetPositions[v1 * 3] = m.dx * outerR;
+                voidStreakTargetPositions[v1 * 3 + 1] = m.dy * outerR;
+                voidStreakTargetPositions[v1 * 3 + 2] = m.dz * outerR;
+                voidStreakTargetColors[v0 * 3] = 1; voidStreakTargetColors[v0 * 3 + 1] = 1; voidStreakTargetColors[v0 * 3 + 2] = 1;
+                voidStreakTargetColors[v1 * 3] = pal.r; voidStreakTargetColors[v1 * 3 + 1] = pal.g; voidStreakTargetColors[v1 * 3 + 2] = pal.b;
+            } else if (t < 0.65) {
+                // Mid-range streaks.
+                const innerR = 8 + Math.random() * 12;
+                const outerR = innerR + m.baseLen;
+                voidStreakTargetPositions[v0 * 3] = m.dx * innerR;
+                voidStreakTargetPositions[v0 * 3 + 1] = m.dy * innerR;
+                voidStreakTargetPositions[v0 * 3 + 2] = m.dz * innerR;
+                voidStreakTargetPositions[v1 * 3] = m.dx * outerR;
+                voidStreakTargetPositions[v1 * 3 + 1] = m.dy * outerR;
+                voidStreakTargetPositions[v1 * 3 + 2] = m.dz * outerR;
+                const brightMul = 0.7 + Math.random() * 0.3;
+                voidStreakTargetColors[v0 * 3] = pal.r * brightMul; voidStreakTargetColors[v0 * 3 + 1] = pal.g * brightMul; voidStreakTargetColors[v0 * 3 + 2] = pal.b * brightMul;
+                voidStreakTargetColors[v1 * 3] = pal.r * 0.15; voidStreakTargetColors[v1 * 3 + 1] = pal.g * 0.15; voidStreakTargetColors[v1 * 3 + 2] = pal.b * 0.15;
+            } else {
+                // Outer cosmos: long, faint.
+                const innerR = 25 + Math.random() * 40;
+                const outerR = innerR + m.baseLen * 1.5 + Math.random() * 8;
+                voidStreakTargetPositions[v0 * 3] = m.dx * innerR;
+                voidStreakTargetPositions[v0 * 3 + 1] = m.dy * innerR;
+                voidStreakTargetPositions[v0 * 3 + 2] = m.dz * innerR;
+                voidStreakTargetPositions[v1 * 3] = m.dx * outerR;
+                voidStreakTargetPositions[v1 * 3 + 1] = m.dy * outerR;
+                voidStreakTargetPositions[v1 * 3 + 2] = m.dz * outerR;
+                const brightMul = 0.3 + Math.random() * 0.4;
+                voidStreakTargetColors[v0 * 3] = pal.r * brightMul; voidStreakTargetColors[v0 * 3 + 1] = pal.g * brightMul; voidStreakTargetColors[v0 * 3 + 2] = pal.b * brightMul;
+                voidStreakTargetColors[v1 * 3] = 0; voidStreakTargetColors[v1 * 3 + 1] = 0; voidStreakTargetColors[v1 * 3 + 2] = 0;
+            }
+        }
+    }
+
+    function setVoidStreakDissolveTargets() {
+        for (let i = 0; i < VOID_STREAK_COUNT; i++) {
+            const m = voidStreakMeta[i];
+            const v0 = i * 2;
+            const v1 = v0 + 1;
+            const r = 100 + Math.random() * 200;
+            voidStreakTargetPositions[v0 * 3] = m.dx * r;
+            voidStreakTargetPositions[v0 * 3 + 1] = m.dy * r;
+            voidStreakTargetPositions[v0 * 3 + 2] = m.dz * r;
+            voidStreakTargetPositions[v1 * 3] = m.dx * (r + 2);
+            voidStreakTargetPositions[v1 * 3 + 1] = m.dy * (r + 2);
+            voidStreakTargetPositions[v1 * 3 + 2] = m.dz * (r + 2);
+            for (let c = 0; c < 3; c++) {
+                voidStreakTargetColors[v0 * 3 + c] = 0;
+                voidStreakTargetColors[v1 * 3 + c] = 0;
+            }
+        }
+    }
+
+    function startVoidCinematic(startMs) {
+        if (voidCinematic) return;
+        voidHoldAwarded = true;
+        voidCinematic = {
+            startMs,
+            lastMs: startMs,
+            ringShown: false,
+            hideField: false,
+            formTargetsSet: false,
+            dissolveSet: false
+        };
+        for (let i = 0; i < voidStreakPositions.length; i++) {
+            voidStreakPositions[i] = 0;
+            voidStreakColors[i] = 0;
+        }
+        voidStreakGeometry.attributes.position.needsUpdate = true;
+        voidStreakGeometry.attributes.color.needsUpdate = true;
+        voidStreakMaterial.opacity = 0;
+        voidStreaks.visible = true;
+        voidStreaks.rotation.set(0, 0, 0);
+        voidStreaks.position.set(0, 0, 0);
+        document.body.classList.add('void-cinema');
+        if (voidCinemaEl) voidCinemaEl.style.opacity = '0';
+        dust.visible = false;
+        particleMaterial.opacity = 1;
+        baseBloomStrength = 2.4;
+        shakeIntensity = 0.7;
+    }
+
+    function finishVoidCinematic() {
+        if (!voidCinematic) return;
+        voidCinematic = null;
+        voidStreaks.visible = false;
+        voidStreakMaterial.opacity = 0;
+        particleMaterial.opacity = 1;
+        dust.visible = true;
+        document.body.classList.remove('void-cinema');
+        if (voidCinemaEl) voidCinemaEl.style.opacity = '0';
+        baseBloomStrength = currentTech === 'void' ? 2.0 : 1.0;
+        shakeIntensity = currentTech === 'neutral' ? 0 : 0.4;
+    }
+
+    function maybeTriggerVoidCinematic(nowMs) {
+        if (MODE !== 'gojo' || voidCinematic || voidHoldAwarded || forcedTech) return;
+        if (currentTech !== 'void') return;
+        if (nowMs - voidEnteredAtMs < VOID_CINEMA.holdMs) return;
+        startVoidCinematic(nowMs);
+    }
+
+    function updateVoidCinematic(nowMs) {
+        if (!voidCinematic) return;
+        const cine = voidCinematic;
+        const age = nowMs - cine.startMs;
+        if (age < 0) return; // synthetic-clock test may run ahead of the render clock
+        const C = VOID_CINEMA;
+        if (age >= C.endMs) {
+            finishVoidCinematic();
+            return;
+        }
+        const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - cine.lastMs) / 1000));
+        cine.lastMs = nowMs;
+        const tSec = age / 1000;
+
+        let overlayOpacity = 1;
+        if (age < C.fadeInMs) overlayOpacity = age / C.fadeInMs;
+        else if (age >= C.blackFadeAtMs) overlayOpacity = 1 - clamp01((age - C.blackFadeAtMs) / C.blackFadeMs);
+        if (voidCinemaEl) voidCinemaEl.style.opacity = overlayOpacity.toFixed(3);
+
+        let streakOpacity = clamp01(age / C.fadeInMs);
+        if (age >= C.ringAtMs) streakOpacity = 1 - clamp01((age - C.ringAtMs) / C.ringFadeMs);
+        voidStreakMaterial.opacity = streakOpacity;
+
+        // Hand-off between the old domain field and the streak cosmos: the field fades out
+        // behind the darkening stage, then the big field is switched off to save frames.
+        if (age < C.fadeInMs) particleMaterial.opacity = 1 - age / C.fadeInMs;
+
+        if (age >= C.formDelayMs && !cine.formTargetsSet) {
+            setVoidStreakFormationTargets();
+            cine.formTargetsSet = true;
+        }
+        if (age >= C.ringAtMs && !cine.dissolveSet) {
+            setVoidStreakDissolveTargets();
+            cine.dissolveSet = true;
+            cine.ringShown = true;
+            particles.visible = true;
+            particleMaterial.opacity = 0;
+        }
+        if (cine.ringShown) {
+            particleMaterial.opacity = clamp01((age - C.ringAtMs) / (C.ringFadeMs * 0.9));
+            baseBloomStrength = 2.7;
+        }
+        cine.hideField = age >= C.fadeInMs && !cine.ringShown;
+
+        const pos = voidStreakPositions;
+        const col = voidStreakColors;
+        if (cine.formTargetsSet) {
+            const lerpK = 1 - Math.exp(-dtSec * (cine.dissolveSet ? 2.4 : 3.2));
+            for (let i = 0; i < pos.length; i++) {
+                pos[i] += (voidStreakTargetPositions[i] - pos[i]) * lerpK;
+                col[i] += (voidStreakTargetColors[i] - col[i]) * lerpK;
+            }
+        }
+        if (cine.formTargetsSet && !cine.dissolveSet) {
+            // Linear inward flow: streaks race toward the centre and respawn at the rim.
+            for (let i = 0; i < VOID_STREAK_COUNT; i++) {
+                const m = voidStreakMeta[i];
+                const v0 = i * 2;
+                const v1 = v0 + 1;
+                const pal = VOID_STREAK_PALETTE[m.colorIdx];
+                const inward = m.speed * 10.8 * dtSec;
+                pos[v0 * 3] -= m.dx * inward;
+                pos[v0 * 3 + 1] -= m.dy * inward;
+                pos[v0 * 3 + 2] -= m.dz * inward;
+                pos[v1 * 3] -= m.dx * inward;
+                pos[v1 * 3 + 1] -= m.dy * inward;
+                pos[v1 * 3 + 2] -= m.dz * inward;
+
+                const distToCenter = Math.hypot(pos[v0 * 3], pos[v0 * 3 + 1], pos[v0 * 3 + 2]);
+                if (distToCenter < 3) {
+                    const spawnR = 35 + Math.random() * 50;
+                    const streakLen = m.baseLen + Math.random() * 5;
+                    pos[v0 * 3] = m.dx * (spawnR + streakLen);
+                    pos[v0 * 3 + 1] = m.dy * (spawnR + streakLen);
+                    pos[v0 * 3 + 2] = m.dz * (spawnR + streakLen);
+                    pos[v1 * 3] = m.dx * spawnR;
+                    pos[v1 * 3 + 1] = m.dy * spawnR;
+                    pos[v1 * 3 + 2] = m.dz * spawnR;
+                    col[v1 * 3] = pal.r;
+                    col[v1 * 3 + 1] = pal.g;
+                    col[v1 * 3 + 2] = pal.b;
+                    col[v0 * 3] = pal.r * 0.2;
+                    col[v0 * 3 + 1] = pal.g * 0.2;
+                    col[v0 * 3 + 2] = pal.b * 0.2;
+                }
+                if (distToCenter < 15) {
+                    const whiteness = 1 - distToCenter / 15;
+                    col[v0 * 3] += (1 - col[v0 * 3]) * whiteness * 0.12;
+                    col[v0 * 3 + 1] += (1 - col[v0 * 3 + 1]) * whiteness * 0.12;
+                    col[v0 * 3 + 2] += (1 - col[v0 * 3 + 2]) * whiteness * 0.12;
+                }
+            }
+        }
+        voidStreakGeometry.attributes.position.needsUpdate = true;
+        voidStreakGeometry.attributes.color.needsUpdate = true;
+
+        voidStreaks.rotation.z = Math.sin(tSec * 0.12) * 0.04;
+        voidStreaks.rotation.y = Math.sin(tSec * 0.09) * 0.06;
+        const formProgress = age < C.formDelayMs ? 0 : clamp01((age - C.formDelayMs) / C.formMs);
+        shakeIntensity = age < C.formDelayMs + C.formMs
+            ? Math.max(0, 0.9 * (1 - formProgress))
+            : 0.15;
+    }
 
     // Rings spin rigidly (same phase for every particle in a ring, so arcs never smear);
     // haze particles drift and breathe; everything also trails along the orb's recent path.
@@ -1972,8 +2281,14 @@
     }
 
     function computeFrameScores(results, nowMs) {
+        lastFrameNowMs = nowMs;
         const frameScores = Object.fromEntries(GESTURES.map((tech) => [tech, 0]));
         frameScores.neutral = 1;
+        // The 無量空処 cinematic owns the screen: no gesture may interrupt it.
+        if (voidCinematic) {
+            resetBlueHandStates();
+            return frameScores;
+        }
         frameFlickScore = 0;
         const purpleFlicks = {};
         lastHandShapes = [];
@@ -2643,6 +2958,8 @@
     setMusicEnabled(false);
     window.addEventListener('keydown', (event) => {
         if (event.repeat) return;
+        // The 無量空処 cinematic owns the screen: no hotkey may swap the field mid-play.
+        if (voidCinematic) return;
         const key = event.key.toLowerCase();
         if (key === KEYBINDS.debug.toLowerCase()) {
             toggleDebug();
@@ -2699,6 +3016,10 @@
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         const nowMs = performance.now();
 
+        // During the 無量空処 cinematic the gesture pipeline is frozen: the animation must
+        // play out untouched, and the held domain must not re-arm itself.
+        if (voidCinematic) return;
+
         const frameScores = computeFrameScores(results, nowMs);
         const purpleArmedNow = currentTech === 'purple' && (nowMs - purpleEnteredAtMs) >= FLICK.purpleArmMs;
         if (purpleArmedNow && (frameScores.flick >= 1 || nowMs <= flickPulseUntilMs)) {
@@ -2723,6 +3044,7 @@
         }
         maybeTriggerPurpleExitExplosion(nextGesture, nowMs);
         updateState(nextGesture);
+        maybeTriggerVoidCinematic(nowMs);
         updateDebugPanel(nextGesture);
     });
 
@@ -2755,6 +3077,13 @@
             if (!purpleHeldLongEnough) pendingPurpleExitFlick = false;
         } else if (nowMs > purpleFlickEligibleUntilMs && currentTech !== 'flick') {
             pendingPurpleExitFlick = false;
+        }
+        // Void hold timer for the domain cinematic. The frame clock (synthetic in tests) wins;
+        // forced/preview entries fall back to the real clock.
+        if (currentTech === 'void' && prevTech !== 'void') {
+            voidEnteredAtMs = lastFrameNowMs || nowMs;
+        } else if (prevTech === 'void' && currentTech !== 'void') {
+            voidHoldAwarded = false;
         }
         shakeIntensity = tech === 'shrine' ? 1.5 : (tech !== 'neutral' ? 0.4 : 0);
 
@@ -2856,6 +3185,8 @@
         // Clasp-cast timeline: kept on the render clock so the build/convergence/blast
         // completes even when the camera loses both hands.
         updateClaspCast(nowMs);
+        // 無量空処 cinematic timeline: same deal — it finishes on its own clock.
+        updateVoidCinematic(nowMs);
         // FPS meter for the debug panel.
         fpsFrames += 1;
         if (nowMs - fpsLastMs >= 500) {
@@ -2866,9 +3197,12 @@
         // While idling or constructing, the big field is fully dark: skip its per-frame lerp and
         // 240KB attribute upload. This keeps the charge swarm smooth even on weak GPUs.
         const claspBuild = !!claspCast && claspCast.phase === 'build';
-        const fieldIdle = (currentTech === 'neutral' || claspBuild)
+        // During the streak phase of the 無量空処 cinematic the big field must stay dark
+        // behind the black stage; the final beat fades it back in as the centre ring.
+        const cinemaHidingField = !!voidCinematic && voidCinematic.hideField;
+        const fieldIdle = ((currentTech === 'neutral' || claspBuild)
             && nowMs > neutralSettledAtMs
-            && purpleExplosionUntilMs <= nowMs;
+            && purpleExplosionUntilMs <= nowMs) || cinemaHidingField;
         particles.visible = !fieldIdle;
         const pos = particles.geometry.attributes.position.array;
         const col = particles.geometry.attributes.color.array;
@@ -2989,7 +3323,8 @@
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a
         // clean rim around the red core; Blue's release blasts them outward.
-        {
+        // The 無量空処 cinematic hides the layer entirely — skip its per-frame work too.
+        if (!voidCinematic) {
             const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - lastDustMs) / 1000));
             lastDustMs = nowMs;
             const tSec = nowMs / 1000;

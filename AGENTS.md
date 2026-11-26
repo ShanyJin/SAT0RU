@@ -9,7 +9,8 @@
 - **術式順転「蒼」**（引力）：张开→握拳→张开 → 构筑蓝色粒子球 → 用力前推/合掌释放（慢移、横挥只跟手）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场
 - **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
-  保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）
+  保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；**定格 >3 秒**自动播开场动画
+  （旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场，一次保持只播一次）
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
   前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开；松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮）：双手交叉扣住、食指朝上、拇指内扣 →
@@ -34,7 +35,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 58 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑 67 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -66,6 +67,10 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `fillClaspOrbPositions`；阈值 `wristGapMax/tipGapMax`，时间轴 `buildMs/convergeMs/burstMs`
 - 無量空処的判定/视觉 → `computeHandScores()` 的 `void` 分支、`GOJO_GESTURES`、`getVoid()`；
   阈值 `fingerGap<0.075`、`thumbGapRatio<0.75`（拇指内扣，避开赫枪形的 >0.75）
+- 無量空処定格 3 秒开场动画 → `VOID_CINEMA`、`VOID_STREAK_COUNT`、`startVoidCinematic`、
+  `finishVoidCinematic`、`maybeTriggerVoidCinematic`、`updateVoidCinematic`、`voidCinematic`、
+  `voidHoldAwarded`、`voidStreaks`、`#void-cinema`；触发门槛 `voidEnteredAtMs`（`updateState` 写入）、
+  时间轴 `holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackFadeAtMs/endMs`
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
 - 技法名/指南 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`GUIDE_ALL`
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、
@@ -74,5 +79,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 58/58 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 67/67 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

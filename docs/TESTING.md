@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，58 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，67 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 58 项断言（按顺序）
+### 1.4 67 项断言（按顺序）
 
 1. neutral 初始
 2. 枪形动作不误触苍（张开→收指→张开恰好凑成蓝时序的回归）
@@ -94,6 +94,15 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 56. 松开姿势并跨过 2s 冷却后再扣合：可以再次发动
 57. 双手扣合姿势但相距很远：不算契印（不退化成双手 void 误触发）
 58. 双手相距很远的同形姿势仍按普通评分展开 void
+59. 無量空処保持不足 3 秒：不触发开场动画
+60. 保持超过 3 秒：自动进入开场动画（`voidCinematic` 非空）
+61. 开场动画隐藏 UI（`body.void-cinema`）
+62. 快进到换环时刻：20k 领域场重新显示
+63. 换环时领域场透明度淡入（>0.4）
+64. 换环时星星淡出（opacity <0.7）
+65. 动画结束恢复 UI（`body` 去掉 `void-cinema`）
+66. 动画结束后仍保持手势：不循环重播
+67. 松手后重新结印并保持 3 秒：可以再次播放
 
 ### 1.5 加用例的四个坑
 
@@ -111,10 +120,15 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   给 10 帧足够。动画时间轴走合成时钟：直接改 `claspCast.startMs` 再用 `updateClaspCast(t)` 快进
   （`finishClasp()` 封装好了）；不要在用例里用 `performance.now()`，否则冷却会写到合成未来。
   结束后有「必须松开姿势」锁，要先 `step([], 30)` 再重新扣合；双手分离的负例用 `claspFar2()`。
+- **無量空処开场动画**：`maybeTriggerVoidCinematic` 用合成时钟的 `lastFrameNowMs`，所以
+  `step(void1(0.5), …)` 攒够 3 秒就会在 `runFrame` 里自动开播；播报期间 `runFrame` 冻结（镜像
+  `onResults`），此时 `step` 不会推进任何手势状态。快进同样直接改 `voidCinematic.startMs` 再
+  `updateVoidCinematic(t)`；「结束」也走它（age ≥ `VOID_CINEMA.endMs` 即收尾）。一次保持只播一次，
+  重播要先 `step([], 30)` 松手。
 
 ### 1.6 视觉演示态
 
-`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|claspbuild|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏看构图）：
+`?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring|claspbuild|claspburst`（加 `&nobanner=1` 可隐藏左上角测试横幅，加 `&noui=1` 可隐藏侧栏看构图）：
 
 - `charge`：武装苍后把球钉在屏幕中央并轻微摆动（看构筑球 + 尘埃被吸引、绕球）；
 - `blue`：触发释放（看屏幕中央蓝爆 + 尘埃炸开）；
@@ -124,6 +138,10 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   错过 1.6s 的爆炸；按钮冷却环同时保持可见；
 - `void`：`forceTechnique('void')` + `updateState('void', true)`，直接展示白环 + 蓝色球壳的领域场
   （不需要摄像头）；
+- `voidform`：固定领域场后 `startVoidCinematic`，把相位冻结在「流星成型中」——黑幕 + 1200 条彩色射线
+  向心流动（无标题、无按钮）；
+- `voidring`：同上门槛，把相位冻结在 4.5s 的「换环中」——星星外溶解淡出、中心淡入 app 自己的
+  白环 + 蓝色星云；
 - `claspbuild`：合成双手扣合触发契印，把 build 冻结在 75%（左右蓝/红两球），用于构图验收；
 - `claspburst`：快进到爆发，把紫色爆炸钉在 life≈0.42（径向条纹最清楚），并保持顶部状态为「虚式「茈」」。
 - 截 UI（顶栏/侧栏）时加 `&nobanner=1`：否则左上角的测试横幅会盖住菜单按钮；`&noui=1` 仍用于纯净构图。
@@ -181,6 +199,8 @@ user_pref("media.navigator.permission.disabled", true);
 user_pref("browser.shell.checkDefaultBrowser", false);
 user_pref("browser.translations.enable", false);
 user_pref("browser.translations.automaticallyPopup", false);
+user_pref("datareporting.policy.dataSubmissionPolicyBypassNotification", true);
+user_pref("browser.aboutwelcome.enabled", false);
 UJS
 export LIBGL_ALWAYS_SOFTWARE=1
 firefox --profile "$PROFILE" --new-instance --no-remote "$URL" &
@@ -211,13 +231,18 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=void&nobanner=1" /tmp/shot-void.png 26
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidform&nobanner=1&noui=1" /tmp/shot-voidform.png 36
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
+  "http://127.0.0.1:8787/logic-test.html?logictest=1&end=voidring&nobanner=1&noui=1" /tmp/shot-voidring.png 36
+xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspbuild&nobanner=1&noui=1" /tmp/shot-clasp-build.png 22
 xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
   "http://127.0.0.1:8787/logic-test.html?logictest=1&end=claspburst&nobanner=1&noui=1" /tmp/shot-clasp-burst.png 22
 ```
 
 `nobanner=1` 只影响测试横幅；页面标题仍是 `LOGICTEST PASS`，也可以从窗口标题
-（`xwininfo -root -tree`）确认结果。
+（`xwininfo -root -tree`）确认结果。注意新 profile 的首次启动可能弹出翻译/隐私提示页并抢占前台，
+用上面的 prefs 关掉；软件渲染下页面载入慢，别急，必要时等到 36s 再截。
 
 ### 2.3 验证「动画真的在动」
 
@@ -259,8 +284,8 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（58 项）
-- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（67 项）
+- [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置开关可切换、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）

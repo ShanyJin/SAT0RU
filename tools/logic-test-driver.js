@@ -155,7 +155,20 @@
             now: performance.now(),
             viewport: { w: window.innerWidth, h: window.innerHeight }
         });
+        // Visual-check hook for the 無量空処 hold-3s cinematic (screenshot tooling asserts beats).
+        window.__voidCinemaState = () => ({
+            active: !!voidCinematic,
+            ringShown: voidCinematic ? voidCinematic.ringShown : false,
+            awarded: voidHoldAwarded,
+            bodyClass: document.body.classList.contains('void-cinema'),
+            streaks: { visible: voidStreaks.visible, opacity: voidStreakMaterial.opacity },
+            field: { visible: particles.visible, opacity: particleMaterial.opacity },
+            overlay: voidCinemaEl ? Number(voidCinemaEl.style.opacity || 0) : null,
+            now: performance.now()
+        });
         const runFrame = (hands, ms) => {
+            // Mirror onResults: the 無量空処 cinematic freezes the gesture pipeline.
+            if (voidCinematic) return;
             const results = {
                 multiHandLandmarks: hands,
                 multiHandedness: hands.map((_, i) => ({ label: 'H' + i }))
@@ -175,6 +188,7 @@
             }
             maybeTriggerPurpleExitExplosion(next, ms);
             updateState(next);
+            maybeTriggerVoidCinematic(ms);
         };
         const step = (hands, n) => {
             for (let i = 0; i < n; i++) { runFrame(hands, t); t += 33; }
@@ -221,6 +235,15 @@
             claspCooldownUntilMs = 0;
             claspPoseReleaseRequired = false;
             claspSuppressUntilMs = 0;
+            voidCinematic = null;
+            voidHoldAwarded = false;
+            voidStreaks.visible = false;
+            voidStreakMaterial.opacity = 0;
+            particles.visible = true;
+            particleMaterial.opacity = 1;
+            dust.visible = true;
+            document.body.classList.remove('void-cinema');
+            if (voidCinemaEl) voidCinemaEl.style.opacity = '0';
             renderer.domElement.style.transform = 'translate(0,0)';
         };
 
@@ -477,13 +500,50 @@
             markState('far two-hand pose stays void', 'void', currentTech);
             step([], 100);
 
+            // --- 無量空処 hold-3s: the domain cinematic enters by itself ---
+            // Holding the domain past 3 s must auto-play the ported opening animation
+            // (no title/Enter UI), then hand the centre over to the particle ring.
+            step([], 220); // drain the previous void trigger's cooldown
+            step(void1(0.5), 20); // re-enter the domain
+            step(void1(0.5), 60); // ~2.1–2.4 s since the entry frame: under the 3 s hold
+            markState('void under 3s no cinematic', 'no', voidCinematic ? 'yes' : 'no');
+            step(void1(0.5), 30); // cross the 3 s hold threshold
+            markState('void held 3s starts cinematic', 'yes', voidCinematic ? 'yes' : 'no');
+            markState('cinematic hides UI chrome', 'yes',
+                document.body.classList.contains('void-cinema') ? 'yes' : 'no');
+            // Fast-forward the timeline on the synthetic clock: the ring hand-off...
+            voidCinematic.startMs = t - (VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5);
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('cinematic ring reveals void field', 'yes', particles.visible ? 'yes' : 'no');
+            markState('cinematic field fades in', 'yes', particleMaterial.opacity > 0.4 ? 'yes' : 'no');
+            markState('cinematic streaks dissolve', 'yes', voidStreakMaterial.opacity < 0.7 ? 'yes' : 'no');
+            // ...and the end must restore the app chrome and the field.
+            voidCinematic.startMs = t - VOID_CINEMA.endMs - 1;
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            markState('cinematic ends and restores UI', 'no',
+                document.body.classList.contains('void-cinema') ? 'yes' : 'no');
+            // One play per hold: still holding the sign must not loop the animation.
+            step(void1(0.5), 120);
+            markState('cinematic no loop while holding', 'no', voidCinematic ? 'yes' : 'no');
+            step([], 30); // release the domain (re-arms the hold award)
+            step(void1(0.5), 20);
+            step(void1(0.5), 100); // hold past 3 s again
+            markState('cinematic replays after re-entry', 'yes', voidCinematic ? 'yes' : 'no');
+            voidCinematic.startMs = t - VOID_CINEMA.endMs - 1;
+            voidCinematic.lastMs = t;
+            updateVoidCinematic(t);
+            step([], 30);
+
             step([], 10); mark('end', null);
 
-            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring
             const endMode = new URLSearchParams(location.search).get('end');
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
             const isClaspDemo = endMode === 'claspbuild' || endMode === 'claspburst';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo) {
+            const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
@@ -535,6 +595,27 @@
                     forceTechnique('void', 999999999);
                     updateState('void', true);
                     document.title = 'VOID DEMO';
+                } else if (isVoidCinemaDemo) {
+                    // 無量空処 hold-3s cinematic: pin the domain field, start the ported
+                    // opening animation on the real clock, then keep its phase frozen at the
+                    // beat we want to screenshot (software GL runs at 1–3fps).
+                    forceTechnique('void', 999999999);
+                    updateState('void', true);
+                    startVoidCinematic(performance.now());
+                    if (voidCinematic) {
+                        const freezeMs = endMode === 'voidform'
+                            ? VOID_CINEMA.formDelayMs + VOID_CINEMA.formMs * 0.85
+                            : VOID_CINEMA.ringAtMs + VOID_CINEMA.ringFadeMs * 0.5;
+                        const baseUpdate = updateVoidCinematic;
+                        updateVoidCinematic = (ms) => {
+                            if (!voidCinematic) return;
+                            // Rewriting the origin each frame freezes the phase while the
+                            // formation/dissolve lerps keep running on real dt.
+                            voidCinematic.startMs = ms - freezeMs;
+                            baseUpdate(ms);
+                        };
+                    }
+                    document.title = endMode === 'voidform' ? 'VOID FORM DEMO' : 'VOID RING DEMO';
                 } else if (endMode === 'red') {
                     // Hold the gun form so the red core sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).

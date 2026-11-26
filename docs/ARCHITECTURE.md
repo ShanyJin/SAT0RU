@@ -31,7 +31,7 @@
 | `?mode=all` | 恢复全套 15 技法（`SCORE_GESTURES` + 语音），指南同步切换 `GUIDE_ALL` |
 | `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。id 见 README |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 双手契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
+| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|claspbuild\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 無量空処开场（成型中/换环中）/ 双手契印构建 / 契印爆发（`&noui=1` 隐藏侧栏） |
 
 按键：`D` 调试面板、`M` 音乐、`H` 指南、`V` 语音、`T` 轮换、`N` 回识别、`K` 按键表、`C` 纯净模式、`O` 开场页。
 `T/N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
@@ -269,7 +269,33 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 复用原项目的 `getVoid(i)`：15% 点在半径 26 的白环上，其余 85% 在半径 30~120 的蓝色球壳里。
 - `updateState('void')`：顶部状态名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
   `shakeIntensity 0.4`；主粒子场以慢速 `rotation.y += 0.005` 旋转。
-- 没有额外的界面/按钮；与 O 键打开的独立开场页（`DomainExpansion-infintevoid/`）互不影响。
+- 没有额外的界面/按钮；与 O 键打开的独立开场页（`DomainExpansion-infintevoid/`）互不影响——
+  但同一个动画现在被移植进了主场景，由「保持领域 3 秒」触发（见 §7.4）。
+
+### 7.4 定格 3 秒 · 無量空処开场动画（cinematic）
+
+主人要求：保持無量空処手势超过 3 秒自动进入旧 PR #7 的开场动画（去掉标题与「进入」按钮），
+动画最后把中心换成 app 自己的白环粒子场。
+
+- **触发**：`updateState` 进入 void 的那一帧写 `voidEnteredAtMs`（取 `lastFrameNowMs`，回归可走合成时钟）；
+  `onResults` 在 `updateState` 之后调 `maybeTriggerVoidCinematic(nowMs)`——当前技法 void、
+  `now - voidEnteredAtMs ≥ VOID_CINEMA.holdMs(3000)`、未在播放、本次保持没播过（`voidHoldAwarded`）、
+  且不是 `?tech=` / T 预览（`forcedTech`）时启动。一次保持只播一次；松手后重新结印才会再播。
+- **播放期间管线冻结**：`onResults` 与驱动的 `runFrame` 在 `voidCinematic` 非空时直接返回，手势不会打断它、
+  领域也不会被重置；时间轴走 `animate()` 的真实时钟（6.2s），中途丢手也照常播完。
+- **舞台层**：`#void-cinema` 黑幕（z1，盖住摄像头与 stage-shade；WebGL canvas 是 z3，在其上）；
+  `body.void-cinema` 隐藏 `#ui / #left-rail / #debug-panel / #output_canvas`。开场 600ms 黑幕淡入，
+  同时旧领域场 `particleMaterial.opacity` 1→0，之后 `hideField` 直接停算 20k 场省帧。
+- **流星宇宙**：移植 PR #7 的 1200 条 LineSegments（2400 顶点、8 色盘），中心改 0、整体 scale 0.8；
+  四层目标（事件视界白环 / 内爆 / 中层 / 外层宇宙）在 400ms 后开始 2.2s 形成，
+  随后持续「向心流动 + 近核重生 + 近核增白」。
+- **结尾换环（`ringAtMs 4000`）**：星星转为向外溶解目标并整体淡出（1000ms），同时 20k 主场
+  `particleMaterial.opacity` 0→1 淡入——中心就是 `getVoid()` 的白环 + 蓝色星云（「我们粒子效果的圆环」）。
+  bloom 在星星阶段 2.4、换环时 2.7。
+- **收尾**：黑幕 5200ms 起 1000ms 淡出，6200ms `finishVoidCinematic()` 恢复 UI、尘埃与不透明度；
+  若手还保持着领域，领域场继续显示（`voidHoldAwarded` 阻止循环重播）。
+- 阈值全在 `VOID_CINEMA`（holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackFadeAtMs/blackFadeMs/endMs）；
+  演示态 `&end=voidform|voidring` 把相位冻结在「成型中」/「换环中」便于截图。
 
 ## 8. 主粒子场与爆炸
 
@@ -307,8 +333,9 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
   （blue 3.0、red 2.5、purple 4.0、shrine 2.5、blackflash 5.0…），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
-- **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`
-  → 主粒子场 `particles.visible=false`，且跳过 20k 的 lerp/上传/旋转/爆炸计算。
+- **`fieldIdle`**：`currentTech==='neutral'（或契印 build 阶段） && now > neutralSettledAtMs && 无紫爆炸`，
+  或「無量空処 cinematic 的星星阶段（`hideField`）」→ 主粒子场 `particles.visible=false`，
+  且跳过 20k 的 lerp/上传/旋转/爆炸计算。
   `neutralSettledAtMs = now + 700`（进入 neutral 后留 700ms 淡出时间）。**这是最大的性能闸门**。
 - fps 表：每 500ms 统计，D 面板 `fps` 行；低于 ~30 说明 GPU 吃紧（核显或浏览器退软渲）。
 - 软件渲染（llvmpipe）实测只有 1~3fps——验收时可以截图、可以看逻辑，但不能以帧率论成败。
@@ -359,6 +386,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
 | `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
+| `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 收尾 5200+1000 / 全 6200ms |
+| `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
 | 枪形阈值（赫） | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
@@ -386,7 +415,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **58 项断言**（含苍/赫/茈/無量空処/双手契印）。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **67 项断言**（含苍/赫/茈/無量空処/無量空処开场动画/双手契印）。
 
 ## 14. 关键函数索引（`index.html`）
 
