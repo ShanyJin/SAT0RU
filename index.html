@@ -207,6 +207,8 @@
     <div id="void-cinema"></div>
     <canvas id="output_canvas"></canvas>
     <canvas id="blackflash-overlay"></canvas>
+    <audio id="he-voice-1" src="/audio/he-1.mp3" preload="auto"></audio>
+    <audio id="he-voice-2" src="/audio/he-2.mp3" preload="auto"></audio>
     <div id="grain"></div>
     <div id="idle-flash"></div>
 
@@ -257,7 +259,7 @@
                 </div>
                 <div class="about-note">
                     保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，
-                    以及無量空処开场动画、双色粒子爆发等本版新增演出。
+                    以及無量空処开场动画、双色粒子爆发、赫语音等本版新增演出。
                     原版音效与上面未提到的动作，我们之后再补。
                 </div>
                 <div class="about-sep">用到的开源项目</div>
@@ -539,13 +541,6 @@
         core: { r: 1.0, g: 0.55, b: 0.3 },
         rings: [{ r: 1.0, g: 0.18, b: 0.12 }, { r: 0.85, g: 0.1, b: 0.08 }, { r: 0.6, g: 0.04, b: 0.05 }],
         haze: { r: 0.5, g: 0.02, b: 0.03 }
-    });
-    // 黒閃 charge: a dark-crimson ring ball around the fist. The additive field cannot show
-    // true black, so the ball is deep red and the overlay canvas paints the black core.
-    const bfOrb = createClaspOrb({
-        core: { r: 1.0, g: 0.36, b: 0.12 },
-        rings: [{ r: 0.95, g: 0.10, b: 0.06 }, { r: 0.55, g: 0.03, b: 0.03 }, { r: 0.26, g: 0.01, b: 0.01 }],
-        haze: { r: 0.30, g: 0.0, b: 0.0 }
     });
     function fillClaspOrbPositions(orb, nowSec, radius, spinPhase) {
         for (let i = 0; i < CLASP_ORB_COUNT; i++) {
@@ -1040,17 +1035,37 @@
         return { x: (1 - 2 * sx) * halfW, y: (1 - 2 * sy) * halfH };
     }
 
-    // --- 黒閃 overlay: true-black cracks + red bloom ---
-    // The WebGL field is additive and screen-blended, so pure black would vanish. The black
-    // lightning therefore lives on a 2D canvas above the renderer: black cracks with a crimson
-    // rim fan out of a red bloom, over a dark veil — the look of the reference still.
+    // --- 黒閃 overlay: full-screen punch blast + the charge swarm ---
+    // The WebGL field is additive and screen-blended, so pure black would vanish. Both the
+    // black blast and the black half of the charge therefore live on a 2D canvas above the
+    // renderer. The burst is ported from the reference effect page: a near-black full-screen
+    // frame with crimson-glowing lightning bolts and embers fanning out of an empty impact
+    // hole in the middle (nothing is born inside it), plus an expanding impact ring, random
+    // white camera flashes and a shaking entity layer. The charge is a scattered disc of
+    // red/black dots around the fist, sized to the palm's apparent length (~10 cm radius).
     const blackflashCanvas = document.getElementById('blackflash-overlay');
     const blackflashCtx = blackflashCanvas.getContext('2d');
-    const bfCracks = [];
-    const BF_CRACK_COUNT = 22;
+    const bfBolts = [];
+    const bfSparks = [];
     let bfOverlayActiveUntilMs = 0;
     let bfOverlayBurstMs = 0;
     let bfOverlayDirty = false;
+    const bfProjectVec = new THREE.Vector3();
+
+    // Charge swarm seeds: fixed per-dot angle, distance, size, colour and twinkle phase.
+    const BF_CHARGE_DOT_COUNT = 150;
+    const bfChargeDots = [];
+    for (let i = 0; i < BF_CHARGE_DOT_COUNT; i++) {
+        bfChargeDots.push({
+            angle: Math.random() * Math.PI * 2,
+            dist: 0.12 + Math.pow(Math.random(), 0.55) * 1.02, // fills the 10 cm disc, a few strays
+            radius: 1.6 + Math.random() * 2.6,
+            phase: Math.random() * Math.PI * 2,
+            twinkle: 0.6 + Math.random() * 0.8,
+            spin: 0.5 + Math.random() * 0.9,
+            black: Math.random() < 0.42
+        });
+    }
 
     function resizeBlackFlashOverlay() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -1061,103 +1076,251 @@
     resizeBlackFlashOverlay();
     window.addEventListener('resize', resizeBlackFlashOverlay);
 
-    function spawnBlackFlashCracks(cx, cy, radius) {
-        bfCracks.length = 0;
-        for (let k = 0; k < BF_CRACK_COUNT; k++) {
-            let angle = (k / BF_CRACK_COUNT) * Math.PI * 2 + (Math.random() - 0.5) * 0.3;
-            let x = cx + Math.cos(angle) * radius * (0.3 + Math.random() * 0.35);
-            let y = cy + Math.sin(angle) * radius * (0.3 + Math.random() * 0.35);
-            const width = 3.0 + Math.random() * 4.0;
-            const segCount = 5 + Math.floor(Math.random() * 4);
-            const segments = [];
-            for (let s = 0; s < segCount; s++) {
-                segments.push({ x, y, w: width * (1 - s / segCount) + 0.8 });
-                angle += (Math.random() - 0.5) * 1.0;
-                x += Math.cos(angle) * radius * (0.22 + Math.random() * 0.30);
-                y += Math.sin(angle) * radius * (0.22 + Math.random() * 0.30);
+    function bfOverlaySize() {
+        const rect = blackflashCanvas.getBoundingClientRect();
+        return { width: rect.width || window.innerWidth, height: rect.height || window.innerHeight };
+    }
+
+    function bfBuildBranch(branches, x, y, angle, thickness, depth, scale) {
+        if (depth > 4 || thickness < 3 * scale) return;
+        const points = [{ x, y }];
+        const length = (Math.random() * 150 + 80) * scale;
+        const steps = Math.max(1, Math.floor(length / (20 * scale)));
+        let curX = x;
+        let curY = y;
+        for (let i = 0; i < steps; i++) {
+            const jitter = (Math.random() - 0.5) * 1.2;
+            const nextX = curX + Math.cos(angle + jitter) * (20 + Math.random() * 15) * scale;
+            const nextY = curY + Math.sin(angle + jitter) * (20 + Math.random() * 15) * scale;
+            points.push({ x: nextX, y: nextY });
+            if (Math.random() < 0.25) {
+                const branchAngle = angle + (Math.random() > 0.5 ? 1 : -1) * (0.4 + Math.random() * 0.6);
+                bfBuildBranch(branches, nextX, nextY, branchAngle, thickness * 0.65, depth + 1, scale);
             }
-            bfCracks.push({ segments });
+            curX = nextX;
+            curY = nextY;
         }
+        branches.push({ points, thickness: Math.max(2 * scale, thickness) });
+    }
+
+    function bfSpawnBolt(cx, cy, impactRadius, scale) {
+        const branches = [];
+        const startAngle = Math.random() * Math.PI * 2;
+        const startX = cx + Math.cos(startAngle) * impactRadius;
+        const startY = cy + Math.sin(startAngle) * impactRadius;
+        const thickness = (Math.random() * 20 + 15) * scale;
+        bfBuildBranch(branches, startX, startY, startAngle, thickness, 0, scale);
+        bfBolts.push({ branches, life: Math.random() * 4 + 3 });
+    }
+
+    function bfSpawnSpark(cx, cy, impactRadius, scale) {
+        const angle = Math.random() * Math.PI * 2;
+        const dist = impactRadius + Math.random() * 100 * scale;
+        const speed = (Math.random() * 15 + 5) * scale;
+        bfSparks.push({
+            x: cx + Math.cos(angle) * dist,
+            y: cy + Math.sin(angle) * dist,
+            vx: Math.cos(angle) * speed,
+            vy: Math.sin(angle) * speed,
+            radius: (Math.random() * 8 + 4) * scale,
+            life: 1,
+            decay: Math.random() * 0.05 + 0.02
+        });
+    }
+
+    function bfStrokePolyline(ctx, points) {
+        ctx.beginPath();
+        ctx.moveTo(points[0].x, points[0].y);
+        for (let i = 1; i < points.length; i++) ctx.lineTo(points[i].x, points[i].y);
+        ctx.stroke();
+    }
+
+    function drawBlackFlashBurst(nowMs, width, height) {
+        const ctx = blackflashCtx;
+        const remain = bfOverlayActiveUntilMs - nowMs;
+        const fade = clamp01(remain / 260); // soft hand-back to the camera at the very end
+        ctx.clearRect(0, 0, width, height);
+        ctx.fillStyle = `rgba(5,0,0,${fade.toFixed(3)})`;
+        ctx.fillRect(0, 0, width, height);
+
+        const unit = Math.min(width, height);
+        const scale = unit / 900;
+        const cx = width / 2;
+        const cy = height / 2;
+        // The empty impact zone: no bolt or ember is born inside this circle.
+        const impactRadius = unit * 0.20;
+
+        if (remain > 300) {
+            if (Math.random() < 0.8 && bfBolts.length < 8) bfSpawnBolt(cx, cy, impactRadius, scale);
+            if (Math.random() < 0.6 && bfBolts.length < 12) bfSpawnBolt(cx, cy, impactRadius, scale);
+            if (Math.random() < 0.5) {
+                bfSpawnSpark(cx, cy, impactRadius, scale);
+                bfSpawnSpark(cx, cy, impactRadius, scale);
+            }
+        }
+        for (let i = bfBolts.length - 1; i >= 0; i--) {
+            bfBolts[i].life -= 1;
+            if (bfBolts[i].life <= 0) bfBolts.splice(i, 1);
+        }
+        for (let i = bfSparks.length - 1; i >= 0; i--) {
+            const p = bfSparks[i];
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.85; // friction, same feel as the reference
+            p.vy *= 0.85;
+            p.life -= p.decay;
+            p.x += (Math.random() - 0.5) * 4 * scale;
+            p.y += (Math.random() - 0.5) * 4 * scale;
+            if (p.life <= 0 || p.x < -width || p.x > width * 2 || p.y < -height || p.y > height * 2) {
+                bfSparks.splice(i, 1);
+            }
+        }
+
+        ctx.save();
+        ctx.globalAlpha = fade;
+        // Screen shake: jitter + a tiny roll of the entity layer only (the backdrop stays put).
+        ctx.translate(cx, cy);
+        ctx.rotate((Math.random() - 0.5) * 0.012);
+        ctx.translate(-cx, -cy);
+        ctx.translate((Math.random() - 0.5) * 8 * scale, (Math.random() - 0.5) * 8 * scale);
+
+        // Pass 1 — crimson aura around every bolt and ember.
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.shadowColor = '#ff0000';
+        ctx.shadowBlur = 30 * scale;
+        ctx.strokeStyle = '#d90000';
+        ctx.fillStyle = '#d90000';
+        for (const bolt of bfBolts) {
+            for (const branch of bolt.branches) {
+                ctx.lineWidth = branch.thickness;
+                bfStrokePolyline(ctx, branch.points);
+            }
+        }
+        for (const p of bfSparks) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Pass 2 — black core; the aura survives as the glowing rim.
+        ctx.shadowBlur = 0;
+        ctx.strokeStyle = '#000000';
+        ctx.fillStyle = '#000000';
+        for (const bolt of bfBolts) {
+            for (const branch of bolt.branches) {
+                ctx.lineWidth = Math.max(1, branch.thickness - 8 * scale);
+                bfStrokePolyline(ctx, branch.points);
+            }
+        }
+        for (const p of bfSparks) {
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, Math.max(1, p.radius - 3 * scale), 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Impact ring: expands outward from the hole for the first ~500 ms.
+        const flashP = clamp01((nowMs - bfOverlayBurstMs) / 500);
+        if (flashP < 1) {
+            const flashOpacity = 1 - flashP;
+            const flashRadius = impactRadius + flashP * unit * 0.42;
+            ctx.shadowBlur = 50 * scale;
+            ctx.shadowColor = '#ff0000';
+            ctx.strokeStyle = `rgba(255,50,50,${flashOpacity.toFixed(3)})`;
+            ctx.lineWidth = 10 * scale;
+            ctx.beginPath();
+            ctx.arc(cx, cy, flashRadius, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = `rgba(255,255,255,${(flashOpacity * 0.5).toFixed(3)})`;
+            ctx.beginPath();
+            ctx.arc(cx, cy, Math.max(0, flashRadius - 10 * scale), 0, Math.PI * 2);
+            ctx.fill();
+        }
+        ctx.restore();
+
+        // Occasional white camera flash (2% per painted frame, as in the reference).
+        if (Math.random() < 0.02) {
+            ctx.fillStyle = 'rgba(255,200,200,0.1)';
+            ctx.fillRect(0, 0, width, height);
+        }
+    }
+
+    function drawBlackFlashCharge(nowMs, width, height) {
+        const ctx = blackflashCtx;
+        ctx.clearRect(0, 0, width, height);
+        bfProjectVec.set(bfCharge.visX, bfCharge.visY, 0).project(camera);
+        const cx = (bfProjectVec.x * 0.5 + 0.5) * width;
+        const cy = (-bfProjectVec.y * 0.5 + 0.5) * height;
+        const scale = height / 720;
+        // palmState.size is the wrist→middle-MCP length (~10 cm), so using it as the disc
+        // radius gives the requested ~10 cm spread around the fist at any camera distance.
+        const radius = Math.min(160 * scale, Math.max(38 * scale, bfCharge.size * height * 1.05));
+        const spin = bfCharge.startedMs / 1000 + nowMs * 0.0012;
+        for (const dot of bfChargeDots) {
+            const angle = dot.angle + spin * dot.spin;
+            const wobble = 0.94 + 0.06 * Math.sin(nowMs * 0.0034 + dot.phase);
+            const rr = radius * dot.dist * wobble;
+            const x = cx + Math.cos(angle) * rr;
+            const y = cy + Math.sin(angle) * rr;
+            const twinkle = 0.55 + 0.45 * Math.sin(nowMs * 0.02 * dot.twinkle + dot.phase);
+            if (dot.black) {
+                ctx.globalAlpha = 0.5 * twinkle;
+                ctx.fillStyle = '#a81108';
+                ctx.beginPath();
+                ctx.arc(x, y, dot.radius * 1.9 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 0.88;
+                ctx.fillStyle = '#050000';
+                ctx.beginPath();
+                ctx.arc(x, y, dot.radius * scale, 0, Math.PI * 2);
+                ctx.fill();
+            } else {
+                ctx.globalAlpha = 0.28 * twinkle;
+                ctx.fillStyle = '#ff2a12';
+                ctx.beginPath();
+                ctx.arc(x, y, dot.radius * 2.2 * scale, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.globalAlpha = 0.92 * twinkle;
+                ctx.fillStyle = '#ff3a18';
+                ctx.beginPath();
+                ctx.arc(x, y, dot.radius * scale, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+        ctx.globalAlpha = 1;
     }
 
     // Paints the 黒閃 overlay for nowMs. Returns true if a frame was presented.
     function drawBlackFlashOverlay(nowMs) {
-        if (nowMs >= bfOverlayActiveUntilMs) {
-            if (!bfOverlayDirty) return false;
-            clearBlackFlashOverlay();
+        const { width, height } = bfOverlaySize();
+        if (nowMs < bfOverlayActiveUntilMs) {
+            drawBlackFlashBurst(nowMs, width, height);
+            bfOverlayDirty = true;
             return true;
         }
-        const rect = blackflashCanvas.getBoundingClientRect();
-        const width = rect.width || window.innerWidth;
-        const height = rect.height || window.innerHeight;
-        blackflashCtx.clearRect(0, 0, width, height);
-        const age = Math.max(0, nowMs - bfOverlayBurstMs);
-        const life = 1 - clamp01(age / BLACK_FLASH.burstMs);
-        const cx = width / 2;
-        const cy = height / 2;
-        const unit = Math.min(width, height);
-
-        const veil = 0.7 * Math.pow(life, 0.7);
-        if (veil > 0.01) {
-            const g = blackflashCtx.createRadialGradient(cx, cy, unit * 0.04, cx, cy, unit * 0.85);
-            g.addColorStop(0, `rgba(0,0,0,${veil.toFixed(3)})`);
-            g.addColorStop(0.45, `rgba(22,0,0,${(veil * 0.8).toFixed(3)})`);
-            g.addColorStop(1, 'rgba(0,0,0,0)');
-            blackflashCtx.fillStyle = g;
-            blackflashCtx.fillRect(0, 0, width, height);
+        if (bfCharge && bfCharge.visInit) {
+            drawBlackFlashCharge(nowMs, width, height);
+            bfOverlayDirty = true;
+            return true;
         }
-        const bloom = 0.85 * Math.pow(life, 1.2);
-        if (bloom > 0.01) {
-            const g = blackflashCtx.createRadialGradient(cx, cy, unit * 0.01, cx, cy, unit * 0.4);
-            g.addColorStop(0, `rgba(235,42,22,${bloom.toFixed(3)})`);
-            g.addColorStop(0.35, `rgba(160,8,6,${(bloom * 0.72).toFixed(3)})`);
-            g.addColorStop(1, 'rgba(60,0,0,0)');
-            blackflashCtx.fillStyle = g;
-            blackflashCtx.fillRect(0, 0, width, height);
-        }
-        blackflashCtx.lineCap = 'round';
-        blackflashCtx.lineJoin = 'round';
-        const reach = Math.pow(life, 0.5);
-        for (const crack of bfCracks) {
-            const path = crack.segments;
-            const upto = Math.max(1, Math.ceil(path.length * (0.3 + 0.7 * (1 - life))));
-            let px = cx;
-            let py = cy;
-            for (let i = 0; i < upto && i < path.length; i++) {
-                const p = path[i];
-                blackflashCtx.strokeStyle = `rgba(150,4,4,${(0.8 * reach).toFixed(3)})`;
-                blackflashCtx.lineWidth = p.w * 2.6;
-                blackflashCtx.beginPath();
-                blackflashCtx.moveTo(px, py);
-                blackflashCtx.lineTo(p.x, p.y);
-                blackflashCtx.stroke();
-                blackflashCtx.strokeStyle = `rgba(0,0,0,${reach.toFixed(3)})`;
-                blackflashCtx.lineWidth = p.w;
-                blackflashCtx.beginPath();
-                blackflashCtx.moveTo(px, py);
-                blackflashCtx.lineTo(p.x, p.y);
-                blackflashCtx.stroke();
-                px = p.x;
-                py = p.y;
-            }
-        }
-        bfOverlayDirty = true;
+        if (!bfOverlayDirty) return false;
+        clearBlackFlashOverlay();
         return true;
     }
 
     function startBlackFlashOverlay(nowMs) {
-        const width = blackflashCanvas.getBoundingClientRect().width || window.innerWidth;
-        const height = blackflashCanvas.getBoundingClientRect().height || window.innerHeight;
-        spawnBlackFlashCracks(width / 2, height / 2, Math.min(width, height) * 0.17);
+        bfBolts.length = 0;
+        bfSparks.length = 0;
         bfOverlayBurstMs = nowMs;
         bfOverlayActiveUntilMs = nowMs + BLACK_FLASH.burstMs;
         bfOverlayDirty = true;
     }
 
     function clearBlackFlashOverlay() {
-        if (!bfOverlayDirty && bfOverlayActiveUntilMs === 0) return;
+        if (!bfOverlayDirty && bfOverlayActiveUntilMs === 0 && bfBolts.length === 0 && bfSparks.length === 0) return;
         bfOverlayActiveUntilMs = 0;
-        bfCracks.length = 0;
+        bfBolts.length = 0;
+        bfSparks.length = 0;
         bfOverlayDirty = false;
         blackflashCtx.clearRect(0, 0, blackflashCanvas.width, blackflashCanvas.height);
     }
@@ -1228,6 +1391,61 @@
     const redAnchor = { x: 0, y: 0, valid: false };
     const redFollow = { x: 0, y: 0, t: 0, init: false };
     let lastRedSeenMs = 0;
+    // 赫 voice: two clips; one is picked at random when either Red form is held past 2 s.
+    // Playback fires once per continuous hold — dropping the sign (or leaving Red) re-arms it.
+    const RED_VOICE_HOLD_MS = 2000;
+    const heVoiceAudios = [
+        document.getElementById('he-voice-1'),
+        document.getElementById('he-voice-2')
+    ].filter(Boolean);
+    let redEnteredAtMs = 0;
+    let redVoicePlayed = false;
+    let redVoiceLastSrc = '';
+    let redVoiceCount = 0;
+
+    // Browsers block <audio> until the page has seen a user gesture; prime both clips on
+    // the first click/keypress so the gesture-triggered playback later is allowed.
+    let heVoicePrimed = false;
+    function primeHeVoice() {
+        if (heVoicePrimed) return;
+        heVoicePrimed = true;
+        for (const audio of heVoiceAudios) {
+            audio.muted = true;
+            const attempt = audio.play();
+            if (!attempt || !attempt.then) {
+                audio.muted = false;
+                continue;
+            }
+            attempt.then(() => {
+                audio.pause();
+                audio.currentTime = 0;
+                audio.muted = false;
+            }).catch(() => { audio.muted = false; });
+        }
+    }
+    window.addEventListener('pointerdown', primeHeVoice, { once: true });
+    window.addEventListener('keydown', primeHeVoice, { once: true });
+
+    function updateRedVoice(nowMs) {
+        if (currentTech !== 'red') {
+            redVoicePlayed = false;
+            return;
+        }
+        if (redVoicePlayed) return;
+        if ((nowMs - redEnteredAtMs) < RED_VOICE_HOLD_MS) return;
+        redVoicePlayed = true;
+        if (!heVoiceAudios.length) return;
+        const audio = heVoiceAudios[Math.floor(Math.random() * heVoiceAudios.length)];
+        redVoiceLastSrc = audio.getAttribute('src') || '';
+        redVoiceCount += 1;
+        try {
+            audio.currentTime = 0;
+        } catch (err) {
+            // Not loaded yet — play() below starts it from the beginning anyway.
+        }
+        const attempt = audio.play();
+        if (attempt && attempt.catch) attempt.catch(() => {});
+    }
     // After any technique fires, new triggers are locked out for a few seconds so the return
     // swing of a fling can't chain straight into the next technique (Red -> Blue double fire).
     const TECH_COOLDOWN_MS = 2000;
@@ -1251,9 +1469,16 @@
         fistFrames: 2,
         openWindowMs: 5000,
         lostMs: 700,
-        punchMinMs: 70,
-        punchMinGrowth: 0.10,
-        punchMinRate: 1.2,
+        // Punch detection: sustained palm-scale growth over >=100 ms, plus a low lateral-drift
+        // gate. A sideways arm swing moves the fist across the frame fast, which is exactly
+        // what the old 2-sample/10% chain mistook for a punch; a push toward the lens grows
+        // the palm while the fist stays roughly in place (only mild perspective drift).
+        punchMinMs: 100,
+        punchMinSamples: 3,
+        punchMinGrowth: 0.19,
+        punchMinRate: 1.3,
+        punchMaxDrift: 1.1,
+        openCancelMs: 100,
         burstMs: 1400,
         cooldownMs: 2000
     };
@@ -1261,10 +1486,7 @@
     const bfHandStates = {};
     let bfCharge = null;
     let bfBurstUntilMs = 0;
-    let bfBurstOrigin = { x: 0, y: 0 };
-    let bfBurstSparkSeed = 0;
     let bfPoseReleaseRequired = false;
-    const bfSpinPhase = { value: 0 };
     let blueCharge = null; // active construction: { key, x, y, size, growSamples, startedMs, lastSeenMs, ... }
     const chargeVisual = { x: 0, y: 0, px: 0, py: 0, t: 0, init: false }; // damped orb position (drag feel)
     let orbSpinPhase = 0; // extra swirl driven by the wrist's rotation
@@ -1676,9 +1898,14 @@
             lastSeenMs: nowMs,
             prevSize: p.size,
             prevSizeMs: nowMs,
+            prevCx: p.cx,
+            prevCy: p.cy,
             growSamples: 0,
             growStartMs: nowMs,
             growStartSize: p.size,
+            growStartX: p.cx,
+            growStartY: p.cy,
+            openSinceMs: 0,
             visX: w.x,
             visY: w.y,
             visInit: true,
@@ -1690,16 +1917,12 @@
 
     function cancelBlackFlashCharge() {
         bfCharge = null;
-        bfOrb.points.visible = false;
     }
 
-    function startBlackFlashBurst(nowMs, origin) {
+    function startBlackFlashBurst(nowMs) {
         bfCharge = null;
-        bfOrb.points.visible = false;
         bfPoseReleaseRequired = true; // a still-clenched fist must not re-arm immediately
         bfBurstUntilMs = nowMs + BLACK_FLASH.burstMs;
-        bfBurstOrigin = { x: origin.x, y: origin.y };
-        bfBurstSparkSeed = Math.random() * 1000;
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + BLACK_FLASH.cooldownMs);
         startBlackFlashOverlay(nowMs);
         forceTechnique('blackflash', BLACK_FLASH.burstMs, nowMs);
@@ -1724,10 +1947,14 @@
                 if (d < bestDist) { bestDist = d; lm = landmarks[i]; idx = i; }
             }
             if (lm) {
+                const p = palmState(lm);
                 c.key = keys[idx];
-                c.prevSize = palmState(lm).size;
+                c.prevSize = p.size;
                 c.prevSizeMs = nowMs;
+                c.prevCx = p.cx;
+                c.prevCy = p.cy;
                 c.growSamples = 0;
+                c.openSinceMs = 0;
             }
         }
         if (!lm) {
@@ -1735,14 +1962,25 @@
             return since > BLACK_FLASH.lostMs ? 'cancel' : 'charge';
         }
         const shape = handShape(lm);
-        if (shape.isOpen) return 'cancel'; // opening the hand lets the charge go
+        // Opening the hand lets the charge go, but a single motion-blurred "open" read
+        // mid-punch must not kill it: require the open pose to hold for openCancelMs.
+        if (shape.isOpen) {
+            if (!c.openSinceMs) c.openSinceMs = nowMs;
+            if (nowMs - c.openSinceMs >= BLACK_FLASH.openCancelMs) return 'cancel';
+        } else {
+            c.openSinceMs = 0;
+        }
         const p = palmState(lm);
-        // Same sustained-forward-push proxy as 蒼, with a punch's shorter thresholds.
+        // Punch = the palm grows steadily toward the lens (fist getting bigger on screen)
+        // while the fist does NOT travel sideways across the frame. The drift gate is what
+        // separates a real straight punch from a sideways arm swing.
         const growRatio = p.size / Math.max(c.prevSize, 0.001);
         if (growRatio > 1.01) {
             if (c.growSamples === 0) {
                 c.growStartSize = c.prevSize;
                 c.growStartMs = c.prevSizeMs;
+                c.growStartX = c.prevCx;
+                c.growStartY = c.prevCy;
             }
             c.growSamples += 1;
         } else {
@@ -1750,13 +1988,19 @@
         }
         const growMs = nowMs - c.growStartMs;
         let punch = false;
-        if (c.growSamples >= 2 && growMs >= BLACK_FLASH.punchMinMs) {
+        if (c.growSamples >= BLACK_FLASH.punchMinSamples && growMs >= BLACK_FLASH.punchMinMs) {
             const growth = (p.size - c.growStartSize) / Math.max(c.growStartSize, 0.001);
             const rate = growth / Math.max(growMs / 1000, 0.001);
-            punch = growth >= BLACK_FLASH.punchMinGrowth && rate >= BLACK_FLASH.punchMinRate;
+            const drift = Math.hypot(p.cx - c.growStartX, p.cy - c.growStartY);
+            const driftRate = drift / Math.max(growMs / 1000, 0.001);
+            punch = growth >= BLACK_FLASH.punchMinGrowth
+                && rate >= BLACK_FLASH.punchMinRate
+                && driftRate <= BLACK_FLASH.punchMaxDrift;
         }
         c.prevSize = p.size;
         c.prevSizeMs = nowMs;
+        c.prevCx = p.cx;
+        c.prevCy = p.cy;
         c.x = p.cx;
         c.y = p.cy;
         c.size = p.size;
@@ -2479,26 +2723,34 @@
             const othersOwnHands = gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red'
                 || claspPose || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
 
-            // 黒閃 charge owns the fist until it punches or the hand opens.
+            // 黒閃 charge owns the fist until it punches or the hand opens. While it runs,
+            // every other technique score is pinned to zero: nothing else may start at the
+            // same spot until the whole 黒閃 interaction (charge + burst) has ended.
             if (bfCharge) {
                 const verdict = updateBlackFlashCharge(results.multiHandLandmarks, handKeys, nowMs);
                 if (verdict === 'burst') {
-                    startBlackFlashBurst(nowMs, { x: bfCharge ? bfCharge.visX : 0, y: bfCharge ? bfCharge.visY : 0 });
+                    startBlackFlashBurst(nowMs);
                 } else if (verdict === 'cancel') {
                     cancelBlackFlashCharge();
                 }
-                frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
+                frameScores.blue = 0;
                 frameScores.red = 0;
                 frameScores.void = 0;
+                frameScores.purple = 0;
+                frameScores.flick = 0;
                 frameScores.blackflash = nowMs <= bfBurstUntilMs ? 1 : 0;
+                frameScores.neutral = clamp01(1 - maxActiveScore(frameScores));
                 return frameScores;
             }
             if (nowMs <= bfBurstUntilMs) {
-                // The burst owns the screen; no new gesture may start during it.
-                frameScores.blue = nowMs <= bluePulseUntilMs ? 1 : 0;
+                // The burst owns the screen; no other gesture may start until it has ended.
+                frameScores.blue = 0;
                 frameScores.red = 0;
                 frameScores.void = 0;
+                frameScores.purple = 0;
+                frameScores.flick = 0;
                 frameScores.blackflash = 1;
+                frameScores.neutral = 0;
                 return frameScores;
             }
 
@@ -2645,9 +2897,9 @@
         { foot: '粒子在屏幕中央炸开；尽量单手使用，另一只手留空，避免双手同时比势被误读' },
         { sep: '黒閃 · Black Flash' },
         { gesture: '张开手掌后 5 秒内迅速握拳', tech: '蓄势' },
-        { foot: '拳头处聚起黑红交织的粒子（黑色裂纹 + 红色辉光），跟随拳头移动' },
-        { gesture: '拳头向前打出（向前移动 / 有明显加速度）', tech: '爆发' },
-        { foot: '黑红粒子向前爆开：黑色闪电状裂纹 + 暗红余烬；挥拳落空或松手退回' },
+        { foot: '拳头四周聚起一大团红黑色细点（半径约 10cm、散开旋转），跟随拳头移动' },
+        { gesture: '拳头向镜头前打出（拳头由小变大 / 持续前推）', tech: '爆发' },
+        { foot: '满屏黑色闪电 + 红色辉光爆开，中间留出一拳的空位；挥拳落空或松手退回' },
         { sep: '領域展開「無量空処」 · Domain Expansion' },
         { gesture: '食指+中指并拢/交叉、拇指内扣（拇指不要外张）', tech: '展开' },
         { foot: '蓝白虚空环 + 星云粒子；保持手势维持领域，松手退场' },
@@ -2657,6 +2909,7 @@
         { gesture: '食指+中指并拢、拇指外张（枪形）', tech: '赫' },
         { foot: '斥力：红球出现时，周围的待机粒子被排开，绕出一圈净空' },
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
+        { foot: '任一赫手势保持 2 秒，会随机播放一段赫的语音（每次保持播一次）' },
         { sep: '虚式「茈」 · Imaginary: Purple' },
         { gesture: '点右上「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
         { foot: '点击右上角「茈」开启枪指模式：苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
@@ -2952,6 +3205,7 @@
         maybeTriggerPurpleExitExplosion(nextGesture, nowMs);
         updateState(nextGesture);
         maybeTriggerVoidCinematic(nowMs);
+        updateRedVoice(nowMs);
         updateDebugPanel(nextGesture);
     });
 
@@ -2992,6 +3246,13 @@
         } else if (prevTech === 'void' && currentTech !== 'void') {
             voidHoldAwarded = false;
         }
+        // Red hold timer for the 赫 voice clip (both Red forms share the technique entry).
+        if (currentTech === 'red' && prevTech !== 'red') {
+            redEnteredAtMs = lastFrameNowMs || nowMs;
+            redVoicePlayed = false;
+        } else if (prevTech === 'red' && currentTech !== 'red') {
+            redVoicePlayed = false;
+        }
         shakeIntensity = tech === 'blackflash' ? 1.2 : (tech !== 'neutral' ? 0.4 : 0);
 
         if(tech === 'purple') { glowColor = '#bb00ff'; setTechniqueName('虚式「茈」'); baseBloomStrength = 4.0; }
@@ -3026,8 +3287,7 @@
             else if(tech === 'purple') p = getPurple(i);
             else if(tech === 'blue') p = getBlue(i);
             else if(tech === 'blackflash') {
-                // The burst paints its own ember field every frame (bfBurstUntilMs block);
-                // the base field just stays dark underneath.
+                // The 2D overlay paints the whole 黒閃 display; the base field stays dark.
                 p = { x:0, y:0, z:0, r:0, g:0, b:0, s:0 };
             }
 
@@ -3210,53 +3470,8 @@
             claspBlueOrb.points.visible = false;
             claspRedOrb.points.visible = false;
         }
-        // 黒閃 charge: a dark red/black ring ball rides the fist; the burst throws black
-        // cracks + red embers outward from the punch point (overlay canvas + WebGL field).
-        if (bfCharge && bfCharge.visInit) {
-            const ageSec = (nowMs - bfCharge.startedMs) / 1000;
-            const breathe = 1 + 0.12 * Math.sin(nowMs * 0.007) + 0.05 * Math.sin(nowMs * 0.016 + 0.7);
-            const radius = (1.0 + 0.5 * Math.min(1, ageSec / 0.5)) * breathe;
-            bfOrb.points.position.set(bfCharge.visX, bfCharge.visY, 0);
-            bfOrb.points.visible = true;
-            bfOrb.material.opacity = 0.95;
-            fillClaspOrbPositions(bfOrb, nowMs / 1000, radius, bfCharge.spin);
-        } else {
-            bfOrb.points.visible = false;
-        }
-        if (nowMs < bfBurstUntilMs) {
-            // Ember field: particles fly outward from the punch point, cooling from white-hot
-            // to deep red; sizes shrink as the burst ages. The overlay paints the black cracks.
-            const age = nowMs - (bfBurstUntilMs - BLACK_FLASH.burstMs);
-            const life = 1 - clamp01(age / BLACK_FLASH.burstMs);
-            // Keep the embers in a tight cone around the punch: the reference's hit is a
-            // compact black-cracked bloom, not a screen-wide confetti burst. v² biases the
-            // spread toward the core so the black bolt overlay stays readable on top.
-            const travel = TUNING.purpleExplosionMaxDistance * 0.5 * (1 - Math.pow(life, 1.6));
-            for (let i = 0; i < COUNT; i++) {
-                const a = (i * 2.399 + bfBurstSparkSeed) % (Math.PI * 2);
-                const b = ((i * 7.31 + bfBurstSparkSeed) % 100) / 100 * Math.PI;
-                const v = ((i * 13) % 97) / 97;
-                const variance = 0.2 + v * v * 1.5;
-                const dist = travel * variance;
-                const dx = Math.cos(a) * Math.sin(b);
-                const dy = Math.sin(a) * Math.sin(b);
-                const dz = Math.cos(b);
-                pos[i * 3] = bfBurstOrigin.x + dx * dist;
-                pos[i * 3 + 1] = bfBurstOrigin.y + dy * dist;
-                pos[i * 3 + 2] = dz * dist * 0.6;
-                const heat = Math.random() < 0.04 ? 0.9 : life * (0.25 + variance * 0.3);
-                const cool = 1 - clamp01(age / BLACK_FLASH.burstMs);
-                col[i * 3] = 0.05 + heat * 0.95 * cool;
-                col[i * 3 + 1] = heat * 0.3 * cool * cool;
-                col[i * 3 + 2] = heat * 0.1 * cool * cool;
-                siz[i] = 0.45 + variance * 1.3 * cool;
-            }
-            particles.visible = true;
-            particleMaterial.opacity = 1;
-            particles.geometry.attributes.position.needsUpdate = true;
-            particles.geometry.attributes.color.needsUpdate = true;
-            particles.geometry.attributes.size.needsUpdate = true;
-        }
+        // 黒閃 visuals (charge swarm + punch blast) are painted by the 2D overlay canvas
+        // (drawBlackFlashOverlay); the additive WebGL field stays dark under it.
         // Ambient dust: the standby particles. Idle = slow drift; Blue = they are *pulled*
         // in to orbit the blue ball and travel with the hand; Red = they are *pushed* into a
         // clean rim around the red core; Blue's release blasts them outward.
@@ -3414,8 +3629,8 @@
 
         updatePurpleButton(nowMs);
         composer.render();
-        // 黒閃's black cracks live on a 2D canvas above the WebGL field (screen blending would
-        // erase them); the canvas also clears itself once the burst is over.
+        // 黒閃 lives on a 2D canvas above the WebGL field (screen blending would erase the
+        // black); the canvas also clears itself once the charge/burst is over.
         drawBlackFlashOverlay(nowMs);
     }
     animate();

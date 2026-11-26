@@ -244,27 +244,32 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 - 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
-## 6.5 黒閃 · Black Flash（开掌→握拳蓄势 + 前推爆发）
+## 6.5 黒閃 · Black Flash（开掌→握拳蓄势 + 向镜头前推爆发）
 
-照着参考图（黑裂纹 + 红辉光 + 暗幕）新做的术式，配置在 `BLACK_FLASH`：
+配置在 `BLACK_FLASH`，视觉全部由 2D 叠层 `#blackflash-overlay` 绘制（加色 WebGL 场画不出纯黑）：
 
 - **武装（`updateBlackFlashSequences`）**：同一只手 **张开 ≥3 帧（`openFrames`）→ `openWindowMs 5000` 内
   握拳 ≥2 帧（`fistFrames`）** → 返回 hand key，`armBlackFlashCharge()` 建立 `bfCharge`。
   苍的 3 秒持掌链优先（先判苍的完成帧），所以老实的持掌不会被抢成黒閃；握拳会打断苍的计时。
 - **蓄势（`updateBlackFlashCharge`）**：`bfCharge` 拥有该手——跟手记录 `x/y/visX/visY`，握拳持续就保持；
-  **开掌立即取消**（`shape.isOpen`），手丢失超过 `lostMs 700` 也取消。蓄势中顶部显示「黒閃 · 構え」，
-  拳头处画一颗 1600 点的黑红球（`bfOrb`，`createClaspOrb` 的暗红/黑配色，随 `spin` 自转）。
-- **爆发（前推）**：与苍同款「掌尺寸持续增长」代理，阈值更松——连续增长 ≥2 采样、≥`punchMinMs 70`、
-  累计 ≥`punchMinGrowth 0.10`、平均增速 ≥`punchMinRate 1.2/s` → `startBlackFlashBurst()`：
-  2s 冷却、`bfBurstUntilMs = +1400ms`、`forceTechnique('blackflash')`、震屏 1.5。
-- **视觉**：爆发期间主粒子场整场改为**余烬**（`animate()` 的 bf 块）——从拳头点向外飞
-  （横向只到紫爆的 0.5 倍，v² 让核心更密），颜色白热→深红冷却。黑裂纹无法用 screen 混合画（黑会被抹掉），
-  所以另开一张 2D 画布 `#blackflash-overlay`（z-index 4，压在三件套 canvas 上）：
-  暗幕（径向 0.7）+ 暗红 bloom + `BF_CRACK_COUNT 22` 条从中心炸开的**黑裂纹（底下描一遍暗红边）**。
-  `startBlackFlashOverlay` 在爆发时播种裂纹，`drawBlackFlashOverlay` 每帧按 `life` 重画，播完自清。
-- **姿势锁**：爆发后 `bfPoseReleaseRequired = true`，握着拳不能立刻重新武装，必须先开掌；
-  配合 2s 冷却，连打需要「开掌→握拳」重新起势。
-- 与其它术式：`bfCharge`/爆发窗口内苍/赫/void 全清零并早退；契印/茈模式期间不判黒閃。
+  单帧被运动模糊误读成「开掌」不会取消，需持续 `openCancelMs 100ms` 才放掉；手丢失超过 `lostMs 700` 也取消
+  （给快速出拳擦过镜头留出找回的余地）。蓄势中顶部显示「黒閃 · 構え」，拳头四周用 2D 叠层画
+  **150 颗红/黑细点**（`BF_CHARGE_DOT_COUNT`）：盘面半径取该手掌长 `palmState.size × 屏高`
+  （掌长≈10cm，即「拳头为中心、半径 10cm」），散开、旋转、逐颗闪烁；黑点带暗红描边，屏幕混合下仍可读。
+- **爆发（向镜头前推）**：掌尺寸连续增长 ≥`punchMinSamples 3` 个采样、≥`punchMinMs 100`、
+  累计 ≥`punchMinGrowth 0.19`、平均增速 ≥`punchMinRate 1.3/s`，并且**横向漂移速率 ≤`punchMaxDrift 1.1/s`**
+  ——甩臂时拳头会高速横扫画面，前推时拳头基本停在原地只是由小变大，这条闸门专门滤掉「左右甩手臂才触发」。
+  → `startBlackFlashBurst()`：2s 冷却、`bfBurstUntilMs = +1400ms`、`forceTechnique('blackflash')`、震屏 1.5。
+- **爆发视觉**（移植主人给的参考特效页）：全屏近黑 `#050000` 底 + 半径 `0.20×min(w,h)` 的**中间空洞**
+  （闪电/粒子都不在洞里生成，即「中间那点没有」）；每一帧从洞缘随机角度生成 15~35px 粗的递归分叉闪电
+  （深度 ≤4、25% 分叉、3~7 帧生命），两遍绘制——先红色 aura（`#d90000` + `shadowBlur 30`），再叠黑芯
+  （细 8px），得到「红边黑闪电」；同时有从洞缘外飞的余烬（4~12px、摩擦 0.85）、500ms 冲击环 + 白色内闪、
+  2% 概率的整屏白闪，以及实体层的抖动/微旋转。播放在 `burstMs 1400ms` 内（1~2 秒），最后 260ms 整体淡出，
+  结束后画布自清；WebGL 主场保持全黑，不与叠层抢画面。
+- **姿势锁 + 全锁**：爆发后 `bfPoseReleaseRequired = true`，握着拳不能立刻重新武装，必须先开掌；
+  且 `bfCharge` / 爆发窗口内**所有其他技法分（含 purple、flick）都清零并早退**，配合 2s 冷却，
+  黒閃整段动作（蓄势→爆发）结束前不会在同一处触发别的术式。
+- 与其它术式：契印/茈模式期间不判黒閃；苍构筑期不判黒閃。
 
 ## 7. 領域展開「無量空処」 · 虚空
 
@@ -403,8 +408,9 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `BLUE_SEQ.holdMs` | 苍持掌时长 | 3000ms | 张开手掌保持这么久即构筑 |
 | `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
-| `BLACK_FLASH.*` | 黒閃 | 见 §6.5 | open 3 帧 / fist 2 帧 / openWindow 5000ms / lost 700ms / punch 70ms·0.10·1.2/s / burst 1400ms / 冷却 2000ms |
-| `BF_CRACK_COUNT` | 黒閃裂纹条数 | 22 | 黑线 + 暗红描边，播完自清 |
+| `BLACK_FLASH.*` | 黒閃 | 见 §6.5 | open 3 帧 / fist 2 帧 / openWindow 5000ms / lost 700ms / punch 100ms·3 采样·0.19·1.3/s·drift≤1.1 / openCancel 100ms / burst 1400ms / 冷却 2000ms |
+| `BF_CHARGE_DOT_COUNT` | 黒閃蓄势散点数 | 150 | 红/黑细点，2D 叠层绘制，盘面半径≈掌长（10cm） |
+| `RED_VOICE_HOLD_MS` | 赫语音门槛 | 2000ms | 任一赫手势连续保持这么久，随机播 `audio/he-1|2.mp3` |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -445,8 +451,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **82 项断言**
-  （含苍/赫/黒閃/茈/無量空処/無量空処开场动画/双手契印）。
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **93 项断言**
+  （含苍/赫/赫语音/黒閃/茈/無量空処/無量空処开场动画/双手契印）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -465,7 +471,8 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 3s → 构筑 → 释放 |
 | `updateBlackFlashSequences` / `armBlackFlashCharge` / `updateBlackFlashCharge` / `startBlackFlashBurst` | 黒閃：开掌→握拳武装 → 蓄势跟手 → 前推爆发 |
-| `startBlackFlashOverlay` / `drawBlackFlashOverlay` / `clearBlackFlashOverlay` | 黒閃爆发 2D 叠层（暗幕 + 暗红 bloom + 黑裂纹） |
+| `startBlackFlashOverlay` / `drawBlackFlashOverlay` / `clearBlackFlashOverlay` | 黒閃 2D 叠层：蓄势红黑散点 + 全屏红边黑闪电爆发（中间留洞） |
+| `updateRedVoice` / `primeHeVoice` | 赫保持 2s → 随机播放一段赫语音（首次点击/按键解锁 audio） |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
 | `fillPurpleOrbPositions` | 每帧重算 700 点茈小球（只有雾层拖尾） |
 | `claspPoseInfo` / `updateClaspDetection` | 双手契印判定与短窗口累积 |

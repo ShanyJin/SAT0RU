@@ -176,7 +176,8 @@
             charge: !!bfCharge,
             burstActive: bfBurstUntilMs > performance.now(),
             overlayActive: bfOverlayActiveUntilMs > performance.now(),
-            orbVisible: bfOrb.points.visible,
+            chargeDots: !!(bfCharge && bfCharge.visInit),
+            chargeRadiusPx: bfCharge ? bfCharge.size * window.innerHeight * 1.05 : 0,
             name: document.getElementById('technique-name')?.innerText,
             now: performance.now()
         });
@@ -203,6 +204,7 @@
             maybeTriggerPurpleExitExplosion(next, ms);
             updateState(next);
             maybeTriggerVoidCinematic(ms);
+            updateRedVoice(ms);
         };
         const step = (hands, n) => {
             for (let i = 0; i < n; i++) { runFrame(hands, t); t += 33; }
@@ -258,7 +260,6 @@
             bfBurstUntilMs = 0;
             bfPoseReleaseRequired = false;
             resetBlackFlashHandStates();
-            bfOrb.points.visible = false;
             clearBlackFlashOverlay();
             voidCinematic = null;
             voidHoldAwarded = false;
@@ -323,7 +324,27 @@
             step([], 180); // drain the rest of the cooldown
             // Red works again once the cooldown expires (two pointing hands also reach Red).
             step(RED2, 25); mark('red after cooldown', 'red');
-            step([], 260); // drain again before the Blue suite
+            step([], 260); // drain again before the voice / Blue suites
+
+            // --- 赫 voice: either Red form held past 2 s plays one of the two local clips,
+            // exactly once per continuous hold — dropping the sign re-arms it. ---
+            const vc0 = redVoiceCount;
+            step(red1(0.5), 50); // ~1.65 s of pointing; Red itself is entered after ~7 frames
+            markState('red voice waits for the 2 s hold', 'silent',
+                redVoiceCount === vc0 ? 'silent' : 'played');
+            step(red1(0.5), 25); // crosses the 2 s hold
+            markState('red voice fires after a 2 s hold', 'played',
+                redVoiceCount === vc0 + 1 ? 'played' : 'silent');
+            markState('red voice picks a local clip', 'local',
+                /\/audio\/he-[12]\.mp3$/.test(redVoiceLastSrc || '') ? 'local' : (redVoiceLastSrc || 'none'));
+            step(red1(0.5), 40); // a longer hold must not replay it
+            markState('red voice plays once per hold', 'once',
+                redVoiceCount === vc0 + 1 ? 'once' : 'again');
+            step([], 60); // drop the sign: re-arm the clip for the next hold
+            step(gun1(0.5), 70); // the gun form gets its own random clip after 2 s
+            markState('red voice fires on the gun form too', 'played',
+                redVoiceCount === vc0 + 2 ? 'played' : 'silent');
+            step([], 200); // drain before the 黒閃 suite
 
             // --- 黒閃: open palm -> quick fist arms a black/red charge on the fist ---
             step([], 30);
@@ -335,9 +356,28 @@
                 t += 33;
             }
             markState('fist wobble keeps black charge', 'charge', bfCharge ? 'charge' : 'idle');
-            // Opening the hand lets the charge go without a burst.
-            step(open1(0.5), 4);
+            // A single motion-blurred "open" read must not kill the charge; a held open does.
+            step(open1(0.5), 2);
+            markState('brief open frame keeps black charge', 'charge', bfCharge ? 'charge' : 'idle');
+            step(open1(0.5), 5);
             markState('opening hand cancels black charge', 'idle', bfCharge ? 'charge' : 'idle');
+            step([], 20);
+
+            // A sideways arm swing that also grows the palm must not fire: the fist travels
+            // across the frame far too fast to be a punch toward the lens.
+            armBlackFlash1();
+            for (let i = 0; i < 6; i++) {
+                runFrame(scaledFist1(0.5 + i * 0.055, 0.75, 1 + i * 0.06), t);
+                t += 33;
+            }
+            markState('sideways swing does not fire black flash', 'no', bfBurstUntilMs > t ? 'yes' : 'no');
+            markState('sideways swing keeps the charge', 'charge', bfCharge ? 'charge' : 'idle');
+            // While the charge runs, no other technique may start at the same spot.
+            step(red1(0.5), 10);
+            markState('black charge locks out red', 'neutral', currentTech);
+            markState('black charge survives a red pose', 'charge', bfCharge ? 'charge' : 'idle');
+            step(open1(0.5), 7);
+            markState('swing-test charge cancels on open', 'idle', bfCharge ? 'charge' : 'idle');
             step([], 20);
 
             // Punch: the fist accelerates toward the camera -> burst + overlay.
@@ -361,7 +401,7 @@
             step(open1(0.5), 60);
             step(fist1(0.5), 6);
             markState('black flash rearms after cooldown', 'charge', bfCharge ? 'charge' : 'idle');
-            step(open1(0.5), 4); // cancel the charge again
+            step(open1(0.5), 7); // cancel the charge again
             step([], 20);
 
             // --- 苍1: holding an open palm for 3 s arms a charge instead of blooming ---
@@ -731,7 +771,7 @@
                                 requestAnimationFrame(wiggle);
                             })();
                         } else {
-                            startBlackFlashBurst(now, { x: 0, y: 0 });
+                            startBlackFlashBurst(now);
                             // Hold the blast mid-progress for the screenshot. The overlay freeze
                             // is rewritten inside the draw call (same clock as animate); software
                             // GL frames can be a second apart, so an rAF loop would go stale.
@@ -741,8 +781,8 @@
                                 bfOverlayBurstMs = ms - BLACK_FLASH.burstMs * 0.45;
                                 return baseDraw(ms);
                             };
-                            // The ember field lives in animate()'s own block; keep its window
-                            // fresh on a timer so the frozen life stays near 0.45.
+                            // Keep the burst state (pill label + cooldown) fresh on a timer so
+                            // the screenshot always lands inside an active blast.
                             setInterval(() => {
                                 const ms = performance.now();
                                 bfBurstUntilMs = ms + BLACK_FLASH.burstMs * 0.55;
