@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，99 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，100 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 99 项断言（按顺序）
+### 1.4 100 项断言（按顺序）
 
 1. neutral 初始
 2. 做枪形的自然动作不武装苍（旧「张开→收指→张开」误触的回归）
@@ -126,15 +126,16 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 88. 点击开关打开（`voidLongMode=true`）
 89. 长版时间轴总长 > 语音时长 + 1s（`endMs 33800 > audioMs 31164 + 1000`）
 90. 长版下無量空処保持不足 1 秒：不触发动画
-91. 保持满 1 秒：领域展开，但 8 秒等待内不进动画
-92. 等待满 8 秒：启动长版开场动画
-93. 同帧播放长语音 `audio/void-long.mp3`
-94. 长版不播单人版 `audio/void.mp3`
-95. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
-96. 再点开关关闭（`voidLongMode=false`）
-97. 左侧音频库列出全部 7 条
-98. 音频库包含契印音轨 `audio/purple-clasp.mp3`
-99. 点击音频行会播放对应音频
+91. 保持满 1 秒：领域展开并立即播放长语音，但 8 秒等待内不进动画
+92. 长版不播单人版 `audio/void.mp3`
+93. 长版等待满 8 秒前：不启动开场动画
+94. 等待满 8 秒：启动长版开场动画
+95. 动画启动时不重复播放长语音
+96. 长版动画在语音结束后才收尾（`endMs` 到点后恢复）
+97. 再点开关关闭（`voidLongMode=false`）
+98. 左侧音频库列出全部 7 条
+99. 音频库包含契印音轨 `audio/purple-clasp.mp3`
+100. 点击音频行会播放对应音频
 
 ### 1.5 加用例的坑
 
@@ -155,12 +156,13 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - **音频库**：`AUDIO_TRACKS` 按页面里实际存在的 `<audio>` 过滤；回归页有完整侧栏，应得 7 行。
   点击态用 `toggleAudioClip(key)` 或直接 `row.click()`，断言 `audioPlayCounts[key]` +1 与 `.playing` 类；
   同一时间只播一条的行为由 `playAudioClip` 先暂停其它轨道保证。
-- **长时间无量空处**：`longBtn.click()` 切换 `voidLongMode`；打开后保持 void 1 秒只展开领域，
-  **8 秒等待内不会开播 cinematic**（`runFrame` 里 `maybeTriggerVoidCinematic` 要等
+- **长时间无量空处**：`longBtn.click()` 切换 `voidLongMode`；打开后保持 void 1 秒：
+  领域展开并立即 `audioPlayCounts['void-long']` +1（`audioPlayCounts['void']` 不变），
+  但 **8 秒等待内不会开播 cinematic**（`runFrame` 里 `maybeTriggerVoidCinematic` 要等
   `holdMs 1000 + startDelayMs 8000`）。合成时钟下持续 `step(void1, …)` 约 9 秒（~275 帧）才启动长版
-  （`voidCinematic.timeline === VOID_CINEMA_LONG`），启动同帧 `audioPlayCounts['void-long']` +1、
-  `audioPlayCounts['void']` 不变。用 `VOID_CINEMA_LONG.endMs`（33800，动画从黑幕算）快进收尾，
-  断言 `endMs > audioMs + 1000`；收尾后关掉开关（`resetRealClockFx` 也会把 `voidLongMode` 复位）。
+  （`voidCinematic.timeline === VOID_CINEMA_LONG`），启动时长语音计数不再增加（不重播）。
+  用 `VOID_CINEMA_LONG.endMs`（33800，动画从黑幕算）快进收尾，断言 `endMs > audioMs + 1000`；
+  收尾后关掉开关（`resetRealClockFx` 也会把 `voidLongMode` 复位）。
 - **前推链**：`scaledOpen1` / `scaledGun1` 的缩放必须逐帧递增且持续 ≥110ms、累计 ≥24% 才会释放；
   中间一帧不涨即断链。写「应该释放」的用例时给足 5 帧以上；写「不该释放」的用例时，
   一个 2~3 帧的尺寸跳变即可复现旧版误触。
@@ -344,7 +346,7 @@ EOF
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（99 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（100 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspbuild` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、设置 4 个开关（D/H/V/L）可切换、音频库 7 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化

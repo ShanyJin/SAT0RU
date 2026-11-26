@@ -866,9 +866,8 @@
         // Long mode holds the open domain for an extra 8 s before the black hole opens.
         if (nowMs - voidEnteredAtMs < C.holdMs + (C.startDelayMs || 0)) return;
         startVoidCinematic(nowMs, useLong);
-        // Long mode: music and picture start on the same frame. The short clip is skipped
-        // by updateTechniqueVoices while this mode is armed.
-        if (useLong) playAudioClip('void-long');
+        // The long voice already started at the 1 s gesture trigger (see updateTechniqueVoices),
+        // so the black-hole picture enters 8 s later without restarting or re-playing it.
     }
 
     function updateVoidCinematic(nowMs) {
@@ -1283,9 +1282,14 @@
         }
         if (currentTech !== 'void') {
             voidVoicePlayed = false;
-        } else if (!voidLongMode && !voidVoicePlayed && (nowMs - voidEnteredAtMs) >= VOICE_HOLD_MS) {
-            voidVoicePlayed = true;
-            playAudioClip('void');
+        } else if (!voidVoicePlayed) {
+            // The domain voice belongs to the 1 s gesture trigger: in long mode that is the
+            // 31 s clip, which then keeps playing through the 8 s wait before the black hole.
+            const voiceAtMs = voidLongMode ? VOID_CINEMA_LONG.holdMs : VOICE_HOLD_MS;
+            if (nowMs - voidEnteredAtMs >= voiceAtMs) {
+                voidVoicePlayed = true;
+                playAudioClip(voidLongMode ? 'void-long' : 'void');
+            }
         }
     }
     // After any technique fires, new triggers are locked out for a few seconds so the return

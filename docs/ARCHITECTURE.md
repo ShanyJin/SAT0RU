@@ -307,15 +307,16 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 ### 7.5 长时间无量空处（long mode）
 
 左侧栏设置「长时间无量空处 · Long Void」开关（`setVoidLongMode`，L 键同效；`voidLongMode` 为全局标志）。
-打开后同一套 cinematic 换用 `VOID_CINEMA_LONG`：手势**保持 1 秒先展开领域**（普通 void 场），
-**原地继续保持 8 秒**（`startDelayMs 8000`）才进入黑幕/黑洞开场动画：
+打开后同一套 cinematic 换用 `VOID_CINEMA_LONG`：手势**保持 1 秒先展开领域**（普通 void 场）
+并**立即起长语音**，**原地继续保持 8 秒**（`startDelayMs 8000`）才进入黑幕/黑洞开场动画：
 
 - 时间轴（相对 cinematic 启动）：黑幕淡入 **1500** / 成型 400+2200 / 换环 4000+1000 /
   **黑幕保持 24000** / 黑幕淡出 2000 / 环停留 800 / 环淡出 3000 / `endMs = 33800ms`（约 34 秒）。
   从手势触发算起总时长约 **1s + 8s + 33.8s ≈ 42.8s**；8 秒等待期间领域场正常跟手、松手则取消并重计。
-- 语音：8 秒等待结束、long cinematic 启动的同一帧 `playAudioClip('void-long')`
-  （`audio/void-long.mp3`，31.164s）。动画 33.8s 比语音长 ~2.6s，**语音先结束、动画后结束**；
-  长版下不再播单人版 `void.mp3`（1 秒触发点已被 cinematic 占用）。等待的 8 秒内没有语音。
+- 语音：手势满 1 秒（领域展开）时 `updateTechniqueVoices` 就播 `audio/void-long.mp3`（31.164s），
+  不是等 cinematic 启动；8 秒等待期间语音继续播，cinematic 启动时不会重播。
+  语音在触发起约 32.2s 结束（动画此时才走了 ~23.2s），动画 33.8s，**语音先结束、动画后结束**；
+  长版下不再播单人版 `void.mp3`。
 - 与正常模式的关系：关闭开关即回到「1 秒单人语音 + 3 秒定格开场动画（黑幕 600ms 淡入）」；
   `?end=voidlong` 演示态直接把长版时间轴推到换环后、黑幕保持段冻结，方便截图。
 - 黑幕保持段的 bloom 在 2.7 上下 ±0.28 慢速呼吸（约 7 秒一个周期），避免 24 秒静止画面显得死板。
@@ -392,7 +393,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `blue` | `audio/blue.mp3` | 苍构筑成型后再满 `BLUE_SEQ.voiceDelayMs = 2000ms`（读 `blueCharge.startedMs`；提前释放/取消不播） |
 | `he-1` / `he-2` | `audio/he-1.mp3` / `he-2.mp3` | 任一赫手势进入满 1 秒随机播一条（`redEnteredAtMs` 由 `updateState` 写入，每次保持一次） |
 | `void` | `audio/void.mp3` | 普通無量空処保持满 1 秒播单人版；长版模式跳过 |
-| `void-long` | `audio/void-long.mp3` | 长版 8 秒等待结束、cinematic 启动同帧播放（31.164s） |
+| `void-long` | `audio/void-long.mp3` | 长版手势满 1 秒（领域展开）时播放（31.164s）；8 秒等待期间继续播，cinematic 启动不重播 |
 | `purple` | `audio/purple-2026.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
 | `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印专属语音，**待主人踩点接入**，目前仅音频库可试听 |
 
@@ -438,7 +439,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`、build 900 / converge 650 / burst 1600 / 冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印两球粒子数 | 1600 ×2 | 蓝球在左、红球在右 |
 | `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
-| `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000 / **等待 8000** / 黑幕淡入 1500 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 动画全 33800ms（从黑幕算）；语音 `audioMs` 31164ms（先结束） |
+| `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000（同帧起长语音）/ **等待 8000** / 黑幕淡入 1500 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 动画全 33800ms（从黑幕算）；语音 `audioMs` 31164ms（先结束） |
 | `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
@@ -468,7 +469,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
 - **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
   可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **99 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **100 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/無量空処开场动画/长时间无量空处/音频库）。
 
 ## 14. 关键函数索引（`index.html`）
@@ -487,7 +488,7 @@ build/converge 期间 `fieldIdle` 强制隐藏 20k 主场，只留两球 + 尘�
 | `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 2s → 构筑 → 释放 |
-| `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処开场动画（正常 3s 触发；长版 1s 展开领域 + 8s 等待后启动，同帧播长语音） |
+| `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処开场动画（正常 3s 触发；长版 1s 展开领域并起长语音，8s 等待后启动画面） |
 | `setVoidLongMode` | 「长时间无量空处」开关（L 键/侧栏），切换 `VOID_CINEMA_LONG` 时间轴 |
 | `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：7 条本地语音的按钮、高亮与停止 |
 | `playAudioClip` / `primeAudio` | 单条播放（先停其它轨道）+ 首次点击/按键静音预热解锁自动播放 |
