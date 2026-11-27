@@ -123,16 +123,9 @@
         const claspWrapHand = () => realHand(REAL_CLASP[0][1]);
         const claspGhost = () => [claspWrapHand(), shiftHand(claspWrapHand(), 0.04)];
         const clasp2 = () => REAL_CLASP[0].map(realHand);
-        // Two hands with the clasp family geometry but held well apart: only 赫 remains.
+        // Two hands with the clasp family geometry but held well apart: no clasp either.
         const claspFar2 = () => [mkHand(0.30, 0.65, RED_PTS), mkHand(0.70, 0.65, FIST_PTS)];
-        // What the clasp's pointing hand reads as once the other hand drops away: index
-        // up, rest curled, thumb tucked — indistinguishable from 赫 without context.
-        const claspPointPts = (() => {
-            const pts = RED_PTS.map((p) => p.slice());
-            pts[4] = [pts[5][0] + 0.005, pts[5][1] + 0.015];
-            return pts;
-        })();
-                // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
+        // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
         // The voice flag is pre-set so skipping ahead cannot re-fire the 0.5 s clip.
         const finishClasp = () => {
             if (!claspCast) return;
@@ -170,6 +163,14 @@
                 scale: particles.scale.x,
                 visible: particles.visible,
                 rotZ: particles.rotation.z
+            },
+            ball: {
+                visible: redBall.points.visible,
+                opacity: redBall.material.opacity,
+                x: redBall.points.position.x,
+                y: redBall.points.position.y,
+                scale: redBall.points.scale.x,
+                count: RED_BALL.count
             }
         });
         // Visual-check hook: the module scope is closed, so expose the 茈 state for
@@ -318,8 +319,13 @@
             claspSuppressUntilMs = 0;
             claspSawRealPose = false;
             claspRealPoseFrames = 0;
+            claspPairFrames = 0;
             redCast = null;
             redBurn = null;
+            redFollow.x = 0;
+            redFollow.y = 0;
+            redFollow.init = false;
+            redBall.points.visible = false;
             redLance.points.visible = false;
             redFlash.points.visible = false;
             redCone.points.visible = false;
@@ -359,6 +365,32 @@
 
             // --- 赫 form 2: gun (index+middle together, thumb flared) ---
             step(gun1(0.5), 25); mark('red gun form shows', 'red');
+            // 赫's sustained field is a small dedicated orb, not the shared 20k swarm: a
+            // compact ball (~5 units) with a sparse spark halo, and the big field stays
+            // dark for the whole hold (that is also the perf win).
+            markState('red orb is a small compact ball', 'small', (() => {
+                if (typeof RED_BALL === 'undefined' || typeof redBallVisual !== 'function') return 'missing';
+                const V = redBallVisual(-1);
+                return (V.active && V.radius === RED_BALL.radius && V.radius < 8) ? 'small' : 'big';
+            })());
+            markState('red orb holds a small point budget', '1500', (() => {
+                if (typeof RED_BALL === 'undefined') return 'missing';
+                return String(RED_BALL.count);
+            })());
+            markState('red orb burn-out fades in place', 'fade', (() => {
+                if (typeof redBallVisual !== 'function') return 'missing';
+                const mid = redBallVisual(RED_CAST.burnMs * 0.5);
+                const over = redBallVisual(RED_CAST.burnMs + 1);
+                return (mid.radius < RED_BALL.radius && mid.alpha < RED_BALL.alpha
+                    && !over.active) ? 'fade' : 'wrong';
+            })());
+            markState('red blanks the shared swarm', 'dark', (() => {
+                const pos = particles.geometry.attributes.position.array;
+                for (let i = 0; i < pos.length; i += 97) if (pos[i] !== 0) return 'visible';
+                const sizes = particles.geometry.attributes.size.array;
+                for (let i = 0; i < sizes.length; i += 13) if (sizes[i] !== 0) return 'visible';
+                return 'dark';
+            })());
             // 赫 activation is a shot, not a fade-in: entering arms a forward cast aimed
             // along the raised finger, and the pure layout must read as a narrow lance.
             markState('red cast starts with the field', 'cast',
@@ -431,6 +463,18 @@
                 if (typeof redBurnLayout !== 'function') return 'missing';
                 return redBurnLayout(RED_CAST.burnMs + 1).active ? 'active' : 'over';
             })());
+            // No 回中: where the shot landed is where the orb stays. Nothing in the state
+            // machine may recentre the follow position after Red ends.
+            redFollow.x = 37;
+            redFollow.y = -21;
+            redFollow.init = true;
+            step([], 60);
+            markState('red never eases back to the centre', 'still',
+                (redFollow.x === 37 && redFollow.y === -21)
+                    ? 'still' : `(${redFollow.x.toFixed(1)},${redFollow.y.toFixed(1)})`);
+            redFollow.x = 0;
+            redFollow.y = 0;
+            redFollow.init = false;
             step([], 210); // drain the cooldown
 
             // --- 赫 form 1: index finger pointing up ---
@@ -622,29 +666,62 @@
 
             // --- 茈 mode routing: the gun/pinch poses arm a purple charge; Red is paused ---
             setPurpleMode(true);
-            step(gun1(0.5), 8);
+            // Arming is deliberately slow now: a pose flashed for a few frames is not a cast.
+            step(gun1(0.5), 5);
+            markState('purple gun flash does not arm', 'idle',
+                (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
+            step([], 10);
+            step(gun1(0.5), 10);
             markState('purple gun arms orb', 'charge',
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
             markState('purple mode blocks red gun', 'neutral', currentTech);
             step([], 20);
             markState('purple pose drop cancels', 'idle',
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
-            step(PURPLE1, 8);
+            step(PURPLE1, 10);
             markState('purple pinch arms orb', 'charge',
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
             // The ready pose itself (two fingers + thumb tucked) also arms the orb, so the
             // user can go straight from the ready sign to the outward snap.
             step([], 20);
-            step(thumbUnder1(0.5), 8);
+            step(thumbUnder1(0.5), 10);
             markState('purple thumb-under arms orb', 'charge',
                 (typeof purpleCharge !== 'undefined' && purpleCharge) ? 'charge' : 'idle');
             setPurpleMode(false);
             step([], 10);
 
-            // --- 茈 forward push: fire, impact at center, 2s cooldown ---
+            // --- 茈 firing is gated by arm time, then by the strict forward push ---
             setPurpleMode(true);
             const pv0 = audioPlayCounts.purple;
-            step(scaledGun1(0.5, 0.75, 1.0), 8);
+            // The orb cannot fire while it is still being formed: an instant thumb snap
+            // right after the ball appears is ignored (it is part of making the pose).
+            step(gun1(0.5), 10);
+            step(thumbUnder1(0.5), 2);
+            runFrame(gun1(0.5), t); t += 33;
+            markState('purple instant snap while arming is ignored', 'charge',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            // ...while the same snap fires once the orb has existed for armMs.
+            step(thumbUnder1(0.5), 2);
+            step(gun1(0.5), 4);
+            markState('purple snap fires once armed', 'shot',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step(gun1(0.5), 15);
+            mark('purple snap shot impacts', 'purple');
+            step(gun1(0.5), 20);
+            markState('purple snap cooldown blocks recharge', 'idle', purpleCharge ? 'charge' : 'idle');
+            step(gun1(0.5), 50);
+            markState('purple snap cooldown recovers', 'charge', purpleCharge ? 'charge' : 'idle');
+            // A slow drift toward the camera is not a push: the projectile needs the
+            // stricter growth and rate now.
+            for (let f = 1.0; f <= 1.15; f += 0.03) {
+                runFrame(scaledGun1(0.5, 0.75, f), t);
+                t += 33;
+            }
+            markState('purple slow drift does not fire', 'charge',
+                (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
+            step([], 15); // drop this charge
+            // The real forward push: fire, impact at center, 2s cooldown.
+            step(scaledGun1(0.5, 0.75, 1.0), 10);
             for (let f = 1.0; f <= 1.5; f += 0.07) {
                 runFrame(scaledGun1(0.5, 0.75, f), t);
                 t += 33;
@@ -652,7 +729,7 @@
             markState('purple forward push fires', 'shot',
                 (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
             markState('purple shot plays the short clip', 'played',
-                (audioPlayCounts.purple === pv0 + 1 && lastAudioKey === 'purple') ? 'played' : 'silent');
+                (audioPlayCounts.purple === pv0 + 2 && lastAudioKey === 'purple') ? 'played' : 'silent');
             step(gun1(0.5), 15);
             mark('purple shot impacts', 'purple');
             step(gun1(0.5), 20);
@@ -701,54 +778,53 @@
             setPurpleMode(false);
             step([], 10);
 
-            // --- 虚式「茈」 clasp cast: two hands interlocked, no top button ---
+            // --- 虚式「茈」 clasp cast: two hands, under the top 「茈」 switch ---
             step([], 220); // drain cooldowns
+            // The switch now owns every 茈 form: with it OFF two clasped open hands are
+            // just open palms and must never fire the cinematic.
+            step(clasp2(), 40);
+            markState('clasp needs the purple switch', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 40);
+            cancelBlueCharge();
+            resetBlueHandStates();
+
+            setPurpleMode(true);
             // One hand in the two-finger Void pose is still the Void domain, never the clasp.
             step(void1(0.5), 20);
             markState('one hand void is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
-            step([], 100); // drain the Void entry cooldown before the next pose
+            step([], 120); // drain the Void entry cooldown and any purple charge
+            // Two flared open palms are 蒼-like hands, not the clasp.
+            step(OPEN2, 40);
+            markState('two open palms are not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 40);
             // MediaPipe can report the single Void hand twice, and while the sign is held the
             // other hand often sits in frame. 無量空処 is one-handed: neither case may turn
             // it into the two-hand clasp.
             step([mkHand(0.50, 0.65, thumbUnderPts(0)), mkHand(0.50, 0.65, thumbUnderPts(0))], 30);
             markState('duplicate void hand is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
-            markState('duplicate void hand stays void', 'void', currentTech);
             if (claspCast) finishClasp();
-            step([], 100); // drain the Void entry cooldown
+            step([], 120);
             step([mkHand(0.44, 0.65, OPEN_PTS), mkHand(0.50, 0.65, thumbUnderPts(0))], 30);
-            markState('void next to an open palm is not clasp', 'no-cast',
+            markState('void next to a flared open palm is not clasp', 'no-cast',
                 claspCast ? 'cast' : 'no-cast');
-            step([], 100);
-            // The reported failure: two clasp hands warm the context, the user switches to
-            // the one-hand domain sign, and the old suspect window counted it as a dropped
-            // clasp hand and cast 茈. The domain sign must stay out of that window.
-            step(clasp2(), 2); // real two-hand context, far short of the 4-frame cast
-            markState('clasp context warms without casting', 'no-cast', claspCast ? 'cast' : 'no-cast');
-            step(void1(0.5), 60, ['Right']); // the user switches to one-hand 無量空処
-            markState('domain sign after clasp context is not a cast', 'no-cast',
-                claspCast ? 'cast' : 'no-cast');
-            markState('domain sign after clasp context stays void', 'void', currentTech);
-            step([], 100);
-            // A pointing hand next to an OPEN palm is Red next to an open hand, not a clasp.
-            step([mkHand(0.44, 0.65, RED_PTS), mkHand(0.50, 0.65, OPEN_PTS)], 30);
-            markState('pointing hand plus open palm is not clasp', 'no-cast',
-                claspCast ? 'cast' : 'no-cast');
-            step([], 100);
+            step([], 120);
+            // The real pose (user's own photos): the open hand — all four fingers up, thumb
+            // tucked — clasped with the other hand, wrists together.
             step(clasp2(), 30);
-            markState('clasp still fires after the near misses', 'cast', claspCast ? 'cast' : 'idle');
+            markState('clasp fires after the near misses', 'cast', claspCast ? 'cast' : 'idle');
             if (claspCast) finishClasp();
-            step([], 400); // drain the recast's 2s cooldown and the release lock
-            // Two hands, long-form cinematic: voice at 0.5 s; blue grows on the RIGHT
-            // 0–1.5 s; red grows on the LEFT 1.5–4 s; the two approach 4–7 s; purple then
-            // entwines/collides/explodes for 16 s (blast at 20 s, aftermath to 23 s). The
-            // 21.9 s audio ends before the animation does.
-            // MediaPipe sometimes reports the same hand twice on the interlocked pose; a
-            // hand duplicated with itself must never fire the cast.
+            step([], 400); // drain the cast's 2s cooldown and the release lock
+
+            // MediaPipe sometimes reports the same physical hand twice on the clasp. The
+            // duplicate carries the same label, or — with two labels — sits at a fixed,
+            // near-zero wrist-relative offset from itself; neither may fire the cast.
+            const realOpen0 = realHand(REAL_CLASP[0][0]);
+            const realOpen1 = realHand(REAL_CLASP[0][1]);
+            const soloOpen = () => [realHand(REAL_CLASP[0][0])];
+            const claspApart2 = () => [realOpen0, shiftHand(realOpen1, 0.35)];
             step([realHand(REAL_CLASP[0][1]), realHand(REAL_CLASP[0][1])], 30);
             markState('duplicate clasp hand is not a cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
             step([], 100);
-            // A hand reported twice with a small offset still carries the same MediaPipe
-            // label; even with two labels it fails the index-pressed/middle-apart split.
             step(claspGhost(), 30, ['Right', 'Right']);
             markState('same-label duplicate hand is not a cast', 'no-cast',
                 claspCast ? 'cast' : 'no-cast');
@@ -757,14 +833,29 @@
             markState('offset duplicate clasp hand is not a cast', 'no-cast',
                 claspCast ? 'cast' : 'no-cast');
             step([], 100);
+            // The same open hands held apart are not clasped: wrists must meet.
+            step(claspApart2(), 30);
+            markState('open hands held apart are not a cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 120);
+            // MediaPipe often tracks only ONE of the clasped hands. The lone open hand is
+            // the pose too, but it needs the longer solo hold: a flash cannot fire it.
+            step(soloOpen(), 4);
+            markState('solo open hand flash does not cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step(soloOpen(), 10);
+            markState('solo open hand casts after the solo hold', 'cast',
+                claspCast ? 'cast' : (claspRunFrames > 0 ? 'warming' : 'idle'));
+            if (claspCast) finishClasp();
+            step([], 400);
+            // A flared open palm (蒼's shape) is NOT the clasp pose even held long.
+            step(open1(0.5), 40);
+            markState('flared open palm never casts the clasp', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
+            step([], 120);
+
             markState('clasp purple choreography spans 16 s', '16000',
                 String(CLASP_CAST.endMs - CLASP_CAST.convergeEndMs));
             markState('clasp audio ends before the animation', 'yes',
                 CLASP_CAST.voiceDelayMs + CLASP_CAST.audioMs < CLASP_CAST.endMs ? 'yes' : 'no');
-            // The duplicate-hand probes above reuse open-palm landmarks; drop any Blue hold they
-            // left behind so this section measures the clasp only.
-            cancelBlueCharge();
-            resetBlueHandStates();
             gestureLockUntilMs = 0;
             const claspVoice0 = audioPlayCounts['purple-clasp'];
             step(clasp2(), 10); // ~0.3 s: cast started, voice not due yet
@@ -859,25 +950,26 @@
             markState('clasp recast after cooldown', 'cast', claspCast ? 'cast' : 'idle');
             finishClasp();
             step([], 70); // drain the recast's 2s cooldown
-            // The clasp-family pose held far apart is not a clasp: the pointing hand is just 赫.
+            // Open clasp hands held far apart stay neutral (Red is paused in 茈 mode).
             step(claspFar2(), 20);
             markState('far clasp-family pose is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
-            markState('far clasp-family pose stays red', 'red', currentTech);
+            markState('far clasp-family pose stays neutral', 'neutral', currentTech);
             step([], 100);
 
-            // MediaPipe often drops one hand mid-clasp. The remaining hand is the pointing
-            // hand (index only, thumb tucked) and used to read as 赫; with a recent
-            // near-two-hand history it must not, and the clasp must still cast from the
-            // frames already accumulated.
+            // MediaPipe often drops one hand mid-clasp. The remaining hand IS the open half
+            // of the pose; the run already accumulated must still cast.
             step(clasp2(), 2);
             markState('clasp warming before a hand drops', 'warming',
                 claspCast ? 'cast' : (claspRunFrames > 0 ? 'warming' : 'idle'));
-            step([mkHand(0.46, 0.65, claspPointPts)], 30); // what the lone hand reads as
+            step(soloOpen(), 30);
             markState('dropped-hand clasp does not fire red', 'ok',
                 currentTech === 'red' ? 'red' : 'ok');
             markState('dropped-hand clasp still casts', 'cast', claspCast ? 'cast' : 'idle');
             finishClasp();
             step([], 220); // drain the cast cooldown
+            // Back to normal mode for the red checks below.
+            setPurpleMode(false);
+            step([], 20);
             step(red1(0.5), 30);
             markState('lone index hand still fires red', 'red', currentTech);
             step([], 100);
@@ -1059,29 +1151,37 @@
                 aboutText.includes('所有素材均来源于网络') ? 'yes' : 'no');
             if (railTabs[0]) railTabs[0].click();
             markState('main tab returns', 'main', (mainPanel && !mainPanel.hidden) ? 'main' : 'hidden');
-            markState('settings keep debug/voice/voidlong/sfx/egg', 'debug,voice,voidlong,sfx,egg',
+            markState('settings keep debug/voice/voidlong/egg', 'debug,voice,voidlong,egg',
                 Array.from(document.querySelectorAll('#settings-list [data-action]'))
                     .map((row) => row.dataset.action).join(','));
+            markState('synthesized SFX are gone for good', 'gone',
+                (typeof playSfx === 'undefined' && typeof sfxEnabled === 'undefined') ? 'gone' : 'left');
 
-            // --- 音效 switch: release SFX can be turned off independently of the voices ---
-            const sfxQuery = () => document.querySelector('#settings-list [data-action="sfx"]');
-            markState('settings include a sound-effects switch', 'yes', sfxQuery() ? 'yes' : 'no');
-            const sfx0 = (typeof sfxPlayCounts !== 'undefined') ? (sfxPlayCounts.blue || 0) : -1;
-            if (typeof playSfx === 'function') playSfx('blue');
-            markState('sound effects play when enabled', 'played',
-                (typeof sfxPlayCounts !== 'undefined' && sfxPlayCounts.blue === sfx0 + 1)
-                    ? 'played' : 'silent');
-            if (sfxQuery()) sfxQuery().click();
-            markState('sound-effects switch toggles off', 'off',
-                (typeof sfxEnabled !== 'undefined' && !sfxEnabled
-                    && sfxQuery() && sfxQuery().getAttribute('aria-checked') === 'false') ? 'off' : 'on');
-            if (typeof playSfx === 'function') playSfx('blue');
-            markState('sound effects stay silent when switched off', 'silent',
-                (typeof sfxPlayCounts !== 'undefined' && sfxPlayCounts.blue === sfx0 + 1)
-                    ? 'silent' : 'played');
-            if (sfxQuery()) sfxQuery().click(); // back on for the demos
-            markState('sound-effects switch toggles back on', 'on',
-                (typeof sfxEnabled !== 'undefined' && sfxEnabled) ? 'on' : 'off');
+            // --- 语音 switch: the technique voices' master gate ---
+            // Default ON; gesture-triggered clips honour the switch, manual clicks in the
+            // audio library always play.
+            const voiceQuery = () => document.querySelector('#settings-list [data-action="voice"]');
+            markState('technique voices are on by default', 'on',
+                (typeof voiceEnabled !== 'undefined' && voiceEnabled) ? 'on' : 'off');
+            const vc0 = audioPlayCounts.fail;
+            playAudioClip('fail'); // the gesture-triggered path
+            markState('gesture voice plays while the switch is on', 'played',
+                audioPlayCounts.fail === vc0 + 1 ? 'played' : 'silent');
+            stopAudioClip();
+            if (voiceQuery()) voiceQuery().click();
+            markState('voice switch turns off', 'off',
+                (typeof voiceEnabled !== 'undefined' && !voiceEnabled
+                    && voiceQuery() && voiceQuery().getAttribute('aria-checked') === 'false') ? 'off' : 'on');
+            playAudioClip('fail');
+            markState('gesture voice is silent when switched off', 'silent',
+                audioPlayCounts.fail === vc0 + 1 ? 'silent' : 'played');
+            toggleAudioClip('fail'); // a manual click in the left-rail audio library
+            markState('manual audio-library click still plays when voices are off', 'played',
+                audioPlayCounts.fail === vc0 + 2 ? 'played' : 'silent');
+            stopAudioClip();
+            if (voiceQuery()) voiceQuery().click(); // back on for the demos
+            markState('voice switch turns back on', 'on',
+                (typeof voiceEnabled !== 'undefined' && voiceEnabled) ? 'on' : 'off');
 
             // --- First-run gate: welcome modal -> four-page tutorial -> camera opt-in ---
             const introModalEl = document.getElementById('intro-modal');
@@ -1392,9 +1492,13 @@
                         : endMode === 'voidclear' ? 'VOID CLEAR DEMO'
                         : endMode === 'voidlong' ? 'VOID LONG DEMO' : 'VOID RING DEMO';
                 } else if (endMode === 'red') {
-                    // Hold the gun form so the red core sits on the synthetic hand and the
+                    // Hold the gun form so the red orb sits on the synthetic hand and the
                     // ambient dust gets pushed into a ring around it (repulsion demo).
                     step(gun1(0.5), 30);
+                    // The synthetic clock is far ahead of performance.now(), so the entry
+                    // cast would stay frozen at age 0 (muzzle flash + compressed orb).
+                    // Drop it: this demo shows the settled small orb.
+                    redCast = null;
                     document.title = 'RED DEMO';
                 } else if (endMode === 'redcast') {
                     // Freeze the activation at `age` ms (default 170: flash + lance + cone

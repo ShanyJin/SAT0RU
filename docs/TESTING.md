@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，231 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，246 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,267 +34,284 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 231 项断言（按顺序）
+### 1.4 246 项断言（按顺序）
 
 名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
+
 
 **苍 / 赫 基础与语音**
 
 1. neutral
 2. gun motion does not arm blue
 3. red gun form shows
-4. red cast starts with the field
-5. red cast aims along the raised finger
-6. red cast starts as a muzzle flash
-7. red cast travels forward with age
-8. red cast stays narrow (not an explosion)
-9. red cast ends after the shot
-10. red field snaps up and recoils
-11. red lance geometry moves forward only
-12. red gun releases on drop
-13. red release starts a burn-out
-14. red burn-out falls instead of shooting
-15. red burn-out ends
-16. red pointing shows
-17. red form handoff stays red
-18. red survives brief pose gap
-19. red releases on drop
-20. red recovers after 2s
-21. red 2s cooldown blocks retrigger
-22. red 2s cooldown recovers
-23. blue blocked by red cooldown
-24. red after cooldown
-25. red voice waits for the 1 s hold
-26. red voice fires after a 1 s hold
-27. red voice picks a local clip
-28. red voice plays once per hold
-29. red voice fires on the gun form too
-30. blue voice waits for the 2 s hold
-31. blue voice waits 2 s after the charge
-32. blue voice fires 2 s after the charge
-33. blue voice picks the local clip
-34. blue voice plays once per charge
-35. short open hold does not arm blue
-36. bent fingers do not arm blue
-37. bent fingers stay neutral
+4. red orb is a small compact ball
+5. red orb holds a small point budget
+6. red orb burn-out fades in place
+7. red blanks the shared swarm
+8. red cast starts with the field
+9. red cast aims along the raised finger
+10. red cast starts as a muzzle flash
+11. red cast travels forward with age
+12. red cast stays narrow (not an explosion)
+13. red cast ends after the shot
+14. red field snaps up and recoils
+15. red lance geometry moves forward only
+16. red gun releases on drop
+17. red release starts a burn-out
+18. red burn-out falls instead of shooting
+19. red burn-out ends
+20. red never eases back to the centre
+21. red pointing shows
+22. red form handoff stays red
+23. red survives brief pose gap
+24. red releases on drop
+25. red recovers after 2s
+26. red 2s cooldown blocks retrigger
+27. red 2s cooldown recovers
+28. blue blocked by red cooldown
+29. red after cooldown
+30. red voice waits for the 1 s hold
+31. red voice fires after a 1 s hold
+32. red voice picks a local clip
+33. red voice plays once per hold
+34. red voice fires on the gun form too
+35. blue voice waits for the 2 s hold
+36. blue voice waits 2 s after the charge
+37. blue voice fires 2 s after the charge
+38. blue voice picks the local clip
+39. blue voice plays once per charge
+40. short open hold does not arm blue
+41. bent fingers do not arm blue
+42. bent fingers stay neutral
 
 **苍 释放（弯指负例、握拳、甩出、前推、合掌、丢手）**
 
-38. blue1 charge armed (no bloom)
-39. slow drag keeps charge
-40. finger/size jitter keeps charge
-41. fast sideways fling releases blue
-42. fling release blooms blue
-43. point during charge keeps charge
-44. fist releases the blue charge
-45. fist release blooms blue
-46. blue re-armed for the push test
-47. forward push releases
-48. anim: other gestures ignored
-49. cooldown: red ignored
-50. blue2 charge armed
-51. tracking loss releases
-52. palms charge armed
-53. palms together releases
+43. blue1 charge armed (no bloom)
+44. slow drag keeps charge
+45. finger/size jitter keeps charge
+46. fast sideways fling releases blue
+47. fling release blooms blue
+48. point during charge keeps charge
+49. fist releases the blue charge
+50. fist release blooms blue
+51. blue re-armed for the push test
+52. forward push releases
+53. anim: other gestures ignored
+54. cooldown: red ignored
+55. blue2 charge armed
+56. tracking loss releases
+57. palms charge armed
+58. palms together releases
 
 **负例与 無量空処 基础**
 
-54. open only no trigger
-55. fist>open alone no trigger
-56. red gun is not void
-57. void gesture triggers
-58. void voice waits for the 1 s hold
-59. void holds while gesture held
-60. void voice fires after a 1 s hold
-61. void voice picks the local clip
-62. void voice plays once per hold
-63. void releases when gesture drops
+59. open only no trigger
+60. fist>open alone no trigger
+61. red gun is not void
+62. void gesture triggers
+63. void voice waits for the 1 s hold
+64. void holds while gesture held
+65. void voice fires after a 1 s hold
+66. void voice picks the local clip
+67. void voice plays once per hold
+68. void releases when gesture drops
 
-**茈 按钮模式**
+**茈 按钮模式（收紧后的蓄势/发射）**
 
-64. purple mode button exists
-65. purple mode button toggles on
-66. purple mode button toggles off
-67. purple gun arms orb
-68. purple mode blocks red gun
-69. purple pose drop cancels
-70. purple pinch arms orb
-71. purple thumb-under arms orb
-72. purple forward push fires
-73. purple shot plays the short clip
-74. purple shot impacts
-75. purple 2s cooldown blocks recharge
-76. purple cooldown recovers
-77. purple thumb-under flick fires
-78. purple rearmed for snap tests
-79. purple slow thumb-out stays charging
-80. purple thumb-out snap fires
-81. purple snap survives tracking gap
+69. purple mode button exists
+70. purple mode button toggles on
+71. purple mode button toggles off
+72. purple gun flash does not arm
+73. purple gun arms orb
+74. purple mode blocks red gun
+75. purple pose drop cancels
+76. purple pinch arms orb
+77. purple thumb-under arms orb
+78. purple instant snap while arming is ignored
+79. purple snap fires once armed
+80. purple snap shot impacts
+81. purple snap cooldown blocks recharge
+82. purple snap cooldown recovers
+83. purple slow drift does not fire
+84. purple forward push fires
+85. purple shot plays the short clip
+86. purple shot impacts
+87. purple 2s cooldown blocks recharge
+88. purple cooldown recovers
+89. purple thumb-under flick fires
+90. purple rearmed for snap tests
+91. purple slow thumb-out stays charging
+92. purple thumb-out snap fires
+93. purple snap survives tracking gap
 
-**双手契印（含漩涡与掉手）**
+**双手契印（开关门禁、单手张开手、漩涡与掉手）**
 
-82. one hand void is not clasp
-83. duplicate void hand is not clasp
-84. duplicate void hand stays void
-85. void next to an open palm is not clasp
-86. clasp context warms without casting
-87. domain sign after clasp context is not a cast
-88. domain sign after clasp context stays void
-89. pointing hand plus open palm is not clasp
-90. clasp still fires after the near misses
-91. duplicate clasp hand is not a cast
-92. same-label duplicate hand is not a cast
-93. offset duplicate clasp hand is not a cast
-94. clasp purple choreography spans 16 s
-95. clasp audio ends before the animation
-96. clasp cast starts
-97. clasp pose does not become void
-98. clasp starts in the blue phase
-99. clasp voice waits for 0.5 s
-100. clasp blue orb sits on the right, red absent
-101. clasp blue grows to at least half the screen
-102. clasp voice starts 0.5 s after the trigger
-103. clasp voice plays once per cast
-104. clasp red grows on the left after the blue
-105. clasp orbs are symmetric when red is full
-106. clasp red phase follows the blue
-107. clasp converge phase follows the red
-108. clasp purple vortex phase starts after 7 s
-109. clasp vortex core appears at the centre
-110. clasp vortex fills a readable share of the view
-111. clasp vortex gyro rings tilt apart
-112. clasp vortex slams on the beat
-113. clasp vortex rebounds between collisions
-114. clasp shockwave expands after a collision
-115. clasp shockwave fades before the next beat
-116. clasp vortex hides for the blast
-117. clasp bursts into purple at 20 s
-118. clasp blast is active
-119. clasp cast ends after the aftermath
-120. clasp cooldown blocks recast
-121. clasp recast after cooldown
-122. far clasp-family pose is not clasp
-123. far clasp-family pose stays red
-124. clasp warming before a hand drops
-125. dropped-hand clasp does not fire red
-126. dropped-hand clasp still casts
-127. lone index hand still fires red
+94. clasp needs the purple switch
+95. one hand void is not clasp
+96. two open palms are not clasp
+97. duplicate void hand is not clasp
+98. void next to a flared open palm is not clasp
+99. clasp fires after the near misses
+100. duplicate clasp hand is not a cast
+101. same-label duplicate hand is not a cast
+102. offset duplicate clasp hand is not a cast
+103. open hands held apart are not a cast
+104. solo open hand flash does not cast
+105. solo open hand casts after the solo hold
+106. flared open palm never casts the clasp
+107. clasp purple choreography spans 16 s
+108. clasp audio ends before the animation
+109. clasp cast starts
+110. clasp pose does not become void
+111. clasp starts in the blue phase
+112. clasp voice waits for 0.5 s
+113. clasp blue orb sits on the right, red absent
+114. clasp blue grows to at least half the screen
+115. clasp voice starts 0.5 s after the trigger
+116. clasp voice plays once per cast
+117. clasp red grows on the left after the blue
+118. clasp orbs are symmetric when red is full
+119. clasp red phase follows the blue
+120. clasp converge phase follows the red
+121. clasp purple vortex phase starts after 7 s
+122. clasp vortex core appears at the centre
+123. clasp vortex fills a readable share of the view
+124. clasp vortex gyro rings tilt apart
+125. clasp vortex slams on the beat
+126. clasp vortex rebounds between collisions
+127. clasp shockwave expands after a collision
+128. clasp shockwave fades before the next beat
+129. clasp vortex hides for the blast
+130. clasp bursts into purple at 20 s
+131. clasp blast is active
+132. clasp cast ends after the aftermath
+133. clasp cooldown blocks recast
+134. clasp recast after cooldown
+135. far clasp-family pose is not clasp
+136. far clasp-family pose stays neutral
+137. clasp warming before a hand drops
+138. dropped-hand clasp does not fire red
+139. dropped-hand clasp still casts
+140. lone index hand still fires red
 
 **無量空処 定格 3 秒开场动画**
 
-128. void under 3s no cinematic
-129. void held 3s starts cinematic
-130. cinematic hides UI chrome
-131. cinematic ring reveals void field
-132. cinematic field fades in
-133. cinematic streaks dissolve
-134. ring holds on black before fade
-135. black stage fades, ring stays
-136. ring fades at the tail
-137. cinematic ends and restores UI
-138. cinematic no loop while holding
-139. cinematic replays after re-entry
+141. void under 3s no cinematic
+142. void held 3s starts cinematic
+143. cinematic hides UI chrome
+144. cinematic ring reveals void field
+145. cinematic field fades in
+146. cinematic streaks dissolve
+147. ring holds on black before fade
+148. black stage fades, ring stays
+149. ring fades at the tail
+150. cinematic ends and restores UI
+151. cinematic no loop while holding
+152. cinematic replays after re-entry
 
 **长时间无量空处**
 
-140. long void switch exists
-141. long void switch toggles on
-142. long timeline outlives its voice
-143. long void under 1 s no cinematic
-144. long void plays the long voice at the 1 s trigger
-145. long void skips the short voice
-146. long void waits 8 s before cinematic
-147. long void starts long cinematic after 8 s
-148. long voice does not replay at cinematic start
-149. long cinematic ends after the voice
-150. long void switch toggles off
+153. long void switch exists
+154. long void switch toggles on
+155. long timeline outlives its voice
+156. long void under 1 s no cinematic
+157. long void plays the long voice at the 1 s trigger
+158. long void skips the short voice
+159. long void waits 8 s before cinematic
+160. long void starts long cinematic after 8 s
+161. long voice does not replay at cinematic start
+162. long cinematic ends after the voice
+163. long void switch toggles off
 
 **音频库（9 条）**
 
-151. audio block lists every clip
-152. audio block includes the clasp track
-153. audio row click plays the clip
-154. audio block includes the failure clip
-155. audio block includes the creed clip
-156. failure clip plays on click
-157. creed clip plays on click
-158. audio labels drop the old year
-159. purple voice uses the renamed clip
-160. about shows the build tag
-161. viewport meta enables phone layout
-162. camera video is inline and muted
-163. phone layout has a small-screen rule
+164. audio block lists every clip
+165. audio block includes the clasp track
+166. audio row click plays the clip
+167. audio block includes the failure clip
+168. audio block includes the creed clip
+169. failure clip plays on click
+170. creed clip plays on click
+171. audio labels drop the old year
+172. purple voice uses the renamed clip
+173. about shows the build tag
+174. viewport meta enables phone layout
+175. camera video is inline and muted
+176. phone layout has a small-screen rule
 
-**左侧栏三菜单 + 释放音效**
+**左侧栏三菜单 + 语音开关**
 
-164. left rail has three sub-menu tabs
-165. rail tab order
-166. main tab is open by default
-167. main tab holds settings and audio
-168. guide tab switches the panel
-169. guide drops the old year
-170. about tab switches the panel
-171. about credits the manga author
-172. about lists both bilibili videos with thanks
-173. about gives an infringement contact email
-174. about says all assets come from the internet
-175. main tab returns
-176. settings keep debug/voice/voidlong/sfx/egg
-177. settings include a sound-effects switch
-178. sound effects play when enabled
-179. sound-effects switch toggles off
-180. sound effects stay silent when switched off
-181. sound-effects switch toggles back on
-182. first visit shows the intro modal
-183. intro has welcome plus four technique pages
-184. intro credits the manga author, original project, fork author and site
-185. intro promises local-only processing
-186. intro carries the asset notice and contact
-187. tutorial technique order
-188. tutorial images live under assets
-189. tutorial image files are served
-190. intro starts at step one
-191. intro acknowledgement button exists
-192. acknowledgement opens the blue tutorial
-193. tutorial walks through to the void page
-194. purple tutorial text drops the old year
-195. finishing the tutorial closes the modal
-196. intro gate reaches the app
-197. camera and model are idle before opt-in
-198. top bar holds the start button
-199. start button defaults off with a click-to-start label
-200. start button calls the camera once
-201. start button waits for tracking
-202. start button shows running
-203. switching off stops the camera
-204. start button returns to off
-205. settings no longer hold the start row
-206. settings include the custom void easter egg
-207. custom void defaults off
-208. custom void switch turns on
-209. egg panel opens with the switch
-210. egg info starts collapsed
-211. egg info explains the custom video
-212. egg info arrow expands the description
-213. egg offers three versions and starts at one
-214. egg version two is selected
-215. void egg overlay starts hidden
-216. void cinematic arms for the egg
-217. egg waits for the transit to finish
-218. egg cuts in when the transit ends
-219. egg plays the selected bilibili video
-220. egg can be closed and clears the iframe
-221. custom egg rejects b23.tv short links
-222. custom egg parser extracts the BV id and page
-223. custom egg rejects text without a video id
-224. egg version three waits for a link
-225. custom egg input appears for version three
-226. custom egg saves the pasted link
-227. custom egg plays through the bilibili player
-228. custom egg link persists locally
-229. custom egg confirms the saved link
-230. egg switch turns off again
-231. end（收尾标记）
+177. left rail has three sub-menu tabs
+178. rail tab order
+179. main tab is open by default
+180. main tab holds settings and audio
+181. guide tab switches the panel
+182. guide drops the old year
+183. about tab switches the panel
+184. about credits the manga author
+185. about lists both bilibili videos with thanks
+186. about gives an infringement contact email
+187. about says all assets come from the internet
+188. main tab returns
+189. settings keep debug/voice/voidlong/egg
+190. synthesized SFX are gone for good
+191. technique voices are on by default
+192. gesture voice plays while the switch is on
+193. voice switch turns off
+194. gesture voice is silent when switched off
+195. manual audio-library click still plays when voices are off
+196. voice switch turns back on
+197. first visit shows the intro modal
+198. intro has welcome plus four technique pages
+199. intro credits the manga author, original project, fork author and site
+200. intro promises local-only processing
+201. intro carries the asset notice and contact
+202. tutorial technique order
+203. tutorial images live under assets
+204. tutorial image files are served
+205. intro starts at step one
+206. intro acknowledgement button exists
+207. acknowledgement opens the blue tutorial
+208. tutorial walks through to the void page
+209. purple tutorial text drops the old year
+210. finishing the tutorial closes the modal
+211. intro gate reaches the app
+212. camera and model are idle before opt-in
+213. top bar holds the start button
+214. start button defaults off with a click-to-start label
+215. start button calls the camera once
+216. start button waits for tracking
+217. start button shows running
+218. switching off stops the camera
+219. start button returns to off
+220. settings no longer hold the start row
+221. settings include the custom void easter egg
+222. custom void defaults off
+223. custom void switch turns on
+224. egg panel opens with the switch
+225. egg info starts collapsed
+226. egg info explains the custom video
+227. egg info arrow expands the description
+228. egg offers three versions and starts at one
+229. egg version two is selected
+230. void egg overlay starts hidden
+231. void cinematic arms for the egg
+232. egg waits for the transit to finish
+233. egg cuts in when the transit ends
+234. egg plays the selected bilibili video
+235. egg can be closed and clears the iframe
+236. custom egg rejects b23.tv short links
+237. custom egg parser extracts the BV id and page
+238. custom egg rejects text without a video id
+239. egg version three waits for a link
+240. custom egg input appears for version three
+241. custom egg saves the pasted link
+242. custom egg plays through the bilibili player
+243. custom egg link persists locally
+244. custom egg confirms the saved link
+245. egg switch turns off again
+246. end
+
 ### 1.5 加用例的坑
 
 - **2 秒冷却**：赫/茈/無量空処触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
@@ -396,17 +413,19 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - **双手扣合时模型常常只给一只手**：6 帧双手 / 6 帧单手 / 1 帧无手；
 - 双手帧里稳定的是「两只手 indexUp=1、至少一只手 middleUp=1、两只手 thumbGapRatio<0.75」；
   `wristGap` 0.61~2.68 掌长（有一个 2.68 的离群帧），`indexTipGap` 0.29~1.98（离群 1.98）；
-- 因此判定用「双手 + 拇指内扣 + 腕/指尖距离」，配 400ms 短窗口累积；离群帧被窗口过滤。
+- 因此判定用「双手 + 张开手型 + 腕距（+腕相对形状差）」，配 400ms 短窗口累积；离群帧被窗口过滤。
 - 主人的三张双手扣合实拍（同参数 MediaPipe）里，最稳的双手帧是 `wristGap` 0.66~0.68、
   `indexTipGap` 0.05~0.06，而 `middleTipGap` 0.73~1.03（食指压在一起、中指分开）；多数帧模型只给一只手。
-- 最终判据（比扫描时的草稿更紧）：`wristGap 0.30~2.2`、`tipGap<0.50`、`middleGap>0.55`、
-  handedness 标签必须不同（`handsAreDistinct`）、真实双手姿势 ≥2 帧（`claspRealPoseFrames`）；
-  同一只手被识别两次由 `minWristGap`/同标签/`middleGap` 三重否决（`tipGap==middleGap`，不可能同时满足）。
-- 契印必须**双手扣合**，無量空処始终**单手**：`voidSignShape` 守卫排除领域手型，
-  单手领域手势永远不会发动契印（回归 `one hand void is not clasp` / `duplicate void hand is not clasp`）。
-- **真正的根因在掉手嫌疑窗**：从前 `claspSuspect` 把任何单手 index-up 都当「契印掉手」，
-  于是单手领域手势能在 600ms 内续上已有一帧真姿势的契印 run、直接发动。现在 `claspSuspect`
-  显式排除 `voidSignShape`，回归 `domain sign after clasp context is not a cast` 锁死。
+- 最终判据：双手姿势 = `wristGap 0.30~2.2` + 至少一只手是「四指朝上、拇指内扣」的张开手
+  （`claspOpenHandShape`）+ handedness 标签必须不同（`handsAreDistinct`）+ 腕相对形状差
+  `minShapeDelta 0.40`（同一只手被识别两次的布局几乎重合，真实双手不会），真实双手姿势 ≥2 帧；
+  同一只手被识别两次再由 `minWristGap`/同标签否决。旧版「指尖相压 / 中指分开」判据已删——
+  它只是重复检测的间接症状，单手姿势根本判不了。
+- **只认到一只手也认**（`claspSoloInfo`）：扣合时 MediaPipe 常只给张开的那只手；单手张开手型
+  累积 9 帧 / 300ms（真双手只要 4 帧 / 120ms），避免随手一张开手掌放 23 秒长动画。
+- 契印必须**双手扣合**或**单只张开手**，無量空処始终**单手**且是领域手型：`claspOpenHandShape`
+  要求四指朝上（领域手型食指中指并拢、其余收拢），单手领域手势永远不会发动契印
+  （回归 `one hand void is not clasp` / `duplicate void hand is not clasp`）。
 - 扣合掉成单手时可能和领域手型相似，所以契印候选期间仍强制清空 void 分（防止误开领域）；
   这只是形状相似，不是一个「双手领域」技法。
 
@@ -553,9 +572,9 @@ D 面板里 `camera: tracking frames:N last:...ms err:-` 持续增长。首次�
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（231 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（246 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=redcast` / `end=redburn` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
-- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/SFX）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
+- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/★）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

@@ -192,22 +192,8 @@
             100% { opacity: 0; }
         }
 
-        #trigger-word-text {
-            position: fixed; left: 50%; top: 42%; transform: translateX(-50%); z-index: 120;
-            font-size: 44px; font-weight: 600; letter-spacing: .16em; text-transform: uppercase;
-            color: var(--text-primary); text-shadow: 0 2px 24px rgba(0,0,0,.55);
-            pointer-events: none;
-        }
-        @keyframes flicker {
-            0% { opacity: 1; } 50% { opacity: 1; } 75% { opacity: 1; }
-            80% { opacity: 0; } 82% { opacity: 1; } 84% { opacity: 0; }
-            88% { opacity: 1; } 90% { opacity: 0; } 92% { opacity: 1; }
-            95% { opacity: 0; } 97% { opacity: 1; } 100% { opacity: 0; }
-        }
-
         /* The domain cinematic is pure visuals: no chrome, no hand skeleton. */
-        body.void-cinema #ui, body.void-cinema #left-rail, body.void-cinema #debug-panel,
-        body.void-cinema #trigger-word-text { display: none !important; }
+        body.void-cinema #ui, body.void-cinema #left-rail, body.void-cinema #debug-panel { display: none !important; }
         body.void-cinema #output_canvas { visibility: hidden; }
 
         /* --- First-run gate: a large welcome/tutorial dialog over the idle stage --- */
@@ -636,7 +622,6 @@
             <button id="purple-mode-btn" type="button" aria-pressed="false" title="虚式「茈」">茈</button>
         </div>
     </header>
-    <div id="trigger-word-text"></div>
 
     <aside id="left-rail" aria-label="控制栏">
         <div class="rail-head">
@@ -1926,17 +1911,18 @@
     }
 
     // Technique Functions
+    // 赫's live visual is the dedicated redBall mesh (see RED_BALL). The shared 20k swarm
+    // stays dark while 赫 is held; this mirrors the same small-orb shape so a Red target
+    // buffer would still describe a compact ball if anything ever renders it.
     function getRed(i) {
-        if(i < COUNT * 0.1) {
-            const r = Math.random() * 9;
+        if (i % 6 === 0) {
+            const r = 8 + Math.random() * 2;
             const theta = Math.random() * 6.28; const phi = Math.acos(2 * Math.random() - 1);
-            return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 3, g: 0.1, b: 0.1, s: 2.5 };
-        } else {
-            const armCount = 3; const t = (i / COUNT); 
-            const angle = t * 15 + ((i % armCount) * (Math.PI * 2 / armCount));
-            const radius = 2 + (t * 40); 
-            return { x: radius * Math.cos(angle), y: radius * Math.sin(angle), z: (Math.random() - 0.5) * (10 * t), r: 0.8, g: 0, b: 0, s: 1.0 };
+            return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 0.85, g: 0.1, b: 0.04, s: 0.6 };
         }
+        const r = 4.6 * Math.pow(Math.random(), 0.6);
+        const theta = Math.random() * 6.28; const phi = Math.acos(2 * Math.random() - 1);
+        return { x: r * Math.sin(phi) * Math.cos(theta), y: r * Math.sin(phi) * Math.sin(theta), z: r * Math.cos(phi), r: 1.0, g: 0.2, b: 0.08, s: 0.8 };
     }
 
     function getVoid(i) {
@@ -2167,14 +2153,90 @@
     }
     const redEmber = buildRedFxPoints(RED_EMBER_COUNT, 0.46, [1.0, 0.30, 0.08]);
     for (let i = 0; i < RED_EMBER_COUNT; i++) {
-        // Ash starts at the field rim (radius ~42) and just outside it, so it is visible
-        // falling clear of the red disc instead of being buried inside it.
+        // Ash starts at the field rim and just outside it, so it is visible falling
+        // clear of the orb instead of being buried inside it.
         redEmber.seeds.push({
             a: Math.random() * Math.PI * 2,
-            r: 18 + Math.random() * 30,
+            r: 8 + Math.random() * 10,
             g: 0.5 + Math.random() * 0.9,
             z: (Math.random() - 0.5) * 3
         });
+    }
+
+    // --- 赫's sustained field: a small dense orb + a few drifting sparks ---------------
+    // The shared 20k swarm stays fully dark the whole time 赫 is held (no per-frame lerp,
+    // no 240 KB attribute uploads); 赫 owns this compact mesh instead. Radius ~5 with a
+    // sparse spark halo — a small red ball that breathes and swirls slowly, not a big
+    // spinning disc.
+    const RED_BALL = {
+        count: 1500,
+        radius: 4.6,       // core ball radius (world units)
+        breathe: 0.07,     // ± radial breathing
+        spin: 0.85,        // rad/s slow swirl around the vertical axis
+        sparkRadius: 1.65, // outer sparks sit at radius × this (plus jitter/drift)
+        alpha: 0.80
+    };
+    // Hot core -> deep red rim; sparks a dim ember red.
+    const redBall = createClaspPoints(RED_BALL.count, 0.5);
+    for (let i = 0; i < RED_BALL.count; i++) {
+        const outer = i % 6 === 0; // ~17% of the points are the outer spark halo
+        const phi = Math.acos(2 * Math.random() - 1);
+        const T = Math.pow(Math.random(), 0.6); // 0 = centre, 1 = rim
+        redBall.seeds.push({
+            theta: Math.random() * Math.PI * 2,
+            sinPhi: Math.sin(phi),
+            cosPhi: Math.cos(phi),
+            r: T,
+            spin: 0.6 + 0.8 * Math.random(),
+            ph: Math.random() * Math.PI * 2,
+            outer
+        });
+        const vary = 0.75 + 0.25 * Math.random();
+        if (outer) {
+            redBall.colorArr[i * 3] = 0.90 * vary;
+            redBall.colorArr[i * 3 + 1] = 0.08 * vary;
+            redBall.colorArr[i * 3 + 2] = 0.03 * vary;
+        } else {
+            // Stay red even where the additive layers stack: G/B must stay low enough that
+            // a dozen overlapping sprites still clip mostly on the red channel, or the core
+            // blows out to white and reads as an explosion instead of a red orb.
+            const hot = 1 - T; // slightly hotter toward the core
+            redBall.colorArr[i * 3] = 1.0 * vary;
+            redBall.colorArr[i * 3 + 1] = (0.04 + 0.08 * hot) * vary;
+            redBall.colorArr[i * 3 + 2] = (0.01 + 0.03 * hot) * vary;
+        }
+    }
+    redBall.geometry.attributes.color.needsUpdate = true;
+
+    // Pure layout so the regression can pin the orb's burn-out envelope.
+    function redBallVisual(burnAgeMs) {
+        const burning = burnAgeMs >= 0;
+        const t = burning ? Math.min(1, burnAgeMs / RED_CAST.burnMs) : 0;
+        return {
+            active: !burning || burnAgeMs < RED_CAST.burnMs,
+            radius: RED_BALL.radius * (1 - 0.22 * t),
+            alpha: RED_BALL.alpha * Math.pow(1 - t, 1.35)
+        };
+    }
+
+    function fillRedBallPositions(nowSec, radius) {
+        const spin = nowSec * RED_BALL.spin;
+        for (let i = 0; i < RED_BALL.count; i++) {
+            const s = redBall.seeds[i];
+            const breathe = 1 + RED_BALL.breathe * Math.sin(nowSec * 2.2 + s.ph);
+            const a = s.theta + spin * s.spin;
+            let rr;
+            if (s.outer) {
+                const drift = 0.5 + 0.5 * Math.sin(nowSec * 0.9 + s.ph);
+                rr = radius * (RED_BALL.sparkRadius + 0.3 * drift + 0.25 * s.r) * breathe;
+            } else {
+                rr = radius * (0.5 + 0.5 * s.r) * breathe;
+            }
+            redBall.positions[i * 3] = Math.cos(a) * s.sinPhi * rr;
+            redBall.positions[i * 3 + 1] = s.cosPhi * rr * 0.92;
+            redBall.positions[i * 3 + 2] = Math.sin(a) * s.sinPhi * rr;
+        }
+        redBall.geometry.attributes.position.needsUpdate = true;
     }
 
     function startRedCast(nowMs) {
@@ -2286,7 +2348,10 @@
     }
 
     // Restart a clip and count the attempt (the regression asserts counters, not sound).
-    function playAudioClip(key) {
+    // Gesture-triggered playback respects the 语音 switch; manual clicks in the audio
+    // library pass manual=true and always play.
+    function playAudioClip(key, manual = false) {
+        if (!voiceEnabled && !manual) return null;
         const track = audioTracksByKey[key];
         if (!track) return null;
         for (const other of AUDIO_TRACKS) {
@@ -2312,7 +2377,7 @@
             stopAudioClip();
             return;
         }
-        playAudioClip(key);
+        playAudioClip(key, true);
     }
 
     for (const track of AUDIO_TRACKS) {
@@ -2348,106 +2413,6 @@
     window.addEventListener('pointerdown', primeAudio, { once: true });
     window.addEventListener('keydown', primeAudio, { once: true });
 
-    // --- Release sound effects ------------------------------------------------------------
-    // Short synthesized hits for the moment a technique lets go (Blue blast, Purple shot,
-    // clasp detonation). WebAudio only: no asset, no network. The left-rail 音效 switch
-    // mutes them without touching the voice clips.
-    let sfxEnabled = true;
-    const sfxPlayCounts = { blue: 0, purple: 0, purpleBurst: 0, clasp: 0 };
-    let sfxCtx = null;
-    let sfxMaster = null;
-    let sfxNoiseBuffer = null;
-
-    function ensureSfxContext() {
-        if (sfxCtx) {
-            if (sfxCtx.state === 'suspended') {
-                const attempt = sfxCtx.resume();
-                if (attempt && attempt.catch) attempt.catch(() => {});
-            }
-            return sfxCtx;
-        }
-        const Ctor = window.AudioContext || window.webkitAudioContext;
-        if (!Ctor) return null;
-        try {
-            sfxCtx = new Ctor();
-            sfxMaster = sfxCtx.createGain();
-            sfxMaster.gain.value = 0.5;
-            sfxMaster.connect(sfxCtx.destination);
-            const len = Math.floor(sfxCtx.sampleRate * 0.7);
-            sfxNoiseBuffer = sfxCtx.createBuffer(1, len, sfxCtx.sampleRate);
-            const data = sfxNoiseBuffer.getChannelData(0);
-            for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
-        } catch (err) {
-            sfxCtx = null;
-            return null;
-        }
-        if (sfxCtx.state === 'suspended') {
-            const attempt = sfxCtx.resume();
-            if (attempt && attempt.catch) attempt.catch(() => {});
-        }
-        return sfxCtx;
-    }
-
-    function sfxTone(ctx, type, f0, f1, durSec, peak) {
-        const t0 = ctx.currentTime;
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = type;
-        osc.frequency.setValueAtTime(f0, t0);
-        osc.frequency.exponentialRampToValueAtTime(Math.max(12, f1), t0 + durSec);
-        gain.gain.setValueAtTime(0.0001, t0);
-        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + 0.02);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durSec);
-        osc.connect(gain);
-        gain.connect(sfxMaster);
-        osc.start(t0);
-        osc.stop(t0 + durSec + 0.03);
-    }
-
-    function sfxNoiseBurst(ctx, durSec, peak, filterType, f0, f1) {
-        if (!sfxNoiseBuffer) return;
-        const t0 = ctx.currentTime;
-        const src = ctx.createBufferSource();
-        src.buffer = sfxNoiseBuffer;
-        const filter = ctx.createBiquadFilter();
-        filter.type = filterType;
-        filter.frequency.setValueAtTime(f0, t0);
-        filter.frequency.exponentialRampToValueAtTime(Math.max(30, f1), t0 + durSec);
-        const gain = ctx.createGain();
-        gain.gain.setValueAtTime(0.0001, t0);
-        gain.gain.exponentialRampToValueAtTime(Math.max(0.0002, peak), t0 + 0.015);
-        gain.gain.exponentialRampToValueAtTime(0.0001, t0 + durSec);
-        src.connect(filter);
-        filter.connect(gain);
-        gain.connect(sfxMaster);
-        src.start(t0);
-        src.stop(t0 + durSec + 0.03);
-    }
-
-    function playSfx(kind) {
-        if (!sfxEnabled) return;
-        sfxPlayCounts[kind] = (sfxPlayCounts[kind] || 0) + 1;
-        const ctx = ensureSfxContext();
-        if (!ctx) return;
-        try {
-            if (kind === 'blue') {
-                sfxNoiseBurst(ctx, 0.55, 0.24, 'lowpass', 900, 90);
-                sfxTone(ctx, 'sine', 155, 44, 0.62, 0.24);
-            } else if (kind === 'purple') {
-                sfxTone(ctx, 'sawtooth', 240, 1400, 0.2, 0.1);
-                sfxNoiseBurst(ctx, 0.16, 0.06, 'highpass', 600, 2400);
-            } else if (kind === 'purpleBurst') {
-                sfxNoiseBurst(ctx, 0.5, 0.2, 'lowpass', 1000, 120);
-                sfxTone(ctx, 'sine', 120, 38, 0.55, 0.28);
-            } else if (kind === 'clasp') {
-                sfxNoiseBurst(ctx, 1.0, 0.24, 'lowpass', 1300, 80);
-                sfxTone(ctx, 'sine', 84, 27, 1.1, 0.34);
-                sfxTone(ctx, 'triangle', 168, 55, 0.8, 0.14);
-            }
-        } catch (err) { /* audio is decoration; never let it break a frame */ }
-    }
-    window.addEventListener('pointerdown', () => ensureSfxContext(), { once: true });
-    window.addEventListener('keydown', () => ensureSfxContext(), { once: true });
 
     // 赫: either Red form held for 1 s -> one of the two clips at random, once per hold.
     let redEnteredAtMs = 0;
@@ -2535,11 +2500,19 @@
     // 虚式「茈」 mode: a top-bar switch, not a cast button. While ON, Blue/Red are paused and
     // the gun/pinch poses arm a small purple charge; the charge fires on a push or thumb-under flick.
     const PURPLE_CAST = {
-        poseHoldFrames: 3, // consecutive gun/pinch frames before the orb appears
+        poseHoldFrames: 8, // consecutive gun/pinch frames before the orb appears...
+        poseHoldMs: 220, // ...held for at least this long (both must pass; was 3 frames / ~100 ms)
+        armMs: 260, // the orb must exist this long before any push/flick can fire it
         poseGraceMs: 280, // a momentary pose drop (e.g. thumb-under transition) keeps the charge
         readyGraceMs: 500, // longer grace once the thumb is tucked: the snap may lose tracking
         snapWindowMs: 500, // window for the thumb-under -> thumb-out snap
         snapJump: 0.15, // minimum thumbGapRatio increase that counts as a deliberate snap
+        // 茈's own forward-push gate, stricter than Blue's: firing the projectile must be a
+        // deliberate push, not the small forward drift of holding a hand up.
+        pushMinSamples: 4, // consecutive palm-scale growth samples (Blue: 3)
+        pushMinMs: 130, // ...spanning at least this long (Blue: 110)
+        pushMinGrowth: 0.28, // total relative palm growth (Blue: 0.24)
+        pushMinRate: 2.0, // ...and average growth rate per second (Blue: 1.7)
         followTauMs: 90, // damped follow, same feel as the blue orb
         shotMs: 380, // projectile flight from the hand to screen center
         pathMs: 260, // recent positions the projectile's tail trails over
@@ -2550,6 +2523,7 @@
     let purpleCooldownUntilMs = 0;
     let purplePoseRun = 0;
     let purplePoseKey = null;
+    let purplePoseStartMs = 0; // when the current arming run began (frames AND ms must pass)
     const purpleVisual = { x: 0, y: 0, t: 0, init: false };
     const purplePath = []; // recent orb positions, shared by the charge ball and the projectile
     const FLICK = {
@@ -2586,13 +2560,12 @@
     const CLASP_CAST = {
         minFrames: 4, // consecutive two-hand clasp frames...
         holdMs: 120, // ...that must also span this long
+        soloFrames: 9, // a lone open hand (the other hand hidden by the clasp) needs more:
+        soloHoldMs: 300, // ...this many frames and this long, so a casual open palm can't fire
         gapMs: 400, // a longer detection gap restarts the run
         wristGapMax: 2.2, // cast pose: wrists this close (real photos measure 0.66–0.68)
         minWristGap: 0.30, // below this it is one hand reported twice, not two hands
-        nearWristGapMax: 2.9, // loose context only: hands clearly meeting but not interlocked yet
-        tipGapMax: 0.50, // index fingertips pressed together (real photos: 0.05–0.06)
-        middleGapMin: 0.55, // ...while the middle fingertips stay apart (real photos: 0.73–1.03)
-        suspectMs: 600, // a dropped hand keeps that context alive this long
+        minShapeDelta: 0.40, // the two hands' wrist-relative layouts must differ this much (duplicate guard)
         voiceDelayMs: 500,
         audioMs: 21891, // audio/purple-clasp.mp3 (documentation / regression only)
         blueGrowMs: 1500,
@@ -2635,10 +2608,10 @@
     let claspCooldownUntilMs = 0;
     let claspPoseReleaseRequired = false;
     let claspSuppressUntilMs = 0;
-    let claspNearMs = -Infinity; // last frame two hands were close enough to be clasping
     let claspDebug = null; // last frame's clasp signals, shown in the D panel
     let claspSawRealPose = false; // the current run included at least one true two-hand pose
     let claspRealPoseFrames = 0; // ...and how many; one ghost frame must not arm the cast
+    let claspPairFrames = 0; // frames of the full two-hand pose in the current run
     const videoElement = document.querySelector('.input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
@@ -2660,7 +2633,6 @@
     let fpsFrames = 0;
     let fpsLastMs = 0;
     let fpsValue = 0;
-    let zoomUntilMs = 0;
     const INITIAL_CAMERA_Z = 55;
     let challengerGesture = null;
     let challengerSinceMs = 0;
@@ -2699,14 +2671,11 @@
     let debugEnabled = new URLSearchParams(window.location.search).get('debug') === '1';
     const KEYBINDS = { debug: 'D', guide: 'H', voice: 'V', auto: 'N', voidlong: 'L' };
     const gestureGuide = document.getElementById('gesture-guide');
-    const triggerWordEl = document.getElementById('trigger-word-text');
     const idleFlash = document.getElementById('idle-flash');
     let railTab = 'main';
-    let voiceEnabled = false;
-    let voiceStatus = 'OFF';
-    let recognition = null;
-    let lastVoiceTriggerMs = -Infinity;
-    const VOICE_TRIGGER_COOLDOWN_MS = 5000;
+    // The 语音 switch gates the technique voice clips (蒼 / 赫 / 無量空処 / 茈 …), the ones
+    // gesture triggers play. Manual clicks in the audio library always play.
+    let voiceEnabled = true;
 
     // --- First-run gate -----------------------------------------------------
     // The camera, MediaPipe graph and render loop all stay idle until the intro dialog is
@@ -2728,7 +2697,7 @@
     let cameraStartedAtMs = 0;
     const TRACK_STALL_MS = 20000;
     // Shown in the About panel so a stale cached page is instantly recognisable.
-    const BUILD_TAG = '11-27 · 赫激发射出 + 原地燃尽';
+    const BUILD_TAG = '11-27 · 小红球 + 语音总闸 + 茈统一';
     const buildTagEl = document.getElementById('build-tag');
     if (buildTagEl) buildTagEl.textContent = BUILD_TAG;
 
@@ -2837,14 +2806,6 @@
         return maxScore;
     }
 
-    function flashTriggerText(word, durationMs = 5000) {
-        if (!triggerWordEl) return;
-        triggerWordEl.style.animation = 'none';
-        triggerWordEl.textContent = word;
-        void triggerWordEl.offsetWidth;
-        triggerWordEl.style.animation = `flicker ${durationMs / 1000}s forwards`;
-    }
-
     function forceTechnique(tech, durationMs = 15000, nowMs = performance.now()) {
         forcedTech = tech;
         forcedUntilMs = nowMs + durationMs;
@@ -2853,8 +2814,8 @@
     function updatePurpleHint() {
         if (!purpleHint) return;
         purpleHint.innerText = purpleMode
-            ? '虚式「茈」枪指模式已开启 · 点击关闭'
-            : '点击开启虚式「茈」枪指模式';
+            ? '虚式「茈」已开启 · 枪指 / 双手契印 · 点击关闭'
+            : '点击开启虚式「茈」· 枪指 / 双手契印';
     }
 
     function setPurpleMode(on) {
@@ -2876,8 +2837,13 @@
             purpleFlickEligibleUntilMs = 0;
             purplePoseRun = 0;
             purplePoseKey = null;
+            purplePoseStartMs = 0;
             purplePrevAngle = null;
             purplePath.length = 0;
+            // A warm clasp run never carries across a mode flip.
+            claspRunFrames = 0;
+            claspRunStartMs = 0;
+            claspPairFrames = 0;
             if (purpleCharge) cancelPurpleCharge();
             if (purpleShot) purpleShot = null;
             updateState('neutral', true);
@@ -2886,8 +2852,12 @@
             if (purpleShot) purpleShot = null;
             purplePoseRun = 0;
             purplePoseKey = null;
+            purplePoseStartMs = 0;
             purplePrevAngle = null;
             purplePath.length = 0;
+            claspRunFrames = 0;
+            claspRunStartMs = 0;
+            claspPairFrames = 0;
             purpleModeBtn.classList.remove('cooling');
             updateState('neutral', true);
         }
@@ -3100,7 +3070,6 @@
         chargeOrb.visible = false;
         bluePulseUntilMs = nowMs + BLUE_SEQ.animMs;
         gestureLockUntilMs = bluePulseUntilMs + BLUE_SEQ.cooldownMs;
-        playSfx('blue');
         pendingBlueInstant = true;
     }
 
@@ -3113,7 +3082,7 @@
 
     // Sustained forward push: palm scale must grow for consecutive samples, long enough and
     // far enough to be a deliberate push. Shared by Blue and 茈.
-    function updatePushTracker(t, size, nowMs) {
+    function updatePushTracker(t, size, nowMs, cfg = CHARGE) {
         const growRatio = size / Math.max(t.prevSize, 0.001);
         if (growRatio > 1 + CHARGE.growTolerance) {
             if (t.growSamples === 0) {
@@ -3127,10 +3096,10 @@
         const growMs = nowMs - t.growStartMs;
         let pushNow = false;
         t.lastGrowth = 0;
-        if (t.growSamples >= CHARGE.pushMinSamples && growMs >= CHARGE.pushMinMs) {
+        if (t.growSamples >= cfg.pushMinSamples && growMs >= cfg.pushMinMs) {
             const growth = (size - t.growStartSize) / Math.max(t.growStartSize, 0.001);
             t.lastGrowth = growth / Math.max(growMs / 1000, 0.001);
-            pushNow = growth >= CHARGE.pushMinGrowth && t.lastGrowth >= CHARGE.pushMinRate;
+            pushNow = growth >= cfg.pushMinGrowth && t.lastGrowth >= cfg.pushMinRate;
         }
         t.prevSize = size;
         t.prevSizeMs = nowMs;
@@ -3345,7 +3314,6 @@
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
         setTechniqueName('虚式「茈」 · 射出');
         playAudioClip('purple'); // the short purple line belongs to the button-mode shot
-        playSfx('purple');
         shakeIntensity = Math.max(shakeIntensity, 0.5);
     }
 
@@ -3362,17 +3330,22 @@
             purpleExplosionSourceSizes[i] = targetSizes[i];
         }
         triggerPurpleExplosion(nowMs);
-        playSfx('purpleBurst');
         setTechniqueName('虚式「茈」');
     }
 
-    // --- 虚式「茈」 clasp cast (two hands, no top button) ---
-    // 無量空処 is a ONE-hand sign: index straight with the middle finger laid on it,
-// thumb tucked. The clasp is the app's only two-hand technique: the hands cross and
-// interlock, both indexes read as raised, at least one middle is extended, both thumbs
-// tuck in, and — measured on the user's own photos — the wrists overlap (0.66–0.68 palm)
-// with the index fingertips pressed together (0.05–0.06 palm) while the middle
-// fingertips stay far apart (0.73–1.03 palm, the second hand's middle is wrapped away).
+    // --- 虚式「茈」 clasp cast (two hands, under the top 「茈」 switch) ---
+    // The pose, as the user performs it: one OPEN hand seen from the side — all four
+    // fingers pointing up, thumb tucked across the palm — clasped together with the other
+    // hand wrapped around it. Measured on the user's own photos, MediaPipe reports the open
+    // hand (and often both) with all four fingers up and thumbGapRatio ~0.3. MediaPipe
+    // regularly tracks only ONE of the two hands, so the lone open hand counts as the pose
+    // too, with a longer hold; the wrapped hand may read as anything.
+    function claspOpenHandShape(shape) {
+        return !!shape && shape.indexUp === 1 && shape.middleUp === 1
+            && shape.ringUp === 1 && shape.pinkyUp === 1
+            && shape.thumbGapRatio < 0.75;
+    }
+
     // Palm-relative distances between two hands; null when there is no usable pair.
     function claspGaps(landmarks) {
         if (!landmarks || landmarks.length !== 2) return null;
@@ -3384,7 +3357,8 @@
         return {
             wristGap: rel(a[0], b[0]),
             tipGap: rel(a[8], b[8]),
-            middleGap: rel(a[12], b[12])
+            middleGap: rel(a[12], b[12]),
+            palm
         };
     }
 
@@ -3394,46 +3368,38 @@
         return !labels || labels.length < 2 || labels[0] !== labels[1];
     }
 
-    // The exact 無量空処 sign on a hand. Used only to keep the single-hand domain sign
-    // apart from the two-hand clasp: a pair of domain hands is NOT the clasp.
-    function voidSignShape(shape) {
-        return !!shape && shape.indexUp === 1 && shape.middleUp === 1
-            && shape.ringUp === 0 && shape.pinkyUp === 0
-            && shape.fingerGap < 0.075 && shape.thumbGapRatio < 0.75;
-    }
-
-    // Clasp geometry: wrists overlapping, the two index fingertips pressed together and
-    // the middle fingertips apart. A rigid duplicate of one hand has tipGap == middleGap,
-    // so it can never satisfy `tipGap < tipGapMax` and `middleGap > middleGapMin` at once.
+    // Two-hand pose: at least one open hand (four fingers up, thumb tucked) and the wrists
+    // together. The wrapped hand is free to read as anything; a hand reported twice with
+    // the same handedness label is never a pair.
     function claspPoseInfo(landmarks, shapes, labels) {
         if (!shapes || shapes.length !== 2) return false;
         if (!handsAreDistinct(labels)) return false;
-        if (voidSignShape(shapes[0]) && voidSignShape(shapes[1])) return false;
+        if (!shapes.some(claspOpenHandShape)) return false;
         const gaps = claspGaps(landmarks);
-        if (!gaps) return false;
-        return shapes[0].indexUp === 1 && shapes[1].indexUp === 1
-            && (shapes[0].middleUp === 1 || shapes[1].middleUp === 1)
-            && shapes[0].thumbGapRatio < 0.75 && shapes[1].thumbGapRatio < 0.75
-            && gaps.wristGap >= CLASP_CAST.minWristGap
-            && gaps.wristGap < CLASP_CAST.wristGapMax
-            && gaps.tipGap < CLASP_CAST.tipGapMax
-            && gaps.middleGap > CLASP_CAST.middleGapMin;
+        if (!gaps || gaps.wristGap < CLASP_CAST.minWristGap
+            || gaps.wristGap >= CLASP_CAST.wristGapMax) return false;
+        return claspShapeDelta(landmarks, gaps) >= CLASP_CAST.minShapeDelta;
     }
 
-    // Two hands physically close in a clasp-family shape (index up, thumb tucked): the
-    // clasp context, even if the full pose test is not met yet. Gating on shape keeps
-    // plain open palms and fists from arming the dropped-hand suspect window.
-    function claspHandsNear(landmarks, shapes, labels) {
-        if (!shapes || shapes.length !== 2) return false;
-        if (!handsAreDistinct(labels)) return false;
-        if (voidSignShape(shapes[0]) && voidSignShape(shapes[1])) return false;
-        if (!shapes.every((s) => s.indexUp === 1 && s.thumbGapRatio < 0.75)) return false;
-        const gaps = claspGaps(landmarks);
-        return !!gaps && gaps.wristGap >= CLASP_CAST.minWristGap
-            && gaps.wristGap < CLASP_CAST.nearWristGapMax;
+    // One physical hand reported twice sits at a near-fixed offset from itself, so its
+    // wrist-relative landmark layout deltas stay ~0; two real clasped hands never do.
+    // This replaces the old tip-pressed / middle-apart test for the duplicate guard.
+    function claspShapeDelta(landmarks, gaps) {
+        if (!landmarks || landmarks.length !== 2 || !gaps) return 0;
+        const [a, b] = landmarks;
+        const rel = (i) => Math.hypot((a[i].x - a[0].x) - (b[i].x - b[0].x),
+            (a[i].y - a[0].y) - (b[i].y - b[0].y));
+        return Math.max(rel(8), rel(12), rel(16), rel(20)) / gaps.palm;
+    }
+
+    // A single open hand: what MediaPipe reports when it only tracks the open half of the
+    // clasp. Counted as the pose, but with the longer solo thresholds.
+    function claspSoloInfo(shapes) {
+        return !!shapes && shapes.length === 1 && claspOpenHandShape(shapes[0]);
     }
 
     function startClaspCast(nowMs) {
+        if (!purpleMode) return false; // the 茈 switch owns every 茈 form, clasp included
         if (blueCharge || purpleShot) return false; // an active charge owns the interaction
         if (nowMs < techCooldownUntilMs || nowMs < gestureLockUntilMs) return false;
         claspCast = {
@@ -3450,9 +3416,9 @@
         return true;
     }
 
-    function updateClaspDetection(nowMs, pose, suspect = false) {
-        if (MODE !== 'gojo') return;
-        const poseLike = pose || suspect;
+    function updateClaspDetection(nowMs, pose, solo = false) {
+        if (MODE !== 'gojo' || !purpleMode) return;
+        const poseLike = pose || solo;
         if (claspCast) {
             if (poseLike) claspLastSeenMs = nowMs;
             return;
@@ -3471,21 +3437,25 @@
             claspRunStartMs = nowMs;
             claspSawRealPose = false;
             claspRealPoseFrames = 0;
+            claspPairFrames = 0;
         } else {
             claspRunFrames += 1;
         }
         if (pose) {
             claspSawRealPose = true;
             claspRealPoseFrames += 1;
+            claspPairFrames += 1;
         }
         claspLastSeenMs = nowMs;
-        // A run built from suspect frames never casts: the real two-hand pose must have
-        // been seen in at least two frames, so a lone hand near a one-frame ghost cannot fire.
-        if (claspRunFrames >= CLASP_CAST.minFrames
-            && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs
-            && claspSawRealPose && claspRealPoseFrames >= 2) {
-            startClaspCast(nowMs);
-        }
+        // A real two-hand pose casts after a short run. A run built only from the lone open
+        // hand (MediaPipe tracked just one of the clasped hands) needs a clearly longer
+        // hold, so an incidental open palm cannot fire the 23 s cinematic.
+        const pairRun = claspPairFrames >= 2
+            && claspRunFrames >= CLASP_CAST.minFrames
+            && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs;
+        const soloRun = claspRunFrames >= CLASP_CAST.soloFrames
+            && (nowMs - claspRunStartMs) >= CLASP_CAST.soloHoldMs;
+        if (pairRun || soloRun) startClaspCast(nowMs);
     }
 
     function impactClaspCast(nowMs) {
@@ -3499,7 +3469,6 @@
             purpleExplosionSourceSizes[i] = targetSizes[i];
         }
         triggerPurpleExplosion(nowMs);
-        playSfx('clasp');
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + CLASP_CAST.cooldownMs);
         claspCooldownUntilMs = nowMs + CLASP_CAST.cooldownMs;
         shakeIntensity = Math.max(shakeIntensity, 1.3);
@@ -3609,11 +3578,17 @@
             } else {
                 purplePoseKey = chargeIdx >= 0 ? keyOf(chargeIdx) : null;
                 purplePoseRun = chargeIdx >= 0 ? 1 : 0;
+                purplePoseStartMs = nowMs;
             }
-            if (chargeIdx >= 0 && purplePoseRun >= PURPLE_CAST.poseHoldFrames) {
+            // Arming is deliberately slow: a gun/pinch pose flashed for a few frames (the
+            // tail of another gesture, a hand passing the camera) must never arm 茈.
+            if (chargeIdx >= 0
+                && purplePoseRun >= PURPLE_CAST.poseHoldFrames
+                && (nowMs - purplePoseStartMs) >= PURPLE_CAST.poseHoldMs) {
                 createPurpleCharge(keyOf(chargeIdx), landmarks[chargeIdx], shapes[chargeIdx], nowMs);
                 purplePoseRun = 0;
                 purplePoseKey = null;
+                purplePoseStartMs = 0;
             }
             return;
         }
@@ -3681,18 +3656,24 @@
         // The user's real firing motion: thumb tucked under, then a quick outward swing.
         // The fingertip FLICK path cannot see this (the index tip barely moves), and tracking
         // often drops a frame mid-snap, so detect the thumbGapRatio jump over the ready window.
-        const snappedOut = info.gun
+        // No firing path may run while the orb is still being formed: the pose itself
+// involves raising the hand and tucking the thumb, and those motions must not read
+// as a push/flick/snap.
+        const armedForFire = (nowMs - c.startedMs) >= PURPLE_CAST.armMs;
+        const snappedOut = armedForFire && info.gun
             && (nowMs - c.thumbUnderAtMs) <= PURPLE_CAST.snapWindowMs
             && (shape.thumbGapRatio - c.thumbUnderRatio) >= PURPLE_CAST.snapJump;
         if (snappedOut) {
             firePurpleCharge(nowMs);
             return;
         }
-        if (flicks && flicks[c.key] === nowMs && info.thumbUnder) {
+        if (armedForFire && flicks && flicks[c.key] === nowMs && info.thumbUnder) {
             firePurpleCharge(nowMs);
             return;
         }
-        if (updatePushTracker(c, p.size, nowMs)) {
+        // Keep the push window accumulating even before the orb is armed; only the fire
+        // is gated. Purple uses its own stricter thresholds.
+        if (updatePushTracker(c, p.size, nowMs, PURPLE_CAST) && armedForFire) {
             firePurpleCharge(nowMs);
         }
     }
@@ -3740,7 +3721,7 @@
         if (!results.multiHandLandmarks || results.multiHandLandmarks.length === 0) {
             // With no hands the pose is false; this decays a warming run and can release the
             // post-cast "let go before recasting" lock.
-            if (MODE === 'gojo') updateClaspDetection(nowMs, false);
+            if (MODE === 'gojo' && purpleMode) updateClaspDetection(nowMs, false);
             if (MODE === 'gojo' && purpleMode) {
                 updatePurpleMode([], [], [], nowMs);
                 return frameScores;
@@ -3870,29 +3851,26 @@
         lastHandShapes = handShapes;
         const handKeys = results.multiHandLandmarks.map((_, i) => results.multiHandedness?.[i]?.label ?? `hand_${i}`);
 
-        // Two-hand clasp: accumulate a short run of frames instead of demanding a continuous
-        // two-hand read (MediaPipe drops one hand for stretches of the interlocked pose).
-        const claspPose = MODE === 'gojo' && claspPoseInfo(results.multiHandLandmarks, handShapes, handKeys);
-        if (MODE === 'gojo' && claspHandsNear(results.multiHandLandmarks, handShapes, handKeys)) claspNearMs = nowMs;
-        // When one hand vanishes mid-clasp the remaining pointing hand can look exactly
-        // like 赫. Two hands were just entwined, so treat it as a clasp suspect instead.
-        // A hand making the 無量空処 sign is NEVER a suspect: the domain is a one-hand
-        // technique, and this is the path that used to let a lone domain hand cast 茈.
-        const claspSuspect = MODE === 'gojo' && !claspPose && handShapes.length === 1
-            && (nowMs - claspNearMs) <= CLASP_CAST.suspectMs
-            && handShapes[0].indexUp === 1
-            && !voidSignShape(handShapes[0]);
+        // 虚式「茈」 clasp: accumulates a short run of frames instead of demanding a continuous
+        // two-hand read (MediaPipe drops one hand for stretches of the clasp). Only the
+        // open top-switch 「茈」 mode owns the clasp; with the switch off these hands are
+        // just open palms and belong to 蒼.
+        const claspPose = MODE === 'gojo' && purpleMode
+            && claspPoseInfo(results.multiHandLandmarks, handShapes, handKeys);
+        // One tracked hand: in the clasp it is the open hand (fingers up, thumb tucked) and
+        // the other hand is wrapped around it. The solo pose counts, with a longer hold.
+        const claspSolo = MODE === 'gojo' && purpleMode && !claspPose
+            && claspSoloInfo(handShapes);
         // D panel telemetry: what the clasp test actually sees, so tuning needs no guessing.
         const claspDbgGaps = claspGaps(results.multiHandLandmarks);
         claspDebug = {
             pose: claspPose,
-            suspect: claspSuspect,
+            solo: claspSolo,
             wrist: claspDbgGaps ? claspDbgGaps.wristGap : -1,
-            tip: claspDbgGaps ? claspDbgGaps.tipGap : -1,
-            middle: claspDbgGaps ? claspDbgGaps.middleGap : -1,
+            delta: claspShapeDelta(results.multiHandLandmarks, claspDbgGaps),
             labels: handKeys.join('/')
         };
-        if (MODE === 'gojo') updateClaspDetection(nowMs, claspPose, claspSuspect);
+        if (MODE === 'gojo' && purpleMode) updateClaspDetection(nowMs, claspPose, claspSolo);
         if (claspCast) {
             if (blueCharge) cancelBlueCharge();
             if (purpleCharge) cancelPurpleCharge();
@@ -3904,7 +3882,7 @@
             if (purpleMode) {
                 // The clasp belongs to the same technique family; never arm the one-hand
                 // purple charge from hands that are currently forming the clasp.
-                if (claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+                if (claspPose || claspSolo || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
                     if (purpleCharge) cancelPurpleCharge();
                     return frameScores;
                 }
@@ -3919,7 +3897,7 @@
             const gojoLocked = nowMs < gestureLockUntilMs;
             const techCoolingDown = nowMs < techCooldownUntilMs;
             const othersOwnHands = gojoLocked || techCoolingDown || redFormSeen || currentTech === 'red'
-                || claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
+                || claspPose || claspSolo || claspRunFrames > 0 || nowMs < claspSuppressUntilMs;
 
             if (blueCharge) {
                 resetBlueHandStates(); // the charge owns the interaction; keep the cycle detector idle
@@ -3957,7 +3935,7 @@
             // A clasping silhouette reads exactly like Void on a single hand. While a clasp is
             // warming (or has just fired), the clasp owns those hands and no technique may
             // claim them; the cast itself starts above and returns early.
-            if (claspPose || claspSuspect || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
+            if (claspPose || claspSolo || claspRunFrames > 0 || nowMs < claspSuppressUntilMs) {
                 frameScores.void = 0;
                 frameScores.red = 0;
                 frameScores.blue = 0;
@@ -4035,9 +4013,8 @@
         updateStartButton();
         const settings = [
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
-            { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
+            { action: 'voice', key: KEYBINDS.voice, label: '术式语音 · Voices', on: voiceEnabled },
             { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode },
-            { action: 'sfx', key: 'SFX', label: '音效 · Release SFX', on: sfxEnabled },
             {
                 action: 'egg', key: '★', label: '自定义无量空处', on: voidEggEnabled,
                 note: voidEggEnabled
@@ -4133,7 +4110,6 @@
                 case 'debug': toggleDebug(); break;
                 case 'voice': setVoiceEnabled(!voiceEnabled); break;
                 case 'voidlong': setVoidLongMode(!voidLongMode); break;
-                case 'sfx': setSfxEnabled(!sfxEnabled); break;
                 case 'egg': setVoidEggEnabled(!voidEggEnabled); break;
             }
         });
@@ -4225,12 +4201,6 @@
     buildGuide();
     buildAudioLibrary();
 
-    // 音效 switch: mutes only the synthesized release hits; voices keep their own switch.
-    function setSfxEnabled(enabled) {
-        sfxEnabled = !!enabled;
-        updateKeybindMenu();
-    }
-
     // Left-rail sub-menus: one panel at a time, tabs across the top of the rail.
     function setRailTab(name) {
         const valid = railPanels.some((panel) => panel.dataset.panel === name);
@@ -4252,59 +4222,12 @@
         btn.addEventListener('click', () => setRailTab(btn.dataset.tab));
     });
 
+    // The 语音 switch is the technique-voice gate: with it off, gesture-triggered clips
+    // (蒼 / 赫 / 無量空処 / 茈 / 契印) stay silent. The left-rail audio library still plays
+    // any clip on a manual click; the two click-only clips are unaffected either way.
     function setVoiceEnabled(enabled) {
-        const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-        if (!SpeechRecognitionCtor) {
-            voiceEnabled = false;
-            voiceStatus = 'UNAVAILABLE';
-            updateKeybindMenu();
-            return;
-        }
-        if (!recognition) {
-            recognition = new SpeechRecognitionCtor();
-            recognition.continuous = true;
-            recognition.interimResults = true;
-            recognition.lang = 'en-US';
-            recognition.onresult = (event) => {
-                const transcript = Array.from(event.results).map((result) => result[0].transcript).join('').toLowerCase();
-                const now = performance.now();
-                if (now - lastVoiceTriggerMs < VOICE_TRIGGER_COOLDOWN_MS) return;
-                if (transcript.includes('run away')) {
-                    lastVoiceTriggerMs = now;
-                    flashTriggerText('run away');
-                    zoomUntilMs = now + 5000;
-                }
-            };
-            recognition.onerror = () => {
-                voiceEnabled = false;
-                voiceStatus = 'ERROR';
-                updateKeybindMenu();
-            };
-            recognition.onend = () => {
-                if (!voiceEnabled) return;
-                try {
-                    recognition.start();
-                } catch (e) {
-                    voiceStatus = 'ERROR';
-                    updateKeybindMenu();
-                }
-            };
-        }
-        voiceEnabled = enabled;
-        if (enabled) {
-            try {
-                recognition.start();
-                voiceStatus = 'LISTENING';
-            } catch (e) {
-                voiceEnabled = false;
-                voiceStatus = 'ERROR';
-            }
-        } else {
-            try {
-                recognition.stop();
-            } catch (e) { /* already stopped */ }
-            voiceStatus = 'OFF';
-        }
+        voiceEnabled = !!enabled;
+        if (!voiceEnabled) stopAudioClip();
         updateKeybindMenu();
     }
 
@@ -4330,10 +4253,9 @@
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `clasp: ${claspCast ? claspCast.phase : '-'} run:${claspRunFrames} cd:${Math.max(0, claspCooldownUntilMs - nowMs).toFixed(0)}ms`,
             `claspSig: ${claspDebug
-                ? `pose:${claspDebug.pose ? 1 : 0} sus:${claspDebug.suspect ? 1 : 0}`
+                ? `pose:${claspDebug.pose ? 1 : 0} solo:${claspDebug.solo ? 1 : 0}`
                     + ` wrist:${claspDebug.wrist.toFixed(2)}/${CLASP_CAST.wristGapMax}`
-                    + ` tip:${claspDebug.tip.toFixed(2)}<${CLASP_CAST.tipGapMax}`
-                    + ` mid:${claspDebug.middle.toFixed(2)}>${CLASP_CAST.middleGapMin}`
+                    + ` delta:${claspDebug.delta.toFixed(2)}>=${CLASP_CAST.minShapeDelta}`
                     + ` [${claspDebug.labels}]`
                 : '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
@@ -4702,6 +4624,17 @@
             redEnteredAtMs = lastFrameNowMs || nowMs;
             redVoicePlayed = false;
             startRedCast(redEnteredAtMs);
+            // 赫 owns the dedicated redBall; blank the shared swarm now so the next
+            // technique grows in from the centre instead of popping a stale shape.
+            particles.geometry.attributes.position.array.fill(0);
+            particles.geometry.attributes.color.array.fill(0);
+            particles.geometry.attributes.size.array.fill(0);
+            particles.geometry.attributes.position.needsUpdate = true;
+            particles.geometry.attributes.color.needsUpdate = true;
+            particles.geometry.attributes.size.needsUpdate = true;
+            // Re-seed the orb's follow at the hand so a fresh hold never flashes at the
+            // position of the previous one.
+            redFollow.init = false;
         } else if (prevTech === 'red' && currentTech !== 'red') {
             redVoicePlayed = false;
             if (tech === 'neutral') startRedBurn(lastFrameNowMs || nowMs);
@@ -4770,8 +4703,7 @@
         // happens until the user has clicked through it.
         if (!introDone) return;
         idleTime += 0.01;
-        const zoomTarget = performance.now() < zoomUntilMs ? 120 : INITIAL_CAMERA_Z;
-        camera.position.z += (zoomTarget - camera.position.z) * 0.05;
+        camera.position.z += (INITIAL_CAMERA_Z - camera.position.z) * 0.05;
 
         const nowMs = performance.now();
         // Clasp-cast timeline: kept on the render clock so the whole long cast completes
@@ -4791,12 +4723,15 @@
         }
         // While idling or constructing, the big field is fully dark: skip its per-frame lerp and
         // 240KB attribute upload. This keeps the charge swarm smooth even on weak GPUs.
+        // 赫 is the same deal: its sustained field is the dedicated redBall mesh below, so
+        // the 20k swarm stays dark (and silent) for the whole hold.
         const claspHidesField = !!claspCast
             && claspCast.phase !== 'burst' && claspCast.phase !== 'fade';
         // During the streak phase of the 無量空処 cinematic the big field must stay dark
         // behind the black stage; the final beat fades it back in as the centre ring.
         const cinemaHidingField = !!voidCinematic && voidCinematic.hideField;
         const fieldIdle = claspHidesField
+            || currentTech === 'red'
             || (currentTech === 'neutral'
                 && nowMs > neutralSettledAtMs
                 && purpleExplosionUntilMs <= nowMs)
@@ -5053,8 +4988,6 @@
         // Technique-specific rotation
         if (fieldIdle) {
             // Nothing to rotate while the field is dark.
-        } else if(currentTech === 'red') {
-            particles.rotation.z -= 0.1;
         } else if (currentTech === 'blue') {
             particles.rotation.y += 0.02;
             particles.rotation.z += 0.01;
@@ -5065,7 +4998,8 @@
             particles.rotation.y += 0.005;
         }
 
-        // Red (赫): the field rides above the pointing fingertip; ease back to center once Red ends.
+        // 赫's orb: rides above the pointing fingertip with a damped follow. It stays where
+        // the shot landed — there is deliberately no slide back to the screen centre.
         if (currentTech === 'red' && redAnchor.valid) {
             if (!redFollow.init) {
                 redFollow.x = redAnchor.x;
@@ -5078,36 +5012,39 @@
                 redFollow.y += (redAnchor.y - redFollow.y) * k;
             }
             redFollow.t = nowMs;
-        } else if (redFollow.init) {
-            // Release burn-out: hold the field where the hand left it so it implodes and
-            // sheds ash in place. Only after that does it drift back to the centre.
-            const burning = !!redBurn && (nowMs - redBurn.startMs) < RED_CAST.burnMs;
-            if (!burning) {
-                const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - redFollow.t) / 1000));
-                const k = 1 - Math.exp(-dtSec / 0.11);
-                redFollow.x -= redFollow.x * k;
-                redFollow.y -= redFollow.y * k;
-                redFollow.t = nowMs;
-                if (Math.hypot(redFollow.x, redFollow.y) < 0.05) {
-                    redFollow.x = 0;
-                    redFollow.y = 0;
-                    redFollow.init = false;
-                }
+        }
+        // The orb is the only 赫 visual on screen: the shared 20k swarm is dark while Red
+        // is active. The activation kick (snap-up scale + recoil) and the burn-out fade
+        // are plain transforms of this mesh — no particle rewrites.
+        const burnAge = redBurn ? nowMs - redBurn.startMs : -1;
+        const orbVisual = redBallVisual(burnAge);
+        const orbActive = redFollow.init && orbVisual.active
+            && (currentTech === 'red' || burnAge >= 0);
+        redBall.points.visible = orbActive;
+        if (orbActive) {
+            const nowSec = nowMs / 1000;
+            let orbX = redFollow.x;
+            let orbY = redFollow.y;
+            let orbScale = 1;
+            if (redFx.field && currentTech === 'red') {
+                orbX += redFx.field.joltX;
+                orbY += redFx.field.joltY;
+                orbScale = redFx.field.pop;
             }
+            fillRedBallPositions(nowSec, orbVisual.radius);
+            redBall.points.position.set(orbX, orbY, 0);
+            redBall.points.scale.setScalar(orbScale);
+            redBall.material.opacity = orbVisual.alpha;
+            // The orb keeps spinning through a burn-out so the fade never looks frozen.
+            redBall.points.rotation.z = nowSec * 0.18;
+        } else {
+            redBall.points.position.set(0, 0, 0);
+            redBall.points.scale.setScalar(1);
+            redBall.points.rotation.z = 0;
         }
-        // The activation kick: the whole field snaps up from a compressed scale and
-        // recoils opposite the shot, then settles. Purely a field transform — no
-        // particle rewrites.
-        let fieldX = redFollow.x;
-        let fieldY = redFollow.y;
-        let fieldScale = 1;
-        if (redFx.field && currentTech === 'red') {
-            fieldX += redFx.field.joltX;
-            fieldY += redFx.field.joltY;
-            fieldScale = redFx.field.pop;
-        }
-        particles.position.set(fieldX, fieldY, 0);
-        particles.scale.setScalar(fieldScale);
+        // The shared swarm always sits at the origin — the offset belonged to 赫's own orb.
+        particles.position.set(0, 0, 0);
+        particles.scale.setScalar(1);
 
         updatePurpleButton(nowMs);
         composer.render();

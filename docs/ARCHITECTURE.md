@@ -173,10 +173,14 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 右上角 `#purple-mode-btn`（「茈」）是**模式开关，不是施法按钮**。点击开启后：
 
 - 苍/赫全部暂停：`computeFrameScores` 在 `purpleMode` 时把 blue/red 分归零，枪形不再触发赫；
-- 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）、捏合（`pinchScore=1`）或拇指内扣的待发姿势连续 3 帧 → 构筑紫色小球；
+- 枪形（`fingerGap<0.065`、`thumbGapRatio>0.75`）、捏合（`pinchScore=1`）或拇指内扣的待发姿势**连续 8 帧且持续 ≥220ms**
+  （`poseHoldFrames/poseHoldMs`；旧的 3 帧太容易误触）→ 构筑紫色小球；
 - 小球跟随手部（阻尼 90ms）；松手或姿势丢失通常 280ms 取消；拇指内扣后进入「待发」，
   宽限升到 500ms（`PURPLE_CAST.readyGraceMs`），因为快速弹指常会丢 1~3 帧追踪；
-- 前推（复用 `CHARGE.pushMinGrowth/pushMinRate/pushMinMs/pushMinSamples`）或**拇指外弹** → 发射。
+- 小球出现后 **260ms**（`PURPLE_CAST.armMs`）内，任何推力/弹指/上挑都不算发射——抬手、内扣拇指这些
+  「摆姿势」的动作本身不会走火；
+- 前推用**紫色自己的更严阈值**（`PURPLE_CAST.pushMinSamples 4 / pushMinMs 130 / pushMinGrowth 0.28 /
+  pushMinRate 2.0`，经 `updatePushTracker(t, size, nowMs, cfg)` 传入；苍仍用 `CHARGE.*`）或**拇指外弹** → 发射。
   拇指外弹不依赖食指指尖位移：从拇指内扣帧记录 `thumbUnderAtMs/thumbUnderRatio`，500ms 内
   `thumbGapRatio` 跳升 ≥0.15（`snapJump`）且回到外张枪形就发射，丢帧后重现也算；
   旧的指尖上挑 FLICK（`FLICK.triggerScore`）仍保留为第二条路径；
@@ -200,30 +204,31 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 
 ### 5.3 与既有技法的边界
 
-- 茈模式开启时：`bluePulse`、苍蓄势、赫枪形/红场/评分全部旁路；茈模式关闭后恢复。
+- 茈模式开启时：`bluePulse`、苍蓄势、赫枪形/红场/评分全部旁路；**双手契印也只在这个开关下成立**；关闭后恢复普通管线。
 - 2s 冷却同时写 `purpleCooldownUntilMs` 与 `techCooldownUntilMs`，所以茈之后也不能立刻苍/赫。
 - 拇指外弹只在**已有蓄势**且最近一次姿势是拇指内扣时算发射；拇指一直外张的枪形不会被当成弹指。
-- 無量空処的手势同样是「两指 + 拇指内扣」，但它只在普通模式生效；茈模式开启时普通管线整体旁路，不会打架。
+- 無量空処的手势同样是「两指 + 拇指内扣」，但契印是**四指朝上**的张开手，两者形状不同，不会互相误开。
 
-### 5.4 双手契印（无需按钮）
+### 5.4 双手契印（在「茈」开关下）
 
-参考视频 `视频/虚式『茈』 2.mp4`：双手交叉扣住、一只手食指朝上、另一只手扣在它的手掌上、拇指内扣。
-这是本作**唯一的双手技法**；無量空処始终是**单手**。与单手茈互相独立，**不经过「茈」按钮**，也不分左右手。
+主人重定的姿势：**一只手张开、四指全部朝上、拇指内扣，另一只手扣住它**（从侧面看就是「四指朝上」）。
+这是本作**唯一的双手技法**；無量空処始终是**单手**。与单手茈同属「茈」开关：**开关关闭时契印完全不成立**
+（四指朝上的手只按普通管线评分，可能落进苍的张开手掌判定）。不分左右手。
 
-**扫描结论**（同参数 MediaPipe，13 帧，见 TESTING §1.8）：
+**扫描结论**（同参数 MediaPipe，用户照片 3 帧，见 TESTING §1.8）：
 
-- 双手扣合时 MediaPipe **经常只认出一只手**（6 帧双手 / 6 帧单手 / 1 帧无手）；
-- 判据只取双手帧里稳定的量：两只手 `indexUp=1`、至少一只手 `middleUp=1`、两只手 `thumbGapRatio<0.75`、
-  `wristGap` 在 `0.30~2.2`、`tipGap<0.50`、`middleGap>0.55`（后三者都除以平均掌长）；
-- **同一只手不算一对**：`wristGap<0.30` 直接否决；MediaPipe 的 handedness 标签必须不同
-  （`handsAreDistinct`），同一只手被识别两次通常带同一个标签；刚体偏移的重复检测有
-  `tipGap == middleGap`，不可能同时满足 `tipGap<0.50` 与 `middleGap>0.55`；
-- **与無量空処解耦**：领域是**单手**动作，契印必须**双手**扣合；`claspPoseInfo/claspHandsNear` 用
-  `voidSignShape` 排除领域手型；单手的领域手势也**不进掉手嫌疑窗**（`claspSuspect` 显式排除
-  `voidSignShape`），所以「先比过契印、再换成单手领域」不会累积发动契印
-  （回归 `domain sign after clasp context is not a cast`）；
-- 因此**不要求连续双手帧**：`updateClaspDetection()` 在 400ms 内累积 ≥4 帧且持续 ≥120ms 即发动，
-  但其中真实双手姿势必须至少出现 **2 帧**（`claspRealPoseFrames>=2`），单帧鬼影不足以发动。
+- 张开手在照片里四指全部朝上、`thumbGapRatio 0.30/0.34`（拇指压在掌上）；MediaPipe **经常只认出一只手**；
+- **双手帧判据**：至少一只手满足 `claspOpenHandShape`（`index/middle/ring/pinky` 全 up 且
+  `thumbGapRatio<0.75`），两只手 `wristGap` 在 `0.30~2.2`（除以平均掌长，照片里 0.66），
+  被扣住的那只手随便是什么形状；
+- **同一只手不算一对**：`wristGap<0.30` 直接否决；handedness 标签必须不同（`handsAreDistinct`）；
+  带偏移的重复检测靠**腕相对形状差** `minShapeDelta 0.40` 否决——同一只手两次的 8/12/16/20 号点
+  相对手腕的位移几乎相同（差≈0），真实双手照片里 ≥0.63；
+- **单手帧（`claspSoloInfo`）**：只剩一只手时，四指朝上 + 拇指内扣就是契印的「张开手」那一半，
+  **也认**，但用更长的门槛（`soloFrames 9 / soloHoldMs 300`），随手举个手掌不会发动；
+- **与無量空処解耦**：领域是**单手两指**（ring/pinky 收拢），契印张开手是**四指全 up**，形状互斥；
+- `updateClaspDetection()` 双手跑：400ms 内累积 ≥4 帧且持续 ≥120ms、其中真双手姿势 ≥2 帧
+  （`claspRealPoseFrames/claspPairFrames`）即发动；纯单手跑用上面的 solo 门槛。
 
 **状态机**：`claspCast = { startMs, phase, voicePlayed, burstStartMs, collisions }`，时长轴全部相对发动时刻（`CLASP_CAST` 的 getter 派生）：
 
@@ -254,20 +259,16 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 
 **边界**：
 
-- 触发要求双手；**领域只用单手**，单手比出食指+中指仍是無量空処（回归专门验证）；
+- **只在「茈」开关打开时成立**：关闭时连检测都不跑（回归 `clasp needs the purple switch`）；
+- 四指朝上但**拇指外张**的张开手掌不算（`thumbGapRatio` 必须 <0.75）；
 - 双手分得很开（阈值外）不算契印，各自按普通单手评分；
-- 双手都是领域手型也不会算契印（`voidSignShape` 守卫），同一只手被识别成两只由 `minWristGap` 否决；
-- 契印候选/动画期间 void/red/blue 全压制，防止交错的手指被读成领域展开；
-- **掉手不误触赫**：MediaPipe 扣合时常只给一只手。`claspHandsNear(landmarks, shapes, labels)` 只在
-  「两手都 indexUp 且 thumbGapRatio<0.75、`wristGap<nearWristGapMax 2.9`」时记 `claspNearMs`；
-  随后 600ms（`suspectMs`）内若只剩一只手且 indexUp，就视为 clasp 嫌疑、把 red/void/blue 分清零，
-  同时 `updateClaspDetection` 继续按累积帧推进（`claspSawRealPose` + `claspRealPoseFrames>=2` 保证见过真双手姿势）。
-  **单手的無量空処手型永远不进这个嫌疑窗**（`claspSuspect` 显式排除 `voidSignShape`）——这是此前
-  「比领域却发动契印」的真正根因；
-  张开手掌/握拳的拇指外张，不会污染这个窗口（回归 `red gun is not void` 锁死）；
-- 与茈按钮模式共存：契印开始时取消当前单手蓄势，动画期间旁路 `updatePurpleMode`。
+- 同一只手被识别成两只：`minWristGap` + handedness 标签 + `minShapeDelta` 三重否决；
+- 契印候选/动画期间 void/red/blue 全压制；单手张开手也先按契印上下文处理，不会掉进苍的蓄势；
+- **掉手不误触赫**：扣合时常只给一只手；单手张开手（`claspSoloInfo`）继续累积发动（9 帧 / 300ms），
+  紫模式下红分本就归零，不会掉进赫；
+- 与单手茈共存：契印开始时取消当前单手蓄势，动画期间旁路 `updatePurpleMode`。
 
-## 6. 「赫」排斥 · 红场
+## 6. 「赫」排斥 · 小红球场
 
 ### 6.1 手势与锚点
 
@@ -284,10 +285,16 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 
 ### 6.2 跟随与渲染
 
-- `redAnchor` → `redFollow`（阻尼 110ms）；每帧 `particles.position.set(redFollow.x, redFollow.y, 0)`，
-  整个 20k 主粒子场（`getRed()` 目标形状）平移到手上。
-- 红场展开时 `particles.rotation.z -= 0.1`/帧（持续旋转感）。
-- 退场：无手后先原地燃尽（§6.3），`redFollow` 再缓回屏幕中央淡出（`updateState` neutral 目标全零）。
+- `redAnchor` → `redFollow`（阻尼 110ms）；每帧把**独立小红球网格** `redBall` 平移到手上，
+  `particles.position` 始终留在原点（共享 20k 场不参与赫）。
+- **赫的持续场 = 独立小红球**（`RED_BALL` / `redBall` / `fillRedBallPositions`）：1500 颗、
+  球体半径 4.6（0.5→1 径向分布 + 7% 呼吸）、约 17% 是球外稀疏火星（`sparkRadius 1.65` + 缓慢漂移），
+  绕竖轴慢速自旋（`spin 0.85 rad/s`），色从核心暖红到边缘深红。
+- **性能**：赫全程 `fieldIdle = true` —— 共享 20k 场不渲染、不做逐粒子 lerp、不上传 240KB 属性，
+  每帧只填 1500 颗小红球（一次 18KB 上传）。进入赫的瞬间把 20k 的 live 数组清零并置 targets 为零，
+  退出后下个技法从中心重新长出来，不会弹出上一个技法的残影。
+- **不回中**：赫结束后 `redFollow` 原地保留（打到哪里就停在哪里），没有任何缓回屏幕中央的逻辑；
+  下一次进入赫时 `redFollow.init` 重置，红球直接落在当前手上。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
 
 ### 6.3 激发（射出）与熄灭（燃尽）· 两段完全不同的动画
@@ -302,12 +309,13 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
     **高亮弹头**（u≥0.93、颜色更热），其余是拖尾；
   - **前向冲击锥** `redCone`（380 点）：锥尖在枪口、只朝 aim 张开的锥面，远端半宽 4.2 ≪ 长 18，
     强调方向性；
-  - **场反应**：红场瞬间压到 0.6 倍再弹过 1（阻尼弹簧 `exp(-age/110)*cos(age/90)`），
+  - **场反应**：红球瞬间压到 0.6 倍再弹过 1（阻尼弹簧 `exp(-age/110)*cos(age/90)`），
     同时沿 aim **反方向**后退 3.4（后坐力，`jolt` 为负）——枪响的后坐，不是径向爆开；
   - 所有特效严格限制在 aim 前方（锥/矛的最小前向分量 ≥0），没有任何 360° 径向爆发。
 - **退出 = 原地熄灭**（`startRedBurn` → `redBurnLayout`，仅当退出到 neutral）：
-  红场停在原位塌缩，260 颗余烬以 24 单位/s² 下落、620ms 内淡出（`redEmber`）；
-  切到别的技法（茈/领域等）不播燃尽，直接交给新目标形状。
+  红球停在原位缩小（半径 ×0.78）并淡出（`redBallVisual`：`alpha = 0.92·(1-t)^1.35`），
+  260 颗余烬以 24 单位/s² 下落、620ms 内淡出（`redEmber`，起始半径 8~18 —— 贴着小球，不是旧的大场）；
+  切到别的技法（茈/领域等）不播燃尽，红球直接隐藏、新目标形状从中心长出来。
 - 时间常数全在 `RED_CAST`；演示态 `&end=redcast&age=<ms>` / `&end=redburn&age=<ms>` 冻结相位截图。
 
 ## 7. 領域展開「無量空処」 · 虚空
@@ -425,7 +433,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 - 渲染器：`setPixelRatio(min(devicePixelRatio, 1.5))`，`EffectComposer` + `RenderPass` +
   `UnrealBloomPass(res, strength=1.5 基础, radius=0.4, threshold=0.85)`；每技法有 `baseBloomStrength`
   （blue 3.0、red 2.5、purple 4.0、void 2.0、flick 1.4），爆炸期间临时加；茈模式待机时 base 降到 0.35，让蓄势小球保持小而紧的紫光。
-- **`fieldIdle`**：`（契印尚未进入 burst/fade） || （currentTech==='neutral' && now > neutralSettledAtMs && 无紫爆炸）`，
+- **`fieldIdle`**：`（契印尚未进入 burst/fade） || currentTech==='red' || （currentTech==='neutral' && now > neutralSettledAtMs && 无紫爆炸）`，
   或「無量空処 cinematic 的星星阶段（`hideField`）」→ 主粒子场 `particles.visible=false`，
   且跳过 20k 的 lerp/上传/旋转/爆炸计算。
   `neutralSettledAtMs = now + 700`（进入 neutral 后留 700ms 淡出时间）。**这是最大的性能闸门**。
@@ -447,7 +455,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   **小菜单标签** `.rail-tab`（`data-tab = main | guide | about`），下面三个 `.rail-panel` 互斥显示
   （`[hidden]` + `display:none!important`）：
   - `#rail-panel-main`（模式与音频）：`#settings-list` 的 Win11 开关行（D 调试 / H 手势指南 /
-    V 语音 / L 长时间无量空处 / **SFX 释放音效** / **★ 自定义无量空处**，点击即切换）；
+    **V 术式语音（总闸）** / L 长时间无量空处 / **★ 自定义无量空处**，点击即切换）；
     打开「自定义无量空处」后下方 `#egg-panel` 展开版本 1/2/3、「说明」箭头与版本 3 的 B 站链接输入框；
     再往下是 **音频 · Audio**（`#audio-list`，见 §11.1）；
   - `#rail-panel-guide`（指南）：`#gesture-guide` 渲染 `GUIDE_GOJO`；
@@ -477,9 +485,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   `b23.tv` 短链需要联网解析，直接拒绝并提示先展开链接；版本 3 没有链接时不切断动画。
   Esc/关闭按钮退出并清空 iframe；长版动画不受影响。这是页面唯一可能的外部请求，未开启时零外网。
 - `D` 面板显示 raw/smoothed 分数、`fps`、`camera`（状态 + frames + last + err）、`charge`、`blueStages`、
-  `bluePulse`、`gestureLock`、`cooldown`、`claspSig`（`wrist/tip`）。
-- 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
-  Firefox 不支持；Google 在线识别国内可能不通。术式语音与音频库不走 Web Speech（见 §11.1）。
+  `bluePulse`、`gestureLock`、`cooldown`、`claspSig`（`pose/solo/wrist/delta`）。
+- 术式语音（V）：`voiceEnabled` 是**手势触发语音的总闸**（默认开）。关掉后 `playAudioClip(key)`
+  对手势路径直接返回；左侧栏音频库的手动点击传 `manual=true`，不受影响（见 §11.1）。
 
 ### 11.1 本地语音与音频库（local audio）
 
@@ -502,23 +510,17 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   `BLUE_SEQ.voiceDelayMs = 2000ms`」（`blueCharge` 消失即复位）。苍（`blueVoicePlayed`）、
   赫（`redVoicePlayed`，离开 red 即复位）、無量空処（`voidVoicePlayed`，长版模式下不播短语音）
   各自每次保持/每次构筑只播一次。
-- `playAudioClip(key)` 先暂停并归零其它所有轨道，再从头播目标轨道 → **同一时间只播一条**；
-  `audioPlayCounts` 供回归断言。`toggleAudioClip`/`stopAudioClip` 服务侧栏按钮，`updateAudioRowState`
-  负责 `.playing` 高亮与「■ 停止」文案。
+- `playAudioClip(key, manual=false)` 先暂停并归零其它所有轨道，再从头播目标轨道 → **同一时间只播一条**；
+  手势路径受 `voiceEnabled` 门控（关掉即静默返回），`toggleAudioClip` 手动点击传 `manual=true` 永远可播。
+  `audioPlayCounts` 供回归断言。`stopAudioClip` 服务侧栏按钮，`updateAudioRowState` 负责 `.playing` 高亮
+  与「■ 停止」文案。
 - **自动播放解锁**：浏览器要求用户手势后才能出声，`primeAudio()` 在首次 `pointerdown`/`keydown`
   （`{once:true}`）把每条轨道静音试播再暂停（正在播放的那条不复位），之后手势触发就能直接出声。
 - 已知取舍：手机静音键/系统音量仍会压掉声音；`play()` 被策略拒绝时静默失败（catch 掉，不打断画面）。
 
-**释放音效（WebAudio 合成，零文件）**：`sfxEnabled` 开关（设置里 SFX 行，`setSfxEnabled`）。
-`ensureSfxContext()` 首次 `pointerdown`/`keydown` 建 `AudioContext` + master gain + 白噪声 buffer；
-`playSfx(kind)` 先给 `sfxPlayCounts[kind]` 计数（回归用，即使上下文被挂起也算），再排程：
-
-- `blue`：噪声低通 900→90Hz 0.55s + 正弦 155→44Hz 0.62s（苍释放）；
-- `purple`：锯齿 240→1400Hz 0.2s + 高通噪声（茈发射）；
-- `purpleBurst`：噪声低通 1000→120Hz 0.5s + 正弦 120→38Hz（茈命中）；
-- `clasp`：噪声低通 1300→80Hz 1.0s + 正弦 84→27Hz + 三角 168→55Hz（契印爆发）。
-
-挂点：`releaseBlueCharge` / `firePurpleCharge` / `impactPurpleShot` / `impactClaspCast`。
+**释放音效已删除**：早期版本用 WebAudio 合成过苍/茈/契印的释放音效，主人明确那是误解——
+「音效开关」本意是**术式语音（五条悟的声音）的总开关**。合成音效、`sfxEnabled` 与设置里的 SFX 行
+全部移除；现在设置里只有「术式语音 · Voices」（`voiceEnabled`）。
 
 ## 12. 参数速查（改之前先读注释）
 
@@ -537,7 +539,8 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `BLUE_SEQ.openFrames` | 苍起算帧数 | 3 | 先连续 3 帧 isOpen 才开始计时（帧 ≈ 33ms） |
 | `BLUE_SEQ.animMs/cooldownMs` | 释放演出/锁 | 2500/2000ms | |
 | `VOICE_HOLD_MS` | 术式语音门槛 | 1000ms | 苍/赫/普通無量空処保持满 1 秒播一次；见 §11.1 |
-| `AUDIO_TRACKS` | 本地音频清单 | 9 条 | 苍/赫×2/無量空処×2/茈 2026/契印 + 失败/校训（后两条只手动点）；左侧栏与语音触发共用 |
+| `AUDIO_TRACKS` | 本地音频清单 | 9 条 | 苍/赫×2/無量空処×2/茈短/契印 + 失败/校训（后两条只手动点）；左侧栏与语音触发共用 |
+| `voiceEnabled` | 术式语音总闸 | 开 | 手势触发语音全静音；音频库手动点击传 `manual=true` 不受影响 |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -550,16 +553,15 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `CHARGE.flingRunFrames` | 甩出连帧 | 2 | 至少 2 个连续快帧（抬高误触门槛） |
 | `CHARGE.flingMaxSampleGapMs` | 甩出采样间隔上限 | 120ms | 超过即视为追踪断点，清空连击 |
 | `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
-| `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
+| `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 8 帧 + 220ms / armMs 260ms / push 4 采样 + 130ms + 0.28 + 2.0/s / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
-| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap 0.30~2.2`、`tipGap<0.50`、`middleGap>0.55`、handedness 标签须不同、真实双手姿势 ≥2 帧（`voidSignShape` 排除领域手型）；语音 500ms；蓝 1500 / 红 1500+2500 / 靠拢 3000 / 漩涡 6000 / 碰撞 7000 / 爆炸 1600 / 余波 1400，全 23000ms；冷却 2000ms |
+| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 仅紫模式；双手 4 帧 / 120ms（真双手姿势 ≥2 帧）或单手张开手 9 帧 / 300ms、gap 400ms、`wristGap 0.30~2.2`、`thumbGapRatio<0.75`、`minShapeDelta 0.40`、handedness 标签须不同；语音 500ms；蓝 1500 / 红 1500+2500 / 靠拢 3000 / 漩涡 6000 / 碰撞 7000 / 爆炸 1600 / 余波 1400，全 23000ms；冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印球粒子数 | 2400 ×2 | 蓝球在右、红球在左 |
 | `CLASP_CORE_COUNT` / `CLASP_RING_COUNT` / `CLASP_SHOCK_COUNT` | 漩涡粒子数 | 3200 / 800 ×3 / 700 | 三臂星核 / 三道陀螺环 / 冲击波 |
 | `CLASP_CAST.vortexRadiusFraction` / `vortexSpin` | 星核 | 0.26 / 0.55 | 星核半径占半宽比 / 基础角速度 |
 | `CLASP_CAST.ringRadiusFractions` / `ringTilts` / `ringSpins` / `ringZClamp` | 陀螺环 | 0.50,0.36,0.62 / 0.72,-0.55,0.95 / 0.9,-1.25,0.62 / 0.34 | 半径 / 倾斜 / 自旋 / z 夹取（防点精灵变大方块） |
 | `CLASP_CAST.shockMs` / `shockMaxFraction` | 冲击波 | 900ms / 1.08 | 生命周期 / 扩到半宽的倍数 |
-| `CLASP_CAST.nearWristGapMax` / `suspectMs` | 掉手嫌疑窗 | 2.9 / 600ms | 近手判定（含拇指内扣）后 600ms 内单手 index-up 归为 clasp 嫌疑；**领域手型除外**（`claspSuspect` 里的 `voidSignShape`） |
-| `sfxEnabled` / `sfxPlayCounts` | 释放音效 | 开 / 4 类 | `playSfx('blue'|'purple'|'purpleBurst'|'clasp')` |
+| `RED_BALL` | 赫小球 | 1500 颗 / 半径 4.6 | 17% 外圈火星；`spin 0.85`、呼吸 7%；`redBallVisual` 燃尽包络；赫全程 20k 主场熄灯 |
 | `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
 | `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000（同帧起长语音）/ **等待 8000** / 黑幕淡入 1500 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 动画全 33800ms（从黑幕算）；语音 `audioMs` 31164ms（先结束） |
 | `VOID_STREAK_COUNT` | 开场流星数 | 1200 | 2400 顶点 LineSegments，中心 0、scale 0.8 |
@@ -588,18 +590,18 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   一次点击或按键解锁自动播放（`primeAudio`）。
 - **無量空処的食中指交叉不被 MediaPipe 解析**（扫描见 §7.1）：不要试图用「交叉」判定，用拇指内扣；
   如果用户拇指只内扣到一半（`thumbGapRatio` 0.75~0.85），会落在赫枪形里，表现为展开领域失败。
-- **双手契印依赖双手都被识别**：MediaPipe 在扣合姿势下经常把两只手并成一只（参考视频里约一半帧如此），
-  短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
-  掉手期间残留那只手由 `claspNearMs` + `suspectMs` 归类为 clasp 嫌疑，不会再误触赫（但嫌疑窗只有 600ms，
-  更长的手部丢失会正常回落到赫）。
-- **契印没有「交叉」判据**：MediaPipe 解析不了手指交叉，所以判据是间距+手型。两只手都做领域手型
-  会被 `voidSignShape` 否决，同一只手被识别两次会被 `minWristGap`/handedness/`middleGap` 否决；
-  剩下的近似是「其他成对手型恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/tipGapMax/middleGapMin`。
+- **双手契印不再依赖双手都被识别**：MediaPipe 在扣合姿势下经常只认出张开的那只手（参考视频里约一半帧如此）。
+  现在单手张开手型（四指朝上、拇指内扣）也认，但要走更长的 `soloFrames/soloHoldMs`（9 帧 / 300ms），
+  真双手姿势只要 4 帧 / 120ms；这样偶尔一张开手掌不会误放 23 秒长动画。间距/形状阈值调大更敏感、调小更防误触。
+- **契印没有「交叉」判据**：MediaPipe 解析不了手指交叉，所以判据是间距 + 手型 + 腕相对形状差。
+  同一只手被识别成两只由 handedness（`handsAreDistinct`）、腕距下限 `minWristGap` 与 `minShapeDelta`
+  （重复检测的腕相对布局几乎重合，真实双手不会）否决；领域手型不是张开手，`claspOpenHandShape`
+  直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **231 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **246 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
-  释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
+  术式语音总闸/小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -631,7 +633,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印长动画状态机（blue/red/converge/purple/burst/fade）、0.5s 语音、中心紫色爆炸、2s 冷却 |
 | `claspOrbLayout` / `claspCollisionPulse` / `claspBloomStrength` | 两球位置/半径/透明度（纯函数，回归直接断言）、碰撞脉冲、分阶段 bloom |
 | `claspVortexLayout` / `fillClaspCorePositions` / `fillClaspRingPositions` / `fillClaspShockPositions` | 紫色星系漩涡的纯布局契约与每帧填充 |
-| `claspHandsNear` / `voidSignShape` | 近手 + 拇指内扣的 clasp 上下文判定（掉手嫌疑窗）；领域手型守卫，防止单手领域发动契印 |
+| `claspOpenHandShape` / `claspShapeDelta` | 契印手型（四指朝上 + 拇指内扣）与「同一只手被识别两次」的腕相对形状差守卫 |
 | `startCameraPipeline` / `stopCameraPipeline` / `setCameraEnabled` / `updateStartButton` | 启动门禁：只有顶部栏按钮按下才建 MediaPipe/摄像头；标签/颜色反映追踪状态 |
 | `showIntroPage` / `finishIntro` / `initIntro` | 首次进入的五页教程弹窗与 `introDone` 闸门 |
 | `buildVoidEggUrl` / `openVoidEgg` / `closeVoidEgg` / `setVoidEggEnabled` / `setVoidEggVersion` | 自定义无量空处：到点切 B 站 iframe、版本与清理 |
