@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，300 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，301 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 断言清单（300 项）
+### 1.4 断言清单（301 项）
 
 名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
 下面 1–265 是最终版之前的原有编号；最终版新增的断言见 §1.4b（实际执行顺序以驱动为准，
@@ -360,6 +360,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - English localizes the settings labels
 - English localizes the gesture guide
 - English localizes the about page labels
+- about links the owner repo（`ShanyJin/SAT0RU`）
 - English localizes the custom void panel
 - English audio labels keep the Traditional Chinese technique name
 - English keeps the top-bar technique name in Traditional Chinese
@@ -691,7 +692,7 @@ curl -sI http://127.0.0.1:8787/assets/tutorial/blue.webp | grep -iE 'content-typ
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（300 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（301 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=redcast` / `end=redburn` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/★）可切换、设置底部的**语言行**（中文 / English）可切换且刷新后保持、音频库 9 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过中英双语 → 英文下逐个看欢迎页两张卡片、教程四页、设置、指南、关于、自定义无量空处；确认技法名与字幕仍是繁体中文

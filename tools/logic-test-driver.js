@@ -1242,6 +1242,9 @@
                     .filter((id) => document.querySelector('#about-body a[href*="' + id + '"]')).length + '/2');
             markState('about gives an infringement contact email', 'yes',
                 document.querySelector('#about-body a[href="mailto:shanyaojinjin@gmail.com"]') ? 'yes' : 'no');
+            markState('about links the owner repo', 'ShanyJin/SAT0RU',
+                document.querySelector('#about-body a[href="https://github.com/ShanyJin/SAT0RU"]')
+                    ?.textContent.trim() || 'missing');
             markState('about says all assets come from the internet', 'yes',
                 aboutText.includes('所有素材均来源于网络') ? 'yes' : 'no');
             markState('about credits the two build models', 'yes',

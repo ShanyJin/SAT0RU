@@ -100,7 +100,7 @@
 | 左侧栏副标题 | 五条悟术式模拟 · GOJO MODE | GOJO SATORU · GOJO MODE |
 | 顶部栏左侧 | 保持「呪術廻戦 / Domain Expansion」作为作品标识 | 同左 |
 
-- 上游署名中的 `reinesana/SAT0RU`、改版仓库 `github.com/shanyaojinjin/SAT0RU`、关于页
+- 上游署名中的 `reinesana/SAT0RU`、改版仓库 `github.com/ShanyJin/SAT0RU`、关于页
   “SAT0RU · 原版项目”等**保留原名**，它们指项目而非本站站点名。
 - 构建标记 `BUILD_TAG` 更新为最终版标识（如 `11-27 · 最终版`）。
 

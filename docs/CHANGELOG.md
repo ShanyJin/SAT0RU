@@ -25,12 +25,14 @@
   下降约 75–80%（`index.html` 342KB→85KB、three.js 1.27MB→258KB；模型 `.data` 本身已接近压缩，增益很小），
   重复访问接近即时。**坎**：`SimpleHTTPRequestHandler.guess_type()` 返回字符串而非元组，
   初版多写了个 `[0]`，把 `Content-Type` 截成首字母（模块脚本直接报 MIME 错、整站白屏），已修复并单独提交。
+- **关于页仓库链接**：改版仓库从误写的 `shanyaojinjin/SAT0RU` 更正为 **`ShanyJin/SAT0RU`**
+  （`https://github.com/ShanyJin/SAT0RU`），回归加 1 项确认 href 与显示名。
 - **目录整理**：教程图 `assets/tutorial/*.webp`；`docs/archive/domain-expansion-pr7/` 留档旧开场页；
   README/AGENTS/ARCHITECTURE/TESTING/CHANGELOG 全部同步最终版（双语、加载、缓存、验收清单）。
-- **回归 265 → 300 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、
+- **回归 265 → 301 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、
   技法名不译、语言持久化与切回、进行中的技法不被切语言打断）、欢迎页（浏览器与性能卡片、英文下两张卡片仍在）、
   教程图（本地 webp、按页加载）、加载（音频不预载、MediaPipe 首屏不加载、按需注入、幂等）。
-  最终 `LOGICTEST PASS · 300 assertions`。
+  最终 `LOGICTEST PASS · 301 assertions`。
 
 ## 2026-11-27 · 术式字幕（繁中）、赫保持不再闪断、红球不再抖
 
