@@ -1280,6 +1280,43 @@
             markState('voice switch turns back on', 'on',
                 (typeof voiceEnabled !== 'undefined' && voiceEnabled) ? 'on' : 'off');
 
+            // --- A long clip whose play() rejected gets one retry on the next gesture,
+            // but that retry must pass the same voice gate and stage bookkeeping as a
+            // normal play (no 31-second clip sneaking in after voices are switched off).
+            pendingAudioRetry.clear(); // earlier technique tests may have queued other clips
+            const longEl = audioTracksByKey['void-long'].el;
+            const longPlay = longEl.play;
+            let retryPlays = 0;
+            longEl.play = () => { retryPlays += 1; return Promise.reject(new Error('blocked')); };
+            playAudioClip('void-long');
+            await Promise.resolve(); await Promise.resolve();
+            markState('a rejected long clip queues a retry', 'queued',
+                pendingAudioRetry.has('void-long') ? 'queued' : 'missing');
+            stopAudioClip();
+            if (voiceQuery()) voiceQuery().click(); // voices off
+            longEl.play = () => { retryPlays += 1; return Promise.resolve(); };
+            retryPlays = 0;
+            window.dispatchEvent(new PointerEvent('pointerdown'));
+            await Promise.resolve();
+            markState('long clip retry respects the voice gate', '0', String(retryPlays));
+            markState('long clip retry is dropped while voices are off', 'no',
+                pendingAudioRetry.has('void-long') ? 'still queued' : 'no');
+            if (voiceQuery()) voiceQuery().click(); // voices back on
+            longEl.play = () => { retryPlays += 1; return Promise.reject(new Error('blocked')); };
+            playAudioClip('void-long');
+            await Promise.resolve(); await Promise.resolve();
+            stopAudioClip(); // the stage is free, but the retry is still queued
+            const longCount = audioPlayCounts['void-long'];
+            longEl.play = () => { retryPlays += 1; return Promise.resolve(); };
+            window.dispatchEvent(new PointerEvent('pointerdown'));
+            await Promise.resolve();
+            markState('long clip retry takes over the audio stage', 'void-long', activeAudioKey);
+            markState('long clip retry counts as a normal play', String(longCount + 1),
+                String(audioPlayCounts['void-long']));
+            stopAudioClip();
+            pendingAudioRetry.clear();
+            longEl.play = longPlay;
+
             // --- First-run gate: welcome modal -> four-page tutorial -> camera opt-in ---
             const introModalEl = document.getElementById('intro-modal');
             markState('first visit shows the intro modal', 'visible',

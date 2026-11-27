@@ -71,7 +71,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 295 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 300 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -146,7 +146,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `data-i18n` / `data-i18n-html` / `data-i18n-attr`、`audioLabel()`、`describeVoidEggCustom()`、
   `sat0ru.language`（localStorage）。**不译**：`updateState` 的技法名、`SUBTITLE_CALL_OUTS`、`INTRO_TECH_LABELS`、控制台日志
 - 加载与缓存 → `loadMediaPipeScripts()`、`MEDIA_PIPE_SCRIPTS`、`prefetchMediaPipeScripts()`、`LONG_AUDIO_KEYS`、
-  `ensureLongAudio()`、`primeAudio()`、`prefetchLongAudio()`、`runWhenIdle()`、`loadIntroImage()`、教程图 `data-src`、
+  `ensureLongAudio()`、`primeAudio()`、`prefetchLongAudio()`、`pendingAudioRetry`（长音频失败后下次手势经 `playAudioClip` 重试）、`runWhenIdle()`、`loadIntroImage()`、教程图 `data-src`、
   `window.__sat0ruAudioState()`、`powerPreference`、`renderRafId`（隐藏标签页暂停）、`tools/serve.py` 的 gzip/缓存头
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#start-btn`、`#start-btn-label`、`updateStartButton()`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
   （`#rail-panel-main/guide/about`）、`#egg-panel`、`#egg-info-toggle`、`#egg-custom-url`、`setRailTab()`、`toggleGuideTab()`、`railTab`、
@@ -161,5 +161,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 295/295 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 300/300 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

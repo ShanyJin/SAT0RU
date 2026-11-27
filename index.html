@@ -3168,17 +3168,14 @@
     window.addEventListener('keydown', primeAudio, { once: true });
 
     // One retry for a long clip whose play() rejected while its data was loading.
+    // Go through playAudioClip so the 语音 gate, "only one clip at a time" cleanup,
+    // the audio-library row state and the call-out subtitle all still apply; a clip
+    // queued before the switch was turned off is simply dropped.
     window.addEventListener('pointerdown', () => {
         if (!pendingAudioRetry.size) return;
         const keys = [...pendingAudioRetry];
         pendingAudioRetry.clear();
-        for (const key of keys) {
-            const track = audioTracksByKey[key];
-            if (!track) continue;
-            try { track.el.currentTime = 0; } catch (err) { /* ignore */ }
-            const attempt = track.el.play();
-            if (attempt && attempt.catch) attempt.catch(() => { /* still blocked */ });
-        }
+        for (const key of keys) playAudioClip(key);
     });
 
     function runWhenIdle(fn, timeoutMs = 2500) {

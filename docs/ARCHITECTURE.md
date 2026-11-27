@@ -665,12 +665,13 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **295 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **300 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   术式语音总闸/**术式字幕**（繁体文案、只随播放中的 clip 出现、时长与音频一致、無量空処到黑幕前收）/
   小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢/
   **中英双语**（默认中文、静态与动态区域、语言持久化、英文下技法名仍繁中、切换中不打断术式）/
-  **欢迎页环境卡片**/**教程图 WebP 懒加载与音频 `preload=none`、MediaPipe 首屏 0 脚本与幂等懒加载**）。
+  **欢迎页环境卡片**/**教程图 WebP 懒加载与音频 `preload=none`、MediaPipe 首屏 0 脚本与幂等懒加载、
+  长音频失败后下次手势重试仍走语音总闸与独占播放**）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -727,7 +728,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 **首屏目标**：不碰音频、不下载教程图、不下载 MediaPipe，只加载 HTML + three.js + 字体。
 
 - **教程图**：`<img data-src="/assets/tutorial/*.webp" width height>` 没有 `src`；`showIntroPage()` 调 `loadIntroImage(name)`，轮到该页才把 `data-src` 提升为 `src`。四张图由 Pillow 从原 JPG 转成 WebP（900px 长边、quality 80，合计约 376 KB，原 JPG 约 820 KB）。`finishIntro()` 空闲时再预热一遍（通常已在缓存）。
-- **音频**：9 个 `<audio preload="none">`。`primeAudio()` 在首次 pointerdown/keydown 静音试播：桌面只预热短音频（`LONG_AUDIO_KEYS` 之外的 7 条），iOS/Safari 则必须把 9 条都在同一个手势内 muted 试播，否则元素会保持锁定。`ensureLongAudio(key)` 在真正播放长音频（`void-long`、`purple-clasp`）时把该元素设为 `preload="auto"` 并 `load()`；`play()` 因数据未到而 reject 时记入 `pendingAudioRetry`，下一次 pointerdown 重试一次。教程关闭后 `prefetchLongAudio()` 用 `requestIdleCallback`（兜底 3s）预取两条长音频，iOS 跳过。`window.__sat0ruAudioState()` 暴露 `{primed, prefetched}` 供回归/调试。
+- **音频**：9 个 `<audio preload="none">`。`primeAudio()` 在首次 pointerdown/keydown 静音试播：桌面只预热短音频（`LONG_AUDIO_KEYS` 之外的 7 条），iOS/Safari 则必须把 9 条都在同一个手势内 muted 试播，否则元素会保持锁定。`ensureLongAudio(key)` 在真正播放长音频（`void-long`、`purple-clasp`）时把该元素设为 `preload="auto"` 并 `load()`；`play()` 因数据未到而 reject 时记入 `pendingAudioRetry`，下一次 pointerdown 重试一次；
+  重试走 `playAudioClip()`，因此仍受术式语音总闸、独占播放（暂停其他 clip）、音频库行状态与字幕约束，
+  语音已关时该次重试直接丢弃。教程关闭后 `prefetchLongAudio()` 用 `requestIdleCallback`（兜底 3s）预取两条长音频，iOS 跳过。`window.__sat0ruAudioState()` 暴露 `{primed, prefetched}` 供回归/调试。
 - **MediaPipe**：`MEDIA_PIPE_SCRIPTS`（camera_utils / hands / drawing_utils）不在 `<head>`。`loadMediaPipeScripts()` 幂等串行注入（带 `data-mediapipe`），`startCameraPipeline()` 在 `cameraStarting = true` 后 `await` 它；失败会清空 promise 以便下次「启动」重试，脚本加载期间关掉开关会在 `new Hands` 前返回。教程关闭后空闲 `prefetchMediaPipeScripts()` 只插 `<link rel=prefetch as=script>`，不下载 wasm/模型（模型仍只在启动摄像头后按 `locateFile` 拉取）。
 - **渲染**：`WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })`；`animate()` 在 `document.hidden` 时不再排下一帧，`visibilitychange` 隐藏时 `cancelAnimationFrame(renderRafId)`，可见时若无 `renderRafId` 则重启；摄像头恢复播放仍走原逻辑。
 - **serve.py**：`send_head()` 把目录 `/` 解析到 `index.html` 再走压缩；对 `COMPRESSIBLE`（html/js/mjs/css/json/svg/wasm/data/tflite）且客户端接受 gzip 的请求，返回内存缓存的 `gzip.compress(..., compresslevel=6, mtime=0)`（缓存键含 mtime/size，总上限 64 MB，超限清空）。`Content-Type` 用 `self.guess_type(path)`（注意 `SimpleHTTPRequestHandler.guess_type` 返回字符串，不是 `mimetypes.guess_type` 的元组）。`Cache-Control`：`/vendor/`、`/assets/`、`/audio/` → `public, max-age=31536000, immutable`，其余（含 HTML）→ `no-cache`；压缩响应带 `Vary: Accept-Encoding`。实测 `index.html` 85,447 B、three.js 257,952 B，二次命中约 3 ms。

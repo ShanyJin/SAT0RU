@@ -15,7 +15,7 @@
 - **欢迎页重排**：正文改成「推荐环境」「性能提醒」两张卡片（Chrome/Edge 推荐、Firefox 可用、
   Safari 性能较弱；开硬件加速、关其他吃 GPU 的标签页、软件渲染会掉帧），
   原作作者/原项目/改版作者/隐私/素材来源与联系邮箱留在下方；窄屏卡片变单列，标题让位给语言按钮。
-- **加载与资源优化**：教程图从 JPG 换成本地 WebP（900px 长边、q80，1.1MB → 376KB）并按页懒加载；
+- **加载与资源优化**：教程图从 JPG 换成本地 WebP（900px 长边、q80，828KB → 376KB）并按页懒加载；
   9 条音频 `preload="none"`，长音频（`void-long`/`purple-clasp`）首次手势前才 `load()`，
   iOS/Safari 单独保持静音预热；MediaPipe 三个脚本从 `<head>` 移到「启动」时按需注入，
   空闲时 `<link rel=prefetch>` 预热；`powerPreference:'high-performance'`；
@@ -27,10 +27,10 @@
   初版多写了个 `[0]`，把 `Content-Type` 截成首字母（模块脚本直接报 MIME 错、整站白屏），已修复并单独提交。
 - **目录整理**：教程图 `assets/tutorial/*.webp`；`docs/archive/domain-expansion-pr7/` 留档旧开场页；
   README/AGENTS/ARCHITECTURE/TESTING/CHANGELOG 全部同步最终版（双语、加载、缓存、验收清单）。
-- **回归 265 → 295 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、
+- **回归 265 → 300 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、
   技法名不译、语言持久化与切回、进行中的技法不被切语言打断）、欢迎页（浏览器与性能卡片、英文下两张卡片仍在）、
   教程图（本地 webp、按页加载）、加载（音频不预载、MediaPipe 首屏不加载、按需注入、幂等）。
-  最终 `LOGICTEST PASS · 295 assertions`。
+  最终 `LOGICTEST PASS · 300 assertions`。
 
 ## 2026-11-27 · 术式字幕（繁中）、赫保持不再闪断、红球不再抖
 
