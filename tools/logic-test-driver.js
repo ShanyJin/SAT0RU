@@ -377,6 +377,30 @@
                 if (typeof RED_BALL === 'undefined') return 'missing';
                 return String(RED_BALL.count);
             })());
+            // The orb used to boil: every particle had its own breathing phase (0.08 @ 2.8)
+            // plus a 0.14 ripple on the corona, which reads as constant shaking on camera.
+            // The shell now breathes as one body with only a sliver of per-particle shimmer.
+            markState('red orb breathes instead of shaking', 'calm', (() => {
+                if (typeof RED_BALL === 'undefined') return 'missing';
+                const calm = RED_BALL.breathe <= 0.05 && (RED_BALL.drift || 0) <= 0.02
+                    && RED_BALL.spin <= 0.8;
+                // Same-phase shell: the radius of two particles at the same seed radius must
+                // scale identically over time (no per-particle phase offset).
+                const seeds = redBall.seeds;
+                const r0 = seeds.map((s) => s.r);
+                const sample = (t) => {
+                    fillRedBallPositions(t, 4.8);
+                    return redBall.positions.slice(0, 60);
+                };
+                const a = sample(1.0);
+                const b = sample(1.0 + 1 / 60);
+                let moved = 0;
+                for (let i = 0; i < a.length; i++) moved = Math.max(moved, Math.abs(a[i] - b[i]));
+                // One frame of animation still moves points (the swirl), so only require that
+                // the motion is bounded to a small fraction of the ball radius.
+                const bounded = moved < 4.8 * 0.35;
+                return calm && bounded && r0.length === seeds.length ? 'calm' : 'boiling';
+            })());
             markState('red orb burn-out fades in place', 'fade', (() => {
                 if (typeof redBallVisual !== 'function') return 'missing';
                 const mid = redBallVisual(RED_CAST.burnMs * 0.5);
@@ -503,6 +527,73 @@
             // Red works again once the cooldown expires (two pointing hands also reach Red).
             step(RED2, 25); mark('red after cooldown', 'red');
             step([], 260); // drain again before the voice / Blue suites
+
+            // --- 赫 hold robustness (the reported mid-hold drop-out) ---
+            // The gun form (thumb flared) and 無量空処 (thumb tucked) differ only by
+            // thumbGapRatio around 0.75, so a real hand hovering on that line used to
+            // flicker the field off. The active field now keeps its pose family across the
+            // boundary and bridges a longer tracking dropout.
+            step(gun1(0.5), 20); mark('red started for the hold robustness tests', 'red');
+            // f=0.78 puts the thumb at thumbGapRatio ≈ 0.66: above the hysteresis floor
+            // (0.58) but below the gun rule's 0.75 — the exact band that used to flip the
+            // field into 無量空処 and blink 赫 off.
+            const nearRatio = handShape(mkHand(0.5, 0.75, thumbLerpPts(0.78))).thumbGapRatio;
+            markState('thumbnail pose sits in the old dropout band', 'yes',
+                (nearRatio < 0.75 && nearRatio > 0.58) ? 'yes' : nearRatio.toFixed(2));
+            step(thumbLerp1(0.5, 0.78), 20);
+            markState('red survives a thumb near the void line', 'red',
+                currentTech === 'red' ? 'red' : currentTech);
+            step([], 16); // 528 ms dropout: longer than the old 350 ms bridge
+            step(gun1(0.5), 4);
+            markState('red bridges a longer tracking dropout', 'red',
+                currentTech === 'red' ? 'red' : currentTech);
+            // Jitter guard: the orb must not chase per-frame landmark noise. `redFollowStep`
+            // is the pure damped-follow used by animate(); pin its feel directly.
+            markState('red orb ignores landmark jitter', 'still', (() => {
+                if (typeof redFollowStep !== 'function') return 'missing';
+                const f = { x: 10, y: -4, t: 1000 };
+                const inDead = redFollowStep(f, { x: 10.6, y: -4.5 }, 1033);
+                return Math.abs(inDead.x - 10) < 1e-9 && Math.abs(inDead.y + 4) < 1e-9 ? 'still' : 'drifted';
+            })());
+            // Follow the pure step at the real frame cadence (33 ms) — a single big dt is
+            // capped at 100 ms, so stepping frame by frame is what actually happens.
+            const followTrace = (() => {
+                const trace = { one: NaN, later: NaN };
+                if (typeof redFollowStep !== 'function') return trace;
+                let f = { x: 0, y: 0, t: 1000 };
+                const anchor = { x: 40, y: 0 };
+                for (let i = 1; i <= 45; i++) {
+                    const t = 1000 + i * 33;
+                    const next = redFollowStep(f, anchor, t);
+                    f = { x: next.x, y: next.y, t };
+                    if (i === 1) trace.one = f.x;
+                    if (i === 45) trace.later = f.x;
+                }
+                return trace;
+            })();
+            markState('red orb follows a real move smoothly '
+                + followTrace.one.toFixed(2) + '/' + followTrace.later.toFixed(2), 'eased',
+                (followTrace.one > 0.5 && followTrace.one < 12
+                    && followTrace.later > 36 && followTrace.later <= 40) ? 'eased'
+                    : `one=${followTrace.one.toFixed(2)} later=${followTrace.later.toFixed(2)}`);
+            markState('red orb damping is slow enough to read as floating', 'calm',
+                (RED_HOLD.followTauMs >= 150 && RED_HOLD.deadZone >= 0.5) ? 'calm' : 'twitchy');
+            // The reported shake had two sources besides the particles: (1) a held
+            // 0.4 camera shake for as long as any technique was on screen — the whole
+            // canvas translated ±8 px every frame — and (2) per-particle breathing phases.
+            // The camera kick is now an impulse that decays, never a sustained offset.
+            markState('camera shake is an impulse, not a held offset', 'impulse',
+                (typeof SHAKE_DECAY_TAU_MS === 'number' && SHAKE_DECAY_TAU_MS > 0
+                    && /Math\.max\(shakeIntensity, 0\.4\)/.test(updateState.toString()))
+                    ? 'impulse' : 'held');
+            step([], 60); // let go, then confirm a clear tuck still flips to the domain
+            step(thumbUnder1(0.5, 0, 0.75), 25);
+            markState('void still takes over from a clear tuck', 'neutral|void',
+                currentTech === 'neutral' || currentTech === 'void' ? 'neutral|void' : currentTech);
+            step([], 40);
+            step(gun1(0.5), 20);
+            step([], 300); // drain this block's cooldown before the voice suite
+
 
             // --- 赫 voice: either Red form held 1 s plays one of the two local clips,
             // exactly once per continuous hold — dropping the sign re-arms it. ---
@@ -1391,6 +1482,60 @@
                 (typeof voidEggEnabled !== 'undefined' && !voidEggEnabled) ? 'off' : 'on');
             step([], 40); // release the held void sign before the demos
 
+            // --- Technique call-out subtitles: traditional lines that ride the voice clips ---
+            // Only a clip that actually starts gets a line (voice switch off => no audio =>
+            // no line), the line lasts exactly as long as its clip, and 無量空処's line is
+            // gone before the black stage takes the ring away.
+            const subEl = document.getElementById('technique-subtitle');
+            markState('call-out subtitle element exists', 'yes|zh-Hant|hidden',
+                subEl
+                    ? 'yes|' + subEl.getAttribute('lang') + '|'
+                        + (subEl.getAttribute('aria-hidden') === 'true' ? 'hidden' : 'exposed')
+                    : 'missing');
+            const callOutText = (key) => {
+                const track = audioTracksByKey[key];
+                if (!track) return 'no-track';
+                playAudioClip(key, true);
+                showTechniqueSubtitle(key, track.el);
+                const el = document.getElementById('technique-subtitle');
+                return el ? el.textContent.trim() : 'missing';
+            };
+            markState('call-out lines are traditional fansub titles',
+                '術式順轉『蒼』|術式反轉『赫』|虛式『茈』|領域展開『無量空處』',
+                [callOutText('blue'), callOutText('he-1'), callOutText('purple'), callOutText('void')].join('|'));
+            // A line only shows for the clip that is currently playing (voice gate + failed
+            // play both leave the stage clean); asking for another clip's line is ignored.
+            playAudioClip('purple', true);
+            finishTechniqueSubtitle();
+            showTechniqueSubtitle('blue', audioTracksByKey.blue.el);
+            const ignoredLine = !!techniqueSubtitle ? 'leaked' : 'ignored';
+            showTechniqueSubtitle('purple', audioTracksByKey.purple.el);
+            markState('call-out only appears for the playing clip', 'ignored|shown',
+                ignoredLine + '|' + (techniqueSubtitle && techniqueSubtitle.audioKey === 'purple' ? 'shown' : 'missing'));
+            const blueTiming = subtitleTiming(SUBTITLE_FALLBACK_MS.blue);
+            const shortTiming = subtitleTiming(1500);
+            markState('call-out timing tracks the clip length', '3543|480|1020|480',
+                [blueTiming.fadeAtMs, blueTiming.fadeOutMs, shortTiming.fadeAtMs, shortTiming.fadeOutMs].join('|'));
+            markState('call-out ends with its clip', 'exact|exact',
+                (blueTiming.fadeAtMs + blueTiming.fadeOutMs === blueTiming.durationMs ? 'exact' : 'off')
+                    + '|' + (shortTiming.fadeAtMs + shortTiming.fadeOutMs === shortTiming.durationMs ? 'exact' : 'off'));
+            // 無量空処 pre-cut: a far-away cinematic trigger leaves the line alone, a near one
+            // starts the fade, and the black stage itself never inherits a line.
+            playAudioClip('void', true);
+            showTechniqueSubtitle('void', audioTracksByKey.void.el);
+            cueDomainSubtitleBlackCut(t + 4000, t);
+            const farCut = techniqueSubtitle && !techniqueSubtitle.ending ? 'waiting' : 'ended';
+            cueDomainSubtitleBlackCut(t + 120, t);
+            markState('domain call-out fades on the black cut', 'waiting|ending',
+                farCut + '|' + (techniqueSubtitle && techniqueSubtitle.ending ? 'ending' : 'idle'));
+            startVoidCinematic(t, false);
+            markState('black stage never keeps a call-out', 'cleared',
+                techniqueSubtitle ? 'lingering' : 'cleared');
+            finishVoidCinematic();
+            voidHoldAwarded = false;
+            finishTechniqueSubtitle();
+            stopAudioClip();
+
             step([], 10); mark('end', null);
 
             // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|redcast|redburn|purplecharge|purpleburst|void|voidform|voidring
@@ -1402,7 +1547,8 @@
                 || endMode === 'claspclash' || endMode === 'claspburst';
             const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
             const isEggDemo = endMode === 'voidegg';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || isRedFxDemo || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isEggDemo) {
+            const isSubtitleDemo = endMode === 'sub';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || isRedFxDemo || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isEggDemo || isSubtitleDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
@@ -1445,6 +1591,52 @@
                             }
                         };
                         document.title = 'CLASP DEMO · ' + endMode.toUpperCase();
+                    }
+                } else if (isSubtitleDemo) {
+                    // Call-out screenshot: &end=sub&call=blue|red|purple|void pins a line
+                    // (no audio) so a slow software-GL capture still lands on it.
+                    const callKey = ['blue', 'he-1', 'purple', 'void'].includes(
+                        new URLSearchParams(location.search).get('call'))
+                        ? new URLSearchParams(location.search).get('call') : 'blue';
+                    const callLive = new URLSearchParams(location.search).has('live');
+                    activeAudioKey = callKey; // let showTechniqueSubtitle accept the key
+                    const callDurationMs = SUBTITLE_FALLBACK_MS[callKey] || 2000;
+                    showTechniqueSubtitle(callKey, { duration: callDurationMs / 1000 });
+                    // &live=1 keeps the real timers so a screen recording can see the
+                    // entrance and the tail fade; otherwise the line is pinned for stills.
+                    if (techniqueSubtitle && !callLive) clearTechniqueSubtitleTimers(techniqueSubtitle);
+                    document.title = 'SUBTITLE DEMO · ' + callKey.toUpperCase();
+                    if (callLive) {
+                        // Sample the real transition in this browser (test artifact only):
+                        // when the line becomes readable, holds, and is gone again.
+                        // Compositor-driven opacity can be throttled in software rendering
+                        // (the same 1-3 fps limit as WebGL), so measure the schedule instead:
+                        // when the tail fade is armed, and when the line is fully gone.
+                        const subElLive = document.getElementById('technique-subtitle');
+                        const timing = subtitleTiming(callDurationMs);
+                        const t0 = performance.now();
+                        let fadedAt = -1;
+                        let goneAt = -1;
+                        let shownAt = -1;
+                        while (performance.now() - t0 < callDurationMs + 900) {
+                            const at = performance.now() - t0;
+                            if (shownAt < 0 && subElLive.classList.contains('visible')) shownAt = at;
+                            if (fadedAt < 0 && subElLive.classList.contains('out')) fadedAt = at;
+                            if (goneAt < 0 && !techniqueSubtitle) { goneAt = at; break; }
+                            await new Promise((resolve) => setTimeout(resolve, 40));
+                        }
+                        // One second of slack: background/software-rendered tabs batch timers.
+                        const fadeOff = fadedAt < 0 ? 9999 : Math.abs(fadedAt - timing.fadeAtMs);
+                        const goneOff = goneAt < 0 ? 9999 : Math.abs(goneAt - timing.durationMs);
+                        const profile = 'shown' + Math.round(shownAt) + '|fade' + Math.round(fadedAt)
+                            + '(±' + Math.round(fadeOff) + ')|gone' + Math.round(goneAt) + '(±' + Math.round(goneOff) + ')';
+                        window.__subLiveProfile = profile; // CDP/console readout for the live check
+                        // Name carries the numbers so the tab title (which only keeps the
+                        // first failing line) shows the measured profile.
+                        markState('call-out live schedule ' + profile, 'on-time|on-time|on-time',
+                            (shownAt >= 0 ? 'on-time' : 'missing') + '|'
+                                + (fadeOff <= 1000 ? 'on-time' : 'off') + '|'
+                                + (goneOff <= 1000 ? 'on-time' : 'off'));
                     }
                 } else if (endMode === 'void') {
                     // 無量空処: pin the domain field without needing the camera. The white

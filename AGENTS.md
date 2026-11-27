@@ -69,7 +69,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 248 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 265 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -105,6 +105,9 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `updateTechniqueVoices`、`blueCharge.startedMs`（苍语音计时）、`audioPlayCounts`、`buildAudioLibrary`、
   `#rail-panel-main` 的 `#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`
   （赫/無量空処 1 秒）、`BLUE_SEQ.voiceDelayMs`（苍构筑后 2 秒）
+- 术式字幕（繁中技名跟语音走）→ `#technique-subtitle`、`SUBTITLE_CALL_OUTS`、`SUBTITLE_FALLBACK_MS`、
+  `showTechniqueSubtitle`、`subtitleTiming`、`endTechniqueSubtitleWithin`、`cueDomainSubtitleBlackCut`、
+  `finishTechniqueSubtitle`（`playAudioClip` 的 `play().then` 里启动）、`window.__techniqueSubtitleState()`
 - 术式语音总闸 → `voiceEnabled`（默认开）、`setVoiceEnabled`、`playAudioClip(key, manual)` 的
   `!voiceEnabled && !manual` 门控、`toggleAudioClip` 传 `manual=true`（音频库手动点击永远能播）
 - 长时间无量空处 → `VOID_CINEMA_LONG`（`holdMs/startDelayMs/fadeInMs/audioMs/endMs`）、`voidLongMode`、`setVoidLongMode`、
@@ -149,5 +152,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 248/248 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 265/265 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

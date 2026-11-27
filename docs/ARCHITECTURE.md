@@ -522,6 +522,69 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 「音效开关」本意是**术式语音（五条悟的声音）的总开关**。合成音效、`sfxEnabled` 与设置里的 SFX 行
 全部移除；现在设置里只有「术式语音 · Voices」（`voiceEnabled`）。
 
+### 11.1b 赫的保持稳定与「不抖」（red hold robustness）
+
+两个真实反馈一起修的：赫在构筑/保持时**很容易自动失效**，以及**红球一直在抖**。
+
+**为什么会自动失效**：赫的枪形（拇指外张，`thumbGapRatio > 0.75`）和無量空処
+（拇指内扣，`< 0.75`）只差拇指位置。真手停在 0.75 附近时，这一帧算赫、下一帧算领域，
+`pickGestureFromScores` 便把当前技法判成 neutral，赫场就闪断。修法：
+
+- **家族保持 + 拇指迟滞**（`RED_HOLD.voidGuardRatio = 0.58`）：赫在场时，只要还是
+  「食指朝上」或「食指+中指朝上」的姿势家族、且拇指没有**明确**内扣到 0.58 以下，就继续算赫。
+  想切领域必须真的把拇指收进去（0.75 → 0.58 的那段就是迟滞带）。
+- **掉帧桥接 350 → 650 ms**（`RED_HOLD.graceMs`）：短暂丢手不再立刻熄场。
+- **单手握持锚点**（`redAnchor.owner`）：两只手（或同一只手被识别两次）不会让球在两手之间跳。
+
+**为什么会抖**，两个独立来源：
+
+1. **整块画布在抖**：`updateState()` 里原来写 `shakeIntensity = tech !== 'neutral' ? 0.4 : 0`，
+   而 `animate()` 每帧 `translate((Math.random()-0.5) * shake * 40 px)` —— 只要任何技法在场，
+   **每一帧整块 WebGL 画布随机平移 ±8 px**。赫一保持几秒，球看上去就是不停抖。
+   现在改成**冲击式**：技法切换只 *加* 一次 0.4 的 kick，`animate()` 用
+   `SHAKE_DECAY_TAU_MS = 150 ms` 指数衰减，约 0.3 秒归零。实测球心漂移从 4.5–14.6 px
+   降到 0.05–0.6 px（Xvfb 连续抽帧测重心）。
+2. **粒子在沸腾**：原来每颗粒子有独立呼吸相位（`breathe 0.08 @ 2.8 rad/s`）外加 0.14 的日冕波纹。
+   现在**整个壳同相位**呼吸（`breathe 0.035 @ 1.05 Hz`），只有 `drift 0.012` 的极轻微 shimmer，
+   自转也从 1.15 降到 0.55 rad/s。
+3. **跟手太急**：球的位置阻尼原来是 110 ms 直跟。现在抽出纯函数 `redFollowStep()`
+   （`followTauMs 200`，死区 `deadZone 0.8`，软过渡 `softZone 2.4`）：
+   小于死区的手部抖动**完全不动**，真实移动平滑缓入（回归断言一帧只走 ~15% 差距）。
+
+### 11.2 术式字幕（technique call-out subtitles）
+
+术式发动时，画面下方三分之一处出现一行**字幕组风格**的繁中技名，和语音一起进一起出。
+
+| 语音 key | 字幕 | 配色主题 |
+|---|---|---|
+| `blue` | 術式順轉『蒼』 | `theme-blue`（冰蓝字 + 蓝辉光） |
+| `he-1` / `he-2` | 術式反轉『赫』 | `theme-red` |
+| `void` / `void-long` | 領域展開『無量空處』 | `theme-void` |
+| `purple` / `purple-clasp` | 虛式『茈』 | `theme-purple` |
+
+- **只跟语音走，不跟手势走**：字幕在 `playAudioClip()` 里启动——
+  `audio.play()` 成功后的 `.then()` 才调 `showTechniqueSubtitle()`。
+  所以「术式语音」总闸关掉（`playAudioClip` 提前 return）、或被浏览器策略拒绝播放时，
+  **字幕也不会单独冒出来**；换轨、手动点击音频库同样按规则处理。
+- **时长与音频一致**：`subtitleTiming(duration)`（纯函数，回归可测）取
+  `<audio>.duration`（未就绪时用 ffprobe 量出的 `SUBTITLE_FALLBACK_MS`），
+  在最后 `fadeOutMs = min(480, max(160, dur*40%))` 处起淡出，
+  于是「淡出结束时刻 == 音频结束时刻」。进场 320ms（CSS `opacity` 过渡），
+  文字同时从下往上抬 18px、缩放到 1.03→1。
+- **无量空処的提前收**：要求「进黑幕（环消失）之前字幕就结束」。`maybeTriggerVoidCinematic`
+  每帧算出定点触发时刻 `voidEnteredAtMs + holdMs + startDelayMs`，一旦距它不足一次淡出时长，
+  就调 `cueDomainSubtitleBlackCut()` 把淡出**卡在这段剩余时间里**（提前淡出、落在黑幕上）。
+  `startVoidCinematic()` 再兜底 `finishTechniqueSubtitle()` 硬清一次；
+  `body.void-cinema` 也会把 `#technique-subtitle` 一起隐藏。
+- 清理路径：`stopAudioClip()`（手动停止 / 关语音总闸）→ 200ms 内淡出；
+  换另一条语音 → 180ms 内淡出；`ended` → 立即收干净；
+  `#technique-subtitle` 是 `position:fixed; z-index:60`，在粒子层之上、顶栏/侧栏/教程之下，
+  `pointer-events:none`，`aria-hidden="true"`（纯装饰，读屏不念）。
+- 字体：`Noto Serif CJK TC` 等系统**繁体**明/宋体（`lang="zh-Hant"`），
+  字重 900、字距 0.05em，前缀小字 + 主名大字；
+  描边用 8 向 `text-shadow`（不用 `-webkit-text-stroke`，实测会吃字形）+ 主题辉光。
+- 调试：`window.__techniqueSubtitleState()` 返回当前 key / 是否领域 / 是否在淡出 / 是否可见 / 文案。
+
 ## 12. 参数速查（改之前先读注释）
 
 | 位置（grep 锚点） | 参数 | 现值 | 说明 |
@@ -541,6 +604,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `VOICE_HOLD_MS` | 术式语音门槛 | 1000ms | 苍/赫/普通無量空処保持满 1 秒播一次；见 §11.1 |
 | `AUDIO_TRACKS` | 本地音频清单 | 9 条 | 苍/赫×2/無量空処×2/茈短/契印 + 失败/校训（后两条只手动点）；左侧栏与语音触发共用 |
 | `voiceEnabled` | 术式语音总闸 | 开 | 手势触发语音全静音；音频库手动点击传 `manual=true` 不受影响 |
+| `SUBTITLE_CALL_OUTS` | 字幕文案表 | 4 组 | key → 前缀 + 『技名』 + 配色主题；见 §11.2 |
+| `SUBTITLE_FADE_IN_MS` / `SUBTITLE_FADE_OUT_MS` | 字幕进场/淡出 | 320 / 480ms | 淡出被 `subtitleTiming()` 收到 clip 末尾 |
+| `SUBTITLE_FALLBACK_MS` | 音频时长兜底 | 见 §11.2 | `<audio>.duration` 未就绪时使用（ffprobe 实测值） |
 | `CHARGE.*` | 释放判定 | 见 §4.5 | 灵敏度都在这里 |
 | `CHARGE.pushMinGrowth / pushMinRate` | 前推闸门 | 0.24 / 1.7/s | 累计掌尺寸增幅 / 平均增速 |
 | `CHARGE.pushMinMs / pushMinSamples` | 前推持续 | 110ms / 3 采样 | 滤掉单帧/两帧关键点跳变 |
@@ -599,9 +665,10 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **248 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **265 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
-  术式语音总闸/小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
+  术式语音总闸/**术式字幕**（繁体文案、只随播放中的 clip 出现、时长与音频一致、無量空処到黑幕前收）/
+  小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
 ## 14. 关键函数索引（`index.html`）
 
