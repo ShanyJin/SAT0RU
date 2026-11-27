@@ -1149,6 +1149,12 @@
                 document.querySelector('#about-body a[href="mailto:shanyaojinjin@gmail.com"]') ? 'yes' : 'no');
             markState('about says all assets come from the internet', 'yes',
                 aboutText.includes('所有素材均来源于网络') ? 'yes' : 'no');
+            markState('about credits the two build models', 'yes',
+                aboutText.includes('本应用由 DeepSeek-V4.1 flash 跟 Gemini 4 Neon 共同完成') ? 'yes' : 'no');
+            const aboutModelIcons = Array.from(document.querySelectorAll('#about-body .about-model svg'));
+            markState('about shows one local icon per model', '2/2',
+                aboutModelIcons.filter((svg) => !/url\(\s*['"]?https?:/i.test(svg.outerHTML)
+                    && !svg.querySelector('image')).length + '/2');
             if (railTabs[0]) railTabs[0].click();
             markState('main tab returns', 'main', (mainPanel && !mainPanel.hidden) ? 'main' : 'hidden');
             markState('settings keep debug/voice/voidlong/egg', 'debug,voice,voidlong,egg',
@@ -1200,6 +1206,8 @@
             markState('intro carries the asset notice and contact', 'yes',
                 (welcomeText.includes('所有用到的素材均来源于网络')
                     && welcomeText.includes('shanyaojinjin@gmail.com')) ? 'yes' : 'no');
+            markState('intro asks for a bright clear play space', 'yes',
+                (welcomeText.includes('光线充足') && welcomeText.includes('背景清晰')) ? 'yes' : 'no');
             const introTechPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-tech]'));
             markState('tutorial technique order', 'blue,red,purple,void',
                 introTechPages.map((p) => p.dataset.introTech).join(','));

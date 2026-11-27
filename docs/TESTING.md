@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，246 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，249 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 246 项断言（按顺序）
+### 1.4 249 项断言（按顺序）
 
 名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
 
@@ -252,65 +252,68 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 185. about lists both bilibili videos with thanks
 186. about gives an infringement contact email
 187. about says all assets come from the internet
-188. main tab returns
-189. settings keep debug/voice/voidlong/egg
-190. synthesized SFX are gone for good
-191. technique voices are on by default
-192. gesture voice plays while the switch is on
-193. voice switch turns off
-194. gesture voice is silent when switched off
-195. manual audio-library click still plays when voices are off
-196. voice switch turns back on
-197. first visit shows the intro modal
-198. intro has welcome plus four technique pages
-199. intro credits the manga author, original project, fork author and site
-200. intro promises local-only processing
-201. intro carries the asset notice and contact
-202. tutorial technique order
-203. tutorial images live under assets
-204. tutorial image files are served
-205. intro starts at step one
-206. intro acknowledgement button exists
-207. acknowledgement opens the blue tutorial
-208. tutorial walks through to the void page
-209. purple tutorial text drops the old year
-210. finishing the tutorial closes the modal
-211. intro gate reaches the app
-212. camera and model are idle before opt-in
-213. top bar holds the start button
-214. start button defaults off with a click-to-start label
-215. start button calls the camera once
-216. start button waits for tracking
-217. start button shows running
-218. switching off stops the camera
-219. start button returns to off
-220. settings no longer hold the start row
-221. settings include the custom void easter egg
-222. custom void defaults off
-223. custom void switch turns on
-224. egg panel opens with the switch
-225. egg info starts collapsed
-226. egg info explains the custom video
-227. egg info arrow expands the description
-228. egg offers three versions and starts at one
-229. egg version two is selected
-230. void egg overlay starts hidden
-231. void cinematic arms for the egg
-232. egg waits for the transit to finish
-233. egg cuts in when the transit ends
-234. egg plays the selected bilibili video
-235. egg can be closed and clears the iframe
-236. custom egg rejects b23.tv short links
-237. custom egg parser extracts the BV id and page
-238. custom egg rejects text without a video id
-239. egg version three waits for a link
-240. custom egg input appears for version three
-241. custom egg saves the pasted link
-242. custom egg plays through the bilibili player
-243. custom egg link persists locally
-244. custom egg confirms the saved link
-245. egg switch turns off again
-246. end
+188. about credits the two build models
+189. about shows one local icon per model
+190. main tab returns
+191. settings keep debug/voice/voidlong/egg
+192. synthesized SFX are gone for good
+193. technique voices are on by default
+194. gesture voice plays while the switch is on
+195. voice switch turns off
+196. gesture voice is silent when switched off
+197. manual audio-library click still plays when voices are off
+198. voice switch turns back on
+199. first visit shows the intro modal
+200. intro has welcome plus four technique pages
+201. intro credits the manga author, original project, fork author and site
+202. intro promises local-only processing
+203. intro carries the asset notice and contact
+204. intro asks for a bright clear play space
+205. tutorial technique order
+206. tutorial images live under assets
+207. tutorial image files are served
+208. intro starts at step one
+209. intro acknowledgement button exists
+210. acknowledgement opens the blue tutorial
+211. tutorial walks through to the void page
+212. purple tutorial text drops the old year
+213. finishing the tutorial closes the modal
+214. intro gate reaches the app
+215. camera and model are idle before opt-in
+216. top bar holds the start button
+217. start button defaults off with a click-to-start label
+218. start button calls the camera once
+219. start button waits for tracking
+220. start button shows running
+221. switching off stops the camera
+222. start button returns to off
+223. settings no longer hold the start row
+224. settings include the custom void easter egg
+225. custom void defaults off
+226. custom void switch turns on
+227. egg panel opens with the switch
+228. egg info starts collapsed
+229. egg info explains the custom video
+230. egg info arrow expands the description
+231. egg offers three versions and starts at one
+232. egg version two is selected
+233. void egg overlay starts hidden
+234. void cinematic arms for the egg
+235. egg waits for the transit to finish
+236. egg cuts in when the transit ends
+237. egg plays the selected bilibili video
+238. egg can be closed and clears the iframe
+239. custom egg rejects b23.tv short links
+240. custom egg parser extracts the BV id and page
+241. custom egg rejects text without a video id
+242. egg version three waits for a link
+243. custom egg input appears for version three
+244. custom egg saves the pasted link
+245. custom egg plays through the bilibili player
+246. custom egg link persists locally
+247. custom egg confirms the saved link
+248. egg switch turns off again
+249. end
 
 ### 1.5 加用例的坑
 
@@ -572,7 +575,7 @@ D 面板里 `camera: tracking frames:N last:...ms err:-` 持续增长。首次�
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（246 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（249 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=redcast` / `end=redburn` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/★）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化

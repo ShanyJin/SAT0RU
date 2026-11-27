@@ -442,7 +442,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 
 ## 11. 界面层
 
-- Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、暖金 `#D8A657` 强调、噪点纹理。
+- Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、青蓝 `#66CCFF` 强调、噪点纹理。
 - 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏 + `#start-btn`
   摄像头启动按钮（见下方「启动门禁」）；正中央
   `#technique-name` 用 22px 纯白字显示当前技法**原版名**（`updateState` → `setTechniqueName()`）：
@@ -460,13 +460,13 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
     再往下是 **音频 · Audio**（`#audio-list`，见 §11.1）；
   - `#rail-panel-guide`（指南）：`#gesture-guide` 渲染 `GUIDE_GOJO`；
   - `#rail-panel-about`（关于）：`#about-body`（原作作者 + 改版作者/网站/仓库、原项目、素材鸣谢与侵权联系邮箱、
-    两条彩蛋视频的 B 站链接、开源依赖、本地化说明）。
+    两条彩蛋视频的 B 站链接、开源依赖、本地化说明、DeepSeek-V4.1 flash / Gemini 4 Neon 双模型鸣谢（本地内联 SVG 图标））。
   `setRailTab(name)` 校验名字后设 `railTab`、切 `.active`/`aria-selected`、隐藏其它面板；栏收起时点击标签
   会先展开。H 键走 `toggleGuideTab()`（指南 ⇄ 主菜单）。音乐、按键表、纯净模式、技法轮换、
   独立开场页入口、黒閃均已按主人要求删除。
 - **启动门禁**：`cameraEnabled` 默认 `false`，`startCameraPipeline()` 只在顶部栏 `#start-btn` 按下时调用；
   关掉走 `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。`updateStartButton()` 按 `cameraStatus`
-  更新标签与 `data-state`：「启动 / 启动中 / 等待追踪 / 追踪中 / 追踪异常 / 启动失败」，颜色从暖金到
+  更新标签与 `data-state`：「启动 / 启动中 / 等待追踪 / 追踪中 / 追踪异常 / 启动失败」，颜色从青蓝到
   绿（追踪中）再到红（异常）；按钮是 `#ui` 里少数 `pointer-events:auto` 的元素。窄屏只留图标+短标签，
   `#ui h1` 隐藏。
 - **移动端追踪加固**：`<video playsinline muted autoplay>`（iOS Safari 不静音内联就不自动播放，
@@ -599,7 +599,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **246 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **249 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   术式语音总闸/小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
