@@ -48,7 +48,8 @@
   短版定格动画播到「穿梭」、白环出现前切断并全屏用 B 站官方 iframe 播放视频，Esc/关闭退出；
   这是唯一可能发起的外部请求，长版动画不触发，版本 3 没有链接时也不切断
 
-单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
+单人拍摄/娱乐用，不作为公开服务运营；代码托管在主人自己的 GitHub 仓库 **ShanyJin/SAT0RU**。
+上游 reinesana/SAT0RU 无 LICENSE，`origin` 始终指向上游且**永不推送**。
 其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
 
 ## 跑起来
@@ -67,9 +68,22 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 全部依赖在 `vendor/`，**零外网请求**；MIME 必须有 `.wasm→application/wasm`、`.data/.tflite→application/octet-stream`（`tools/serve.py` 已处理）
 - `tools/serve.py` 默认 gzip + 缓存头：文本/模型压缩结果缓存在内存，`/vendor/`、`/assets/`、`/audio/` 为 immutable，HTML 为 `no-cache`；改了 `index.html` 刷新即生效，改 `serve.py` 后要 `systemctl --user restart sat0ru`
 
+发布到主人的 GitHub 仓库（`main` 与 `final` 同步；`origin` 不动）：
+
+```bash
+git push mine final                 # 工作分支
+git push --force-with-lease mine final:main   # main 跟 final 对齐
+```
+
+远端 `mine` 已配好 `core.sshCommand`（`ssh -F /dev/null -i ~/.ssh/sat0ru_deploy …`），
+不需要改 `~/.ssh/config`；部署密钥必须勾选 **Allow write access**，否则只会报
+`Permission … denied to deploy key`（能读不能写）。
+
 ## 铁律
 
-1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
+1. **`origin` 是上游仓库，绝不 push**（推送即污染别人的项目）；发布只推 `mine`
+   （`git@github.com:ShanyJin/SAT0RU.git`）。部署密钥 `~/.ssh/sat0ru_deploy`（只读公钥可公开，
+   **私钥一律不入库**），本仓库的 `core.sshCommand` 已指向它。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
 3. **改识别/阈值后必须跑全量无摄像头回归（当前 301 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。

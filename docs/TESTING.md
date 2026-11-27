@@ -698,4 +698,5 @@ curl -sI http://127.0.0.1:8787/assets/tutorial/blue.webp | grep -iE 'content-typ
 - [ ] 动过中英双语 → 英文下逐个看欢迎页两张卡片、教程四页、设置、指南、关于、自定义无量空处；确认技法名与字幕仍是繁体中文
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
-- [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点
+- [ ] 提交并推送 `mine`（`git push mine final && git push mine final:main`；`origin` 不动），
+      汇报：做了什么 / 没动什么 / 风险点
