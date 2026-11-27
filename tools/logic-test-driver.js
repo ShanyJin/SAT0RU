@@ -350,6 +350,10 @@
         const markState = (name, expect, actual) => {
             log.push(name + ' -> ' + actual + (actual === expect ? ' OK' : ' FAIL(want ' + expect + ')'));
         };
+        // Snapshot the startup preload state before any test plays a long clip (playing
+        // one on demand legitimately switches its preload to auto).
+        const initialAudioPreloadNone = Array.from(document.querySelectorAll('audio'))
+            .filter((a) => a.preload === 'none').length;
 
         try {
             step([], 5); mark('neutral', 'neutral');
@@ -1303,14 +1307,16 @@
             markState('tutorial technique order', 'blue,red,purple,void',
                 introTechPages.map((p) => p.dataset.introTech).join(','));
             const introImgs = Array.from(document.querySelectorAll('#intro-modal .intro-figure img'));
-            const introImgSources = introImgs.map((img) => img.getAttribute('src') || '');
-            markState('tutorial images live under assets', 'local,local,local,local',
-                introImgSources.map((src) => (src.startsWith('/assets/tutorial/') ? 'local' : 'remote')).join(','));
+            const introImgSources = introImgs.map((img) => img.getAttribute('data-src') || '');
+            markState('tutorial images are local webp files', 'local,local,local,local',
+                introImgSources.map((src) => (src.startsWith('/assets/tutorial/') && src.endsWith('.webp') ? 'local' : 'remote')).join(','));
             const introImgServed = await Promise.all(introImgSources.map(async (src) => {
                 try { return (await fetch(src)).ok; } catch (e) { return false; }
             }));
             markState('tutorial image files are served', '4/4',
                 introImgServed.filter(Boolean).length + '/4');
+            markState('tutorial images wait for their page', '0/4',
+                introImgs.filter((img) => img.getAttribute('src')).length + '/4');
             const introStepEl = document.getElementById('intro-step');
             markState('intro starts at step one', '01 / 05', introStepEl ? introStepEl.textContent.trim() : 'missing');
             const introAck = document.querySelector('#intro-modal [data-intro-action="ack"]');
@@ -1322,6 +1328,8 @@
             if (introNext) { introNext.click(); introNext.click(); introNext.click(); }
             markState('tutorial walks through to the void page', 'void',
                 document.querySelector('#intro-modal [data-intro-page="void"]:not([hidden])') ? 'void' : 'other');
+            markState('tutorial images load as their pages open', '4/4',
+                introImgs.filter((img) => (img.getAttribute('src') || '').endsWith('.webp')).length + '/4');
             const purpleIntroText = document.querySelector('#intro-modal [data-intro-page="purple"]')?.textContent || '';
             markState('purple tutorial text drops the old year', 'clean',
                 (!purpleIntroText.includes('2026') && purpleIntroText.includes('茈的短语音'))
@@ -1883,6 +1891,17 @@
             if (langBtn('zh')) langBtn('zh').click();
             markState('switching back restores Chinese', 'zh-CN', document.documentElement.lang || 'missing');
             markState('switching back restores the Chinese title', '五条悟术式模拟', document.title || 'missing');
+            markState('audio elements do not preload at startup', '9/9',
+                initialAudioPreloadNone + '/9');
+            markState('MediaPipe scripts stay out of the first load', '0',
+                String(document.querySelectorAll('script[src*="/vendor/mediapipe/"]').length));
+            markState('MediaPipe lazy loader exists', 'function', typeof loadMediaPipeScripts);
+            await loadMediaPipeScripts();
+            markState('MediaPipe header scripts load on demand', '3',
+                String(document.querySelectorAll('script[data-mediapipe]').length));
+            markState('MediaPipe lazy loading is idempotent', '3',
+                (await loadMediaPipeScripts(),
+                    String(document.querySelectorAll('script[data-mediapipe]').length)));
         }
         } catch (err) {
             log.push('EXCEPTION -> ' + (err && err.message ? err.message : String(err)));
