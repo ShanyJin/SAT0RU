@@ -3,6 +3,35 @@
 按时间倒序阅读也行——但建议从下往上，能看清每个决定是被什么逼出来的。
 只记「为什么改/改成了什么」，参数细节看 `docs/ARCHITECTURE.md`。
 
+## 2026-11-27 · 最终版：更名「五条悟术式模拟」、中英双语、欢迎页重排、加载优化
+
+- **更名**：站点名与 `<title>` 统一为 **五条悟术式模拟**，英文界面用 *Gojo Satoru Cursed Technique Simulator*；
+  副标题从「咒术回战手势粒子工具 · 五条悟模式 · 单人拍摄 / 娱乐用途」改为 **咒术回战手势触发模拟**。
+- **中英双语（默认中文）**：欢迎页右上角与左侧栏设置底部各有一行「中文 / English」，
+  选择存 `localStorage['sat0ru.language']`，刷新保持。字典在早期 classic 脚本里（`SAT0RU_I18N`），
+  静态文案用 `data-i18n*` 标记，动态文案走 `t()`；欢迎页、教程五页、设置、三个侧栏面板、
+  自定义无量空处、音频库、关于页全部覆盖。**技法名、术式字幕、顶栏技法名、控制台日志不译**，
+  仍是繁体中文原名；进行中的技法切语言不受影响。
+- **欢迎页重排**：正文改成「推荐环境」「性能提醒」两张卡片（Chrome/Edge 推荐、Firefox 可用、
+  Safari 性能较弱；开硬件加速、关其他吃 GPU 的标签页、软件渲染会掉帧），
+  原作作者/原项目/改版作者/隐私/素材来源与联系邮箱留在下方；窄屏卡片变单列，标题让位给语言按钮。
+- **加载与资源优化**：教程图从 JPG 换成本地 WebP（900px 长边、q80，1.1MB → 376KB）并按页懒加载；
+  9 条音频 `preload="none"`，长音频（`void-long`/`purple-clasp`）首次手势前才 `load()`，
+  iOS/Safari 单独保持静音预热；MediaPipe 三个脚本从 `<head>` 移到「启动」时按需注入，
+  空闲时 `<link rel=prefetch>` 预热；`powerPreference:'high-performance'`；
+  标签页隐藏时暂停 `requestAnimationFrame`。
+- **静态服务器**：`tools/serve.py` 加 gzip（内存缓存压缩结果）与缓存头——`/vendor/`、`/assets/`、
+  `/audio/` 为 `immutable` 一年，HTML 为 `no-cache`，`Vary: Accept-Encoding`。改文本/模型传输量
+  下降约 75–80%（`index.html` 342KB→85KB、three.js 1.27MB→258KB；模型 `.data` 本身已接近压缩，增益很小），
+  重复访问接近即时。**坎**：`SimpleHTTPRequestHandler.guess_type()` 返回字符串而非元组，
+  初版多写了个 `[0]`，把 `Content-Type` 截成首字母（模块脚本直接报 MIME 错、整站白屏），已修复并单独提交。
+- **目录整理**：教程图 `assets/tutorial/*.webp`；`docs/archive/domain-expansion-pr7/` 留档旧开场页；
+  README/AGENTS/ARCHITECTURE/TESTING/CHANGELOG 全部同步最终版（双语、加载、缓存、验收清单）。
+- **回归 265 → 295 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、
+  技法名不译、语言持久化与切回、进行中的技法不被切语言打断）、欢迎页（浏览器与性能卡片、英文下两张卡片仍在）、
+  教程图（本地 webp、按页加载）、加载（音频不预载、MediaPipe 首屏不加载、按需注入、幂等）。
+  最终 `LOGICTEST PASS · 295 assertions`。
+
 ## 2026-11-27 · 术式字幕（繁中）、赫保持不再闪断、红球不再抖
 
 - **术式字幕**：苍/赫/茈/无量空処释放时在画面下方出现字幕组风格的**繁体**技名——

@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，265 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，295 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,9 +34,11 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 265 项断言（按顺序）
+### 1.4 断言清单（295 项）
 
 名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
+下面 1–265 是最终版之前的原有编号；最终版新增的断言见 §1.4b（实际执行顺序以驱动为准，
+新增项穿插在欢迎页、教程、语言与加载各段之后，未重新编号旧列表）。
 
 
 **苍 / 赫 基础与语音**
@@ -331,6 +333,47 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 264. black stage never keeps a call-out
 265. end
 
+### 1.4b 最终版新增断言
+
+**欢迎页与教程图**
+- welcome lists supported browsers
+- welcome warns about performance
+- English welcome keeps the support and performance cards
+- tutorial images are local webp files
+- tutorial images wait for their page
+- tutorial images load as their pages open
+
+**中英双语**
+- language defaults to Chinese
+- site title uses the new Chinese name
+- welcome uses the new Chinese name and tagline
+- settings hold a language row outside the switches
+- English switch updates html lang
+- English switch updates the title
+- English switch localizes the rail tabs
+- English start label is localized
+- English keeps technique names in Traditional Chinese
+- language choice is persisted
+- switching back restores Chinese
+- switching back restores the Chinese title
+- English localizes the welcome tutorial body
+- English localizes the settings labels
+- English localizes the gesture guide
+- English localizes the about page labels
+- English localizes the custom void panel
+- English audio labels keep the Traditional Chinese technique name
+- English keeps the top-bar technique name in Traditional Chinese
+- a technique in progress survives a language switch
+
+**加载与缓存**
+- audio elements do not preload at startup（驱动启动时快照，避免状态机播放长音频后误判）
+- MediaPipe scripts stay out of the first load
+- MediaPipe lazy loader exists
+- MediaPipe header scripts load on demand
+- MediaPipe lazy loading is idempotent
+
+gzip/缓存头不在浏览器回归里，按 §2.6 的 `curl` 菜谱单独验。
+
 ### 1.5 加用例的坑
 
 - **2 秒冷却**：赫/茈/無量空処触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
@@ -530,6 +573,27 @@ xvfb-run -a -s "-screen 0 1280x900x24" bash /tmp/ffshot.sh \
 （`xwininfo -root -tree`）确认结果。注意新 profile 的首次启动可能弹出翻译/隐私提示页并抢占前台，
 用上面的 prefs 关掉；软件渲染下页面载入慢，别急，必要时等到 36s 再截。
 
+### 2.2b 双语欢迎页与英文界面
+
+欢迎页右上角的 **中文 / English** 按钮直接点就能看两种语言。要自动化，用 Chromium + CDP
+先把 `sat0ru.language` 写进 localStorage 再刷新（Node 24 自带 `WebSocket`，脚本放 `/tmp`，别进仓库）：
+
+```bash
+CHROME=~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome
+"$CHROME" --headless=new --no-sandbox --disable-dev-shm-usage --remote-debugging-port=9333 \
+  --use-angle=swiftshader --enable-unsafe-swiftshader --force-device-scale-factor=1 \
+  --hide-scrollbars --window-size=1280,900 --user-data-dir=/tmp/sat0ru-cdp-profile \
+  "http://127.0.0.1:8787/" &
+node /tmp/sat0ru-cdp.mjs   # 里面 Runtime.evaluate 设语言 → Page.reload → Page.captureScreenshot
+```
+
+`/tmp/sat0ru-cdp.mjs` 骨架（连接 `http://127.0.0.1:9333/json` 里的 page target，`Runtime.evaluate`
+设 `localStorage.setItem('sat0ru.language','en')`，`Page.reload` 后等 9s 再 `Page.captureScreenshot`）。
+看三张：欢迎页两张卡片（`Recommended environment` / `Performance notes` 文案与窄屏单列）、
+英文教程页四页、英文侧栏（设置/指南/关于）。**技法名与 `#technique-name` 必须仍是繁体中文**；
+用作者名/项目链接检查换行。窄屏再补一张 `--window-size=420,900` 的欢迎页，
+确认卡片变单列、语言按钮不溢出。
+
 ### 2.3 验证「动画真的在动」
 
 静态截图看不出旋绕。方法：间隔 1~2s 截两张图，用 PIL 做像素差：
@@ -594,12 +658,37 @@ CHROME=~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome
 D 面板里 `camera: tracking frames:N last:...ms err:-` 持续增长。首次要下载/编译约 23MB 模型，
 **10s 左右才出第一帧是正常的**；20s 仍无结果看门狗才报「追踪无输出」。
 
+### 2.6 静态服务器的 gzip 与缓存头
+
+`tools/serve.py` 的压缩/缓存只影响传输，回归里看不到；改了 `serve.py` 或缓存策略后单独验：
+
+```bash
+# 文本/模型：有 gzip，Content-Type 正确（注意不能是 "t" 这种被截断的怪值），HTML 为 no-cache
+curl -sI -H 'Accept-Encoding: gzip' http://127.0.0.1:8787/ | grep -iE 'content-(type|encoding|length)|cache-control'
+# 期望：text/html · Content-Encoding: gzip · Cache-Control: no-cache · Vary: Accept-Encoding
+
+curl -sI -H 'Accept-Encoding: gzip' http://127.0.0.1:8787/vendor/three/build/three.module.js \
+  | grep -iE 'content-(type|encoding)|cache-control'
+# 期望：text/javascript · gzip · public, max-age=31536000, immutable
+
+curl -sI http://127.0.0.1:8787/vendor/mediapipe/hands/hands_solution_packed_assets.data \
+  | grep -iE 'content-type|cache-control'
+# 期望：application/octet-stream · gzip · immutable（.data 属 COMPRESSIBLE；请求不带 Accept-Encoding 时无 Content-Encoding）
+
+curl -sI http://127.0.0.1:8787/assets/tutorial/blue.webp | grep -iE 'content-type|cache-control'
+# 期望：image/webp · immutable（webp 不压缩）
+```
+
+重复请求应几乎瞬时（压缩结果在内存 `_cache` 里）；**改了 `serve.py` 要重启服务**
+（`systemctl --user restart sat0ru` 或重跑 `python3 tools/serve.py . 8787`），改 `index.html` 不用。
+
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（265 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（295 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=redcast` / `end=redburn` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
-- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/★）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
+- [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/★）可切换、设置底部的**语言行**（中文 / English）可切换且刷新后保持、音频库 9 行可播放/停止、右上提示随「茈」模式变化
+- [ ] 动过中英双语 → 英文下逐个看欢迎页两张卡片、教程四页、设置、指南、关于、自定义无量空处；确认技法名与字幕仍是繁体中文
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化
 - [ ] 仓库无临时文件（`git status` 干净；`logic-test.html` 保持 untracked）
 - [ ] 提交（本地，不 push），汇报：做了什么 / 没动什么 / 风险点

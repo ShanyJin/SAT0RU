@@ -1,7 +1,7 @@
-# 技术架构 · SAT0RU
+# 技术架构 · 五条悟术式模拟（SAT0RU）
 
-单文件 Three.js 应用（`index.html`，约 2100 行）+ MediaPipe Hands 手部识别。
-本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式与双手契印、無量空処（含长时间版）、本地语音与音频库、环境尘埃、渲染性能、参数速查、已知限制。
+单文件 Three.js 应用（`index.html`，6186 行）+ MediaPipe Hands 手部识别。
+本文覆盖：数据流、识别管线、苍/赫状态机、茈投射模式与双手契印、無量空処（含长时间版）、本地语音与音频库、环境尘埃、渲染性能、中英双语、加载与缓存、参数速查、已知限制。
 改代码前先看 §去哪改，别凭感觉动阈值。
 
 ## 1. 数据流总览
@@ -665,10 +665,12 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **265 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **295 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   术式语音总闸/**术式字幕**（繁体文案、只随播放中的 clip 出现、时长与音频一致、無量空処到黑幕前收）/
-  小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
+  小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢/
+  **中英双语**（默认中文、静态与动态区域、语言持久化、英文下技法名仍繁中、切换中不打断术式）/
+  **欢迎页环境卡片**/**教程图 WebP 懒加载与音频 `preload=none`、MediaPipe 首屏 0 脚本与幂等懒加载**）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -709,3 +711,23 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（现在只有 red/void/purple/blue 四个） |
 | `getVoid` | 無量空処的白环 + 蓝色球壳目标形状 |
+## 15. 本地化（i18n）
+
+- **字典位置**：`index.html` 中 `<div id="debug-panel">` 之后的早期 classic `<script>`。它在 three.js 模块之前执行，读取 `localStorage['sat0ru.language']`（`zh` | `en`，默认 `zh`），设置 `<html lang>` 与 `document.title`，并扫描静态标记，避免英语用户先看到一帧中文。字典两份平铺在 `SAT0RU_I18N = { zh: {...}, en: {...} }`，键名语义化（`site.title`、`welcome.supportTitle`、`tut.blue.step1`、`audio.he1`…）。
+- **静态标记**：`data-i18n`（textContent）、`data-i18n-html`（innerHTML，用于含 `<strong>`/`<code>` 的文案）、`data-i18n-attr="attr:key,attr:key"`（属性，如 `alt`、`title`、`aria-label`）。切换语言时 `sat0ruApplyStaticI18n()` 重新应用全部标记。
+- **插值**：`sat0ruT(key, vars)` 替换 `{name}`；例如页脚 `intro.foot.mid` 用 `{page}`/`{tech}`，蛋面板已保存提示用 `{video}`，设置项用 `{version}`。
+- **module 接缝**：`const t = (key, vars) => window.sat0ruT(key, vars)`；`setLanguage(next, persist)` 调 `window.sat0ruSetLang()` 后重渲染动态区（`buildGuide()`、`buildAudioLibrary()`、`updateKeybindMenu()`、`updateEggPanel()`、`updatePurpleHint()`、`showIntroPage(introPage)`、`updateStartButton()`、`setRailOpen()`）并同步所有 `[data-lang]` 的按下态。`setLanguage` 不碰 `updateState`/`currentTech`，所以切换语言不会打断进行中的术式。
+- **动态内容**：指南是 `GUIDE_GOJO_ZH` / `GUIDE_GOJO_EN` 两份行数组，`getGuide()` 按当前语言返回（`tech` 标签用 `Construct/Release/Form/Deploy/Launch/Auto`）；音频标签由 `audioLabel(track)` 从 `labelKey` 取，技名部分在两种语言下都是繁中（英文只换 ` · I/II/Solo/Long/Short/Two-Hand Clasp` 等后缀）。
+- **永不翻译**：`updateState()` 里的技法名、顶栏 `#technique-name`、`SUBTITLE_CALL_OUTS` 术式字幕、`INTRO_TECH_LABELS`（教程页脚的 蒼/赫/茈/無量空処）、控制台日志，以及 `<h1>呪術廻戦 / Domain Expansion</h1>`。顶栏「茈」按钮的 `title` 也只是技名，保持中文。
+- **入口**：欢迎页 `#intro-lang`（中文 / English）与左侧栏 `#lang-row`（中 / EN）；两处共用 `data-lang` 委托，选择写入 localStorage。
+- 新增文案时两份字典都要加；只加中文会在英文界面回退到中文（`sat0ruT` 的兜底行为）。
+
+## 16. 加载与缓存
+
+**首屏目标**：不碰音频、不下载教程图、不下载 MediaPipe，只加载 HTML + three.js + 字体。
+
+- **教程图**：`<img data-src="/assets/tutorial/*.webp" width height>` 没有 `src`；`showIntroPage()` 调 `loadIntroImage(name)`，轮到该页才把 `data-src` 提升为 `src`。四张图由 Pillow 从原 JPG 转成 WebP（900px 长边、quality 80，合计约 376 KB，原 JPG 约 820 KB）。`finishIntro()` 空闲时再预热一遍（通常已在缓存）。
+- **音频**：9 个 `<audio preload="none">`。`primeAudio()` 在首次 pointerdown/keydown 静音试播：桌面只预热短音频（`LONG_AUDIO_KEYS` 之外的 7 条），iOS/Safari 则必须把 9 条都在同一个手势内 muted 试播，否则元素会保持锁定。`ensureLongAudio(key)` 在真正播放长音频（`void-long`、`purple-clasp`）时把该元素设为 `preload="auto"` 并 `load()`；`play()` 因数据未到而 reject 时记入 `pendingAudioRetry`，下一次 pointerdown 重试一次。教程关闭后 `prefetchLongAudio()` 用 `requestIdleCallback`（兜底 3s）预取两条长音频，iOS 跳过。`window.__sat0ruAudioState()` 暴露 `{primed, prefetched}` 供回归/调试。
+- **MediaPipe**：`MEDIA_PIPE_SCRIPTS`（camera_utils / hands / drawing_utils）不在 `<head>`。`loadMediaPipeScripts()` 幂等串行注入（带 `data-mediapipe`），`startCameraPipeline()` 在 `cameraStarting = true` 后 `await` 它；失败会清空 promise 以便下次「启动」重试，脚本加载期间关掉开关会在 `new Hands` 前返回。教程关闭后空闲 `prefetchMediaPipeScripts()` 只插 `<link rel=prefetch as=script>`，不下载 wasm/模型（模型仍只在启动摄像头后按 `locateFile` 拉取）。
+- **渲染**：`WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' })`；`animate()` 在 `document.hidden` 时不再排下一帧，`visibilitychange` 隐藏时 `cancelAnimationFrame(renderRafId)`，可见时若无 `renderRafId` 则重启；摄像头恢复播放仍走原逻辑。
+- **serve.py**：`send_head()` 把目录 `/` 解析到 `index.html` 再走压缩；对 `COMPRESSIBLE`（html/js/mjs/css/json/svg/wasm/data/tflite）且客户端接受 gzip 的请求，返回内存缓存的 `gzip.compress(..., compresslevel=6, mtime=0)`（缓存键含 mtime/size，总上限 64 MB，超限清空）。`Content-Type` 用 `self.guess_type(path)`（注意 `SimpleHTTPRequestHandler.guess_type` 返回字符串，不是 `mimetypes.guess_type` 的元组）。`Cache-Control`：`/vendor/`、`/assets/`、`/audio/` → `public, max-age=31536000, immutable`，其余（含 HTML）→ `no-cache`；压缩响应带 `Vary: Accept-Encoding`。实测 `index.html` 85,447 B、three.js 257,952 B，二次命中约 3 ms。

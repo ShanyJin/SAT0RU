@@ -1,6 +1,6 @@
-# SAT0RU · Domain Expansion — 合并最终版
+# 五条悟术式模拟 · SAT0RU — 最终版
 
-基于 [reinesana/SAT0RU](https://github.com/reinesana/SAT0RU) 的个人合并版：把仓库里 10 个未合并 PR 里有价值的部分全部手工并入了一个 `index.html`，再按主人要求删到只剩本作技法；PR #7 的开场动画已移植进主场景——無量空処手势定格 3 秒自动播放。改版作者：**闪耀金金 / ShanyJin** · [shany.cc](https://shany.cc) · [shanyaojinjin/SAT0RU](https://github.com/shanyaojinjin/SAT0RU)。
+基于 [reinesana/SAT0RU](https://github.com/reinesana/SAT0RU) 的个人合并版：把仓库里 10 个未合并 PR 里有价值的部分全部手工并入了一个 `index.html`，再按主人要求删到只剩本作技法；PR #7 的开场动画已移植进主场景——無量空処手势定格 3 秒自动播放。最终版更名为 **五条悟术式模拟**（英文界面为 *Gojo Satoru Cursed Technique Simulator*），副标题 **咒术回战手势触发模拟**。改版作者：**闪耀金金 / ShanyJin** · [shany.cc](https://shany.cc) · [shanyaojinjin/SAT0RU](https://github.com/shanyaojinjin/SAT0RU)。
 
 > 个人拍摄 / 娱乐用途，非商业项目。原仓库未附 LICENSE，使用、引用与分发前请先确认原项目与素材的授权。
 
@@ -14,6 +14,27 @@
 2. **第二页起 · 四式教程**：同一个弹窗内分 **蒼 → 赫 → 茈 → 無量空処** 四个分页，每页左侧大图、右侧结印步骤与提示，可点顶部标签跳转，也可用「上一步 / 明白了，下一个」依次阅读；最后一页的「明白了，开始」关闭弹窗。
 
 **默认不调用摄像头，也不创建识别模型 / 不跑推理**。主界面**顶部栏菜单按钮旁边**是 **「启动」** 按钮，按 `cameraStatus` 显示启动 / 启动中 / 等待追踪 / 追踪中 / 追踪异常 / 启动失败；只有用户亲手按下它，浏览器才会请求摄像头权限并创建 MediaPipe 图。再按一下会立刻停止摄像头轨道。启动弹窗未关闭时，渲染循环也处于暂停状态。
+
+## 语言、推荐环境与加载
+
+**中英双语**：欢迎页右上角与左侧栏设置里各有一组语言按钮（中文 / English），默认中文，选择写入 `localStorage['sat0ru.language']` 并在下次载入时生效。只有界面文案会切换；**技法名、顶栏状态、术式字幕始终使用繁体中文原名**（術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「無量空処」）。英文文案在 `index.html` 的早期 classic 脚本里（`SAT0RU_I18N`），先于 three.js 模块执行，避免英文用户看到一闪而过的中文。
+
+**推荐环境**（欢迎页第一张卡片同款）：
+
+- Chrome / Edge 最新版，桌面端体验最佳
+- Firefox 最新版可用
+- Safari 17+ 可用；部分 iPhone / iPad 性能较弱
+- 需要 HTTPS 或 localhost、摄像头权限，以及 WebGL 与 WebAssembly
+
+**性能提醒**：开启浏览器硬件加速；关闭其他占用显卡的标签页或程序；在光线充足、背景清晰的环境中游玩；低端设备或软件渲染可能只有 1–3 fps，属正常现象，桌面 Chrome / Edge 最佳。
+
+**加载优化**：
+
+- 9 条语音全部 `preload="none"`；首次手势只静音预热短语音（iOS / Safari 需逐条在同一个手势内预热，会预热全部 9 条），长语音（`void-long`、`purple-clasp`）在教程关闭后空闲预取，真正需要时才加载
+- 四式教程图改为 WebP（900px 长边，四张共约 376 KB），首次进入只为当前页设置 `src`，其余延后
+- MediaPipe 的三条 classic 脚本不再放在 `<head>`：第一次点「启动」才注入，教程关闭后空闲 `<link rel=prefetch>`；摄像头 wasm / 模型仍只在启动后下载
+- 渲染循环在标签页隐藏时暂停，可见时恢复；WebGL 上下文以 `powerPreference: 'high-performance'` 创建
+- `tools/serve.py` 对 HTML / JS / wasm / data 等做 gzip（`index.html` 约 85 KB，three.js 约 258 KB）并在内存缓存压缩结果；`/vendor/`、`/assets/`、`/audio/` 返回一年 immutable 缓存，其余 `no-cache`
 
 ## 自定义无量空处（彩蛋）
 
@@ -117,7 +138,7 @@
 python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-driver.js
 ```
 
-浏览器打开 `logic-test.html?logictest=1`：合成手部关键点喂进真实识别管线，左上角绿色 PASS / 红色 FAIL（异常也会显示在面板里）。当前覆盖 **265 项**：赫（两种手势/互换/桥接/冷却/保持 1 秒随机播语音、**进入=激发射出**（枪口闪光/沿指方向/随 age 前进/细窄不炸/按时收尾/场回弹后坐/枪矛只向前）、**退出=原地燃尽**（下落而非射出/按时结束））、苍（持掌 2 秒武装/弯指不武装/短持掌不武装/拖动抖动横挥不打断/前推、握拳、快速甩出、合掌、丢手释放/构筑后 2 秒播语音）、無量空処（1 秒播单人语音、定格 3 秒开场动画：3 秒前不触发、过 3 秒自动进入、隐藏 UI、换环点亮领域场、10 秒黑幕保持、黑幕淡出后环仍在、环收尾、结束恢复、保持中不循环、松手重播；长时间模式 1 秒展开领域并播长语音、等 8 秒进长动画且不重播语音、语音先结束）、茈模式（按钮开关、枪形/捏合蓄势、前推发射、命中、茈短语音、2 秒冷却、拇指内扣蓄势、拇指外弹与丢帧后外弹、慢速外张不误触）、茈双手契印（23 秒时间轴、0.5 秒语音只播一次、右蓝左红与对称、蓝球 ≥半屏、阶段切换、漩涡星核/陀螺环/冲击波、碰撞节拍、20 秒爆发、23 秒收尾、冷却与释放后重发、掉手不误触赫、双手远离不误判、**单手领域手势不会发动契印**、同一只手重复检测不会发动（同标签/带偏移）、领域手势旁边是张开手掌也不会发动、**领域手势紧接在契印上手之后也不会发动契印**）、界面（三个小菜单标签/默认主菜单/切换/设置项顺序）、音频库（9 条齐全、含失败/校训、点击可播、标签不带旧年份、茈短语音用 `purple-short.mp3`）、术式语音总闸（默认开、关掉静音手势语音、手动点击不受影响）、**启动门禁与教程**（弹窗可见、5 个分页、原项目/改版作者/网站、隐私与素材声明、光照/清晰环境提示、教程顺序 蒼→赫→茈→無量空処、4 张本地图片可访问、我已知晓→分页→开始、弹窗未关时应用不启动；默认不建 MediaPipe/摄像头、顶部「启动」按钮存在且默认关闭、提示「启动」、按下只调用一次 start、再按只调用一次 stop、启动后显示「等待追踪」、侧栏不再保留启动行）、**手机适配**（viewport 元信息、视频 playsinline+muted、小屏媒体查询）、**自定义无量空处**（设置存在且默认关闭、开启、面板/说明箭头展开、版本 1/2/3 可选、版本 3 提示先设链接、粘贴链接解析 BV/av 与 `?p=`、拒绝 b23.tv 短链与无视频号文本、保存到 localStorage、生成 B 站官方播放器 URL、短版动画到点前不弹、到 `ringAtMs` 切断动画并打开覆盖层、URL 含所选 bvid/cid 与 autoplay、关闭后隐藏并清空 iframe、再次关闭设置）、**术式字幕**（繁体技名随语音出现、时长与音频一致、無量空処在进黑幕前收）、**关于鸣谢**（原作作者、两条 B 站视频链接、mailto 侵权邮箱、素材来源声明、DeepSeek-V4.1 flash / Gemini 4 Neon 双模型鸣谢）。改阈值后跑一遍再交付。视觉演示加 `&end=charge`、`&end=blue`、`&end=red`、`&end=redcast`（可加 `&age=<ms>` 冻结激发相位）、`&end=redburn`（同 `&age=`）、`&end=purplecharge`、`&end=purpleburst`、`&end=void`、`&end=voidform`、`&end=voidring`、`&end=voidclear`、`&end=voidlong`、`&end=voidegg`、`&end=sub&call=blue|he-1|purple|void`（加 `&live=1` 走真实计时）、`&end=claspblue`、`&end=claspred`、`&end=claspconverge`、`&end=claspvortex`、`&end=claspclash`、`&end=claspburst`（截图时可再加 `&noui=1` 隐藏侧栏、`&nobanner=1` 隐藏左上角测试横幅）。
+浏览器打开 `logic-test.html?logictest=1`：合成手部关键点喂进真实识别管线，左上角绿色 PASS / 红色 FAIL（异常也会显示在面板里）。当前覆盖 **295 项**：赫（两种手势/互换/桥接/冷却/保持 1 秒随机播语音、**进入=激发射出**（枪口闪光/沿指方向/随 age 前进/细窄不炸/按时收尾/场回弹后坐/枪矛只向前）、**退出=原地燃尽**（下落而非射出/按时结束））、苍（持掌 2 秒武装/弯指不武装/短持掌不武装/拖动抖动横挥不打断/前推、握拳、快速甩出、合掌、丢手释放/构筑后 2 秒播语音）、無量空処（1 秒播单人语音、定格 3 秒开场动画：3 秒前不触发、过 3 秒自动进入、隐藏 UI、换环点亮领域场、10 秒黑幕保持、黑幕淡出后环仍在、环收尾、结束恢复、保持中不循环、松手重播；长时间模式 1 秒展开领域并播长语音、等 8 秒进长动画且不重播语音、语音先结束）、茈模式（按钮开关、枪形/捏合蓄势、前推发射、命中、茈短语音、2 秒冷却、拇指内扣蓄势、拇指外弹与丢帧后外弹、慢速外张不误触）、茈双手契印（23 秒时间轴、0.5 秒语音只播一次、右蓝左红与对称、蓝球 ≥半屏、阶段切换、漩涡星核/陀螺环/冲击波、碰撞节拍、20 秒爆发、23 秒收尾、冷却与释放后重发、掉手不误触赫、双手远离不误判、**单手领域手势不会发动契印**、同一只手重复检测不会发动（同标签/带偏移）、领域手势旁边是张开手掌也不会发动、**领域手势紧接在契印上手之后也不会发动契印**）、界面（三个小菜单标签/默认主菜单/切换/设置项顺序）、音频库（9 条齐全、含失败/校训、点击可播、标签不带旧年份、茈短语音用 `purple-short.mp3`）、术式语音总闸（默认开、关掉静音手势语音、手动点击不受影响）、**启动门禁与教程**（弹窗可见、5 个分页、原项目/改版作者/网站、隐私与素材声明、光照/清晰环境提示、教程顺序 蒼→赫→茈→無量空処、4 张本地图片可访问、我已知晓→分页→开始、弹窗未关时应用不启动；默认不建 MediaPipe/摄像头、顶部「启动」按钮存在且默认关闭、提示「启动」、按下只调用一次 start、再按只调用一次 stop、启动后显示「等待追踪」、侧栏不再保留启动行）、**手机适配**（viewport 元信息、视频 playsinline+muted、小屏媒体查询）、**自定义无量空处**（设置存在且默认关闭、开启、面板/说明箭头展开、版本 1/2/3 可选、版本 3 提示先设链接、粘贴链接解析 BV/av 与 `?p=`、拒绝 b23.tv 短链与无视频号文本、保存到 localStorage、生成 B 站官方播放器 URL、短版动画到点前不弹、到 `ringAtMs` 切断动画并打开覆盖层、URL 含所选 bvid/cid 与 autoplay、关闭后隐藏并清空 iframe、再次关闭设置）、**术式字幕**（繁体技名随语音出现、时长与音频一致、無量空処在进黑幕前收）、**关于鸣谢**（原作作者、两条 B 站视频链接、mailto 侵权邮箱、素材来源声明、DeepSeek-V4.1 flash / Gemini 4 Neon 双模型鸣谢）、**中英双语**（默认中文、标题/欢迎页/侧栏/指南/关于/蛋面板英文、语言选择持久化、技法名在英文下仍为繁中、切换语言不打断进行中的术式）、**欢迎页环境卡片**（Chrome/Edge/Firefox/Safari、硬件加速与 1–3 fps 提醒）、**加载**（教程图为 `data-src` WebP、按页加载、4 张均可访问、9 条音频 `preload=none`、MediaPipe 脚本首屏为 0 且按需加载幂等）。改阈值后跑一遍再交付。视觉演示加 `&end=charge`、`&end=blue`、`&end=red`、`&end=redcast`（可加 `&age=<ms>` 冻结激发相位）、`&end=redburn`（同 `&age=`）、`&end=purplecharge`、`&end=purpleburst`、`&end=void`、`&end=voidform`、`&end=voidring`、`&end=voidclear`、`&end=voidlong`、`&end=voidegg`、`&end=sub&call=blue|he-1|purple|void`（加 `&live=1` 走真实计时）、`&end=claspblue`、`&end=claspred`、`&end=claspconverge`、`&end=claspvortex`、`&end=claspclash`、`&end=claspburst`（截图时可再加 `&noui=1` 隐藏侧栏、`&nobanner=1` 隐藏左上角测试横幅）。
 
 ## 运行
 
@@ -133,7 +154,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   打开 `http://127.0.0.1:8787`；外网访问走 SSH 隧道。
 - 需要摄像头（**只有点顶部「启动」按钮后才会请求权限**）；浏览器只在 `localhost` / HTTPS 下允许取摄像头
 - **手机/平板**：`serve.py` 只绑 `127.0.0.1`，推荐在主机上 `tailscale serve --bg 8787`，手机浏览器打开 `https://<机器名>.<tailnet>.ts.net`（需先在 Tailscale 管理台启用 HTTPS；只在 tailnet 内可见，不暴露公网）。手机窄屏会自动铺满教程/侧栏、启动后自动收起侧栏；顶部「启动」按钮从「等待追踪」变成「追踪中」才算模型真正出结果（首次要下载约 23MB 本地模型，稍等几秒）
-- `tools/serve.py` 已配好 MIME（`.wasm` → `application/wasm`，`.data` / `.tflite` → `application/octet-stream`），换别的静态服务器也要保证这两条
+- `tools/serve.py` 已配好 MIME（`.wasm` → `application/wasm`，`.data` / `.tflite` → `application/octet-stream`）并默认 gzip + 缓存头；换别的静态服务器也要保证这两条 MIME。gzip 压缩结果缓存在内存（上限 64 MB），`/vendor/`、`/assets/`、`/audio/` 为 immutable，HTML 为 `no-cache`，所以改了 `index.html` 刷新即生效
 - 全部依赖已本地化在 `vendor/`（MediaPipe Hands、three.js、字体），**默认零外网请求**；唯一例外是手动开启并触发的「自定义无量空处」彩蛋（加载 B 站播放器；版本 3 用你保存的链接）
 
 ## 目录
@@ -143,10 +164,10 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - `docs/` — `ARCHITECTURE.md` 技术全貌 / `TESTING.md` 验收菜谱 / `CHANGELOG.md` 改造史
 - `tools/` — `serve.py`（静态服务器）、`make-logic-test.py` + `logic-test-driver.js`（无摄像头回归）
 - `docs/archive/domain-expansion-pr7/` — PR #7 独立开场页（已不接入 UI，动画已移植进主场景，留档）
-- `assets/tutorial/` — 启动弹窗四式教程图 `blue.jpg` / `red.jpg` / `purple.jpg` / `void.jpg`（本地、已压缩到长边 1100px）
+- `assets/tutorial/` — 启动弹窗四式教程图 `blue.webp` / `red.webp` / `purple.webp` / `void.webp`（本地 WebP，长边 900px，四张共约 376 KB，按页懒加载）
 - `vendor/` — MediaPipe / three.js / 字体
 - `audio/` — 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈短语音 `purple-short.mp3`、双手契印 `purple-clasp.mp3`（发动后 0.5 秒自动播放）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只手动点击）；本地播放；彩蛋未开启时零外网请求
-- `ost.mp3` — 原仓库音乐，已删除（音乐开关早已移除；需要时可在 git 历史找回）
+- 原仓库音乐 `ost.mp3` 已删除（音乐开关早已移除；需要时可在 git 历史找回）
 
 ## 已知限制
 

@@ -1,10 +1,10 @@
-# AGENTS.md · SAT0RU
+# AGENTS.md · 五条悟术式模拟（SAT0RU）
 
 给新会话的第一页。读完这页就能上手；深水区在 `docs/`。
 
 ## 这是什么
 
-主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），默认「五条悟模式」：
+主人的私人「咒术回战」手势粒子工具（含摄像头实拍合成），最终版，默认「五条悟模式」。站点更名 **五条悟术式模拟**（英文界面 *Gojo Satoru Cursed Technique Simulator*），副标题 **咒术回战手势触发模拟**，中英双语、默认中文；**技法名与术式字幕永远保持繁体中文原名**。启动说明首页列出推荐浏览器与性能提醒：
 
 - **術式順転「蒼」**（引力）：**四指完全伸直的张开手掌**对着镜头保持 2 秒 → 构筑蓝色粒子球 →
   用力前推 / **握拳（2 帧）** / **快速甩出** / 合掌释放（慢移、横挥只跟手；弯着手指的手不算张开）；
@@ -33,7 +33,8 @@
   契印**只在「茈」开关打开时成立**；MediaPipe 常只识别到张开的那只手，**单手也认**但要多保持
   （`claspSoloInfo`，`soloFrames/soloHoldMs`）；無量空処始终**单手**，四指朝上的契印姿势与领域手型
   互不误开；同一只手被识别成两只由 handedness 标签 + 腕距 + 腕相对形状差（`minShapeDelta`）否决
-- **首次进入**：五页弹窗（欢迎 + 蒼/赫/茈/無量空処 教程，图在 `assets/tutorial/`）；欢迎页写明原作作者、
+- **首次进入**：五页弹窗（欢迎 + 蒼/赫/茈/無量空処 教程，图在 `assets/tutorial/` 的 WebP，按页懒加载）；
+  欢迎页右上角有 **中文 / English** 语言按钮，正文有「推荐环境」「性能提醒」两张卡片，写明原作作者、
   原项目、改版作者、隐私（本地推理、不上传摄像头画面）与素材来源/联系邮箱声明；关掉弹窗后
   **还要点顶部栏「启动」按钮**才会请求摄像头（默认不建 MediaPipe、不开摄像头）
 - **顶栏**：左上菜单按钮旁是**「启动」按钮**（唯一的摄像头门禁；按 `cameraStatus` 显示
@@ -64,12 +65,13 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 手机访问也必须 HTTPS，且 `serve.py` 只绑 127.0.0.1：推荐 `tailscale serve --bg 8787`，手机开
   `https://lain.tailc73ce5.ts.net`（tailnet 内；首次要下载 ~23MB 本地模型，等顶部「启动」按钮变成「追踪中」）
 - 全部依赖在 `vendor/`，**零外网请求**；MIME 必须有 `.wasm→application/wasm`、`.data/.tflite→application/octet-stream`（`tools/serve.py` 已处理）
+- `tools/serve.py` 默认 gzip + 缓存头：文本/模型压缩结果缓存在内存，`/vendor/`、`/assets/`、`/audio/` 为 immutable，HTML 为 `no-cache`；改了 `index.html` 刷新即生效，改 `serve.py` 后要 `systemctl --user restart sat0ru`
 
 ## 铁律
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 265 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 295 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -80,10 +82,10 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 |---|---|
 | `index.html` | 全部逻辑：识别管线、苍/赫状态机、粒子系统、UI |
 | `vendor/` | MediaPipe Hands、three.js r160、字体（本地化） |
-| `tools/serve.py` | 静态服务器（wasm/data MIME） |
+| `tools/serve.py` | 静态服务器（wasm/data MIME、gzip、缓存头） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
 | `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈短语音 `purple-short.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
-| `assets/tutorial/` | 首次进入教程的 4 张本地图：`blue/red/purple/void.jpg` |
+| `assets/tutorial/` | 首次进入教程的 4 张本地 WebP：`blue/red/purple/void.webp`（900px 长边，按页懒加载） |
 | `docs/archive/domain-expansion-pr7/` | 独立「無量空処」开场页（旧 PR #7，不接入 UI，留档） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
@@ -138,7 +140,14 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   时间轴 `holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackHoldMs/blackFadeMs/ringOutDelayMs/ringOutMs`
   （`blackFadeAtMs/ringOutAtMs/endMs` 为 getter 派生的绝对时刻）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
-- 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-body`（原作作者/素材鸣谢/B 站视频链接/mailto 邮箱）
+- 技法名/指南/关于 → `updateState()` 的 `nameEl`、`getGuide()`（`GUIDE_GOJO_ZH` / `GUIDE_GOJO_EN`）、`#about-body`（原作作者/素材鸣谢/B 站视频链接/mailto 邮箱）
+- 中英双语 → 早期 classic 脚本里的 `SAT0RU_I18N`、`sat0ruT`、`sat0ruApplyStaticI18n`、`sat0ruSetLang`、
+  `window.SAT0RU_LANG`；module 里的 `t()`、`setLanguage()`、`syncLangButtons()`、`#intro-lang`、`#lang-row`、
+  `data-i18n` / `data-i18n-html` / `data-i18n-attr`、`audioLabel()`、`describeVoidEggCustom()`、
+  `sat0ru.language`（localStorage）。**不译**：`updateState` 的技法名、`SUBTITLE_CALL_OUTS`、`INTRO_TECH_LABELS`、控制台日志
+- 加载与缓存 → `loadMediaPipeScripts()`、`MEDIA_PIPE_SCRIPTS`、`prefetchMediaPipeScripts()`、`LONG_AUDIO_KEYS`、
+  `ensureLongAudio()`、`primeAudio()`、`prefetchLongAudio()`、`runWhenIdle()`、`loadIntroImage()`、教程图 `data-src`、
+  `window.__sat0ruAudioState()`、`powerPreference`、`renderRafId`（隐藏标签页暂停）、`tools/serve.py` 的 gzip/缓存头
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#start-btn`、`#start-btn-label`、`updateStartButton()`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
   （`#rail-panel-main/guide/about`）、`#egg-panel`、`#egg-info-toggle`、`#egg-custom-url`、`setRailTab()`、`toggleGuideTab()`、`railTab`、
   `updateKeybindMenu()`（设置开关 D/H/V/L/自定义无量空处）、`updateEggPanel()`、`setRailOpen()`
@@ -152,5 +161,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 265/265 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 295/295 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。
