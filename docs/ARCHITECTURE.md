@@ -431,7 +431,13 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   会先展开。H 键走 `toggleGuideTab()`（指南 ⇄ 主菜单）。音乐、按键表、纯净模式、技法轮换、
   独立开场页入口、黒閃均已按主人要求删除。
 - **启动门禁**：`cameraEnabled` 默认 `false`，`startCameraPipeline()` 只在开关打开时调用；关掉走
-  `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。「启动按钮」行显示「点击开始 / 运行中 / 已停止」。
+  `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。「启动按钮」行按 `cameraStatus` 显示
+  「点击开始 / 启动中… / 等待追踪… / 追踪中 / 追踪无输出 / 追踪失败 / 启动失败」。
+- **移动端追踪加固**：`<video playsinline muted autoplay>`（iOS Safari 不静音内联就不自动播放，
+  视频停住 → MediaPipe 收不到帧）；`onFrame` 等 `videoWidth/Height` 就绪再发帧，逐帧 `try/catch`
+  且**永不 reject**（MediaPipe `Camera` 的 rAF 循环一旦 reject 一次就永久停）；启动后显式 `play()`，
+  `visibilitychange` 回前台恢复播放。`trackFrames/trackLastResultMs/trackLastError` 供启动行与
+  D 面板显示；看门狗 `TRACK_STALL_MS 20s` 无结果就报「追踪无输出」。
 - **首次进入教程**：`INTRO_PAGES = welcome, blue, red, purple, void`；`showIntroPage()` 切页、
   `finishIntro()` 关闭并令 `introDone=true`（渲染循环在 `introDone` 前直接 return）。欢迎页含原项目、
   改版作者、隐私（本地推理、不上传）与素材来源声明；四页教程图在 `assets/tutorial/`（本地）。
@@ -439,8 +445,8 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   （白环出现前）时 `openVoidEgg()`，全屏 `#void-egg` iframe 自动播放所选 B 站视频（版本 1/2 URL 由
   `buildVoidEggUrl()` 拼 bvid/cid）。Esc/关闭按钮退出并清空 iframe；长版动画不受影响。
   这是页面唯一可能的外部请求，未开启时零外网。
-- `D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`、
-  `claspSig`（`wrist/tip`）。
+- `D` 面板显示 raw/smoothed 分数、`fps`、`camera`（状态 + frames + last + err）、`charge`、`blueStages`、
+  `bluePulse`、`gestureLock`、`cooldown`、`claspSig`（`wrist/tip`）。
 - 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
   Firefox 不支持；Google 在线识别国内可能不通。术式语音与音频库不走 Web Speech（见 §11.1）。
 
@@ -455,7 +461,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `he-1` / `he-2` | `audio/he-1.mp3` / `he-2.mp3` | 任一赫手势进入满 1 秒随机播一条（`redEnteredAtMs` 由 `updateState` 写入，每次保持一次） |
 | `void` | `audio/void.mp3` | 普通無量空処保持满 1 秒播单人版；长版模式跳过 |
 | `void-long` | `audio/void-long.mp3` | 长版手势满 1 秒（领域展开）时播放（31.164s）；8 秒等待期间继续播，cinematic 启动不重播 |
-| `purple` | `audio/purple-2026.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
+| `purple` | `audio/purple-short.mp3` | 茈按钮模式 `firePurpleCharge` 发射瞬间 |
 | `purple-clasp` | `audio/purple-clasp.mp3` | 双手契印发动后 **500ms** 自动播放（21.891s）；每次发动一次，语音在 22.39s 结束、动画 23s 结束 |
 | `fail` | `audio/fail.mp3` | **只在音频库手动点击**，不接任何手势（1.46s 源素材转 160k MP3） |
 | `creed` | `audio/creed.mp3` | 同上（3.46s 源素材） |
@@ -559,7 +565,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   剩下的近似是「其他成对手型恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/tipGapMax/middleGapMin`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **194 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **202 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫）。
 

@@ -1,7 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#202020">
     <title>JJK: Cursed Technique</title>
     <style>
         :root{
@@ -17,7 +19,7 @@
         }
         html[data-accent="cyan"]{ --accent:#66CCFF; --accent-hover:#80D6FF; --accent-active:#4DB8EB; --accent-soft:rgba(102,204,255,.16); }
 
-        body { margin: 0; overflow: hidden; height: 100vh; background: var(--bg-base); color: var(--text-primary); font-family: var(--font); }
+        body { margin: 0; overflow: hidden; height: 100vh; height: 100dvh; background: var(--bg-base); color: var(--text-primary); font-family: var(--font); -webkit-text-size-adjust: 100%; touch-action: manipulation; }
 
         /* Camera stage: feed and particles share one full-bleed layer. */
         .input_video { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); opacity: .92; z-index: 0; background: var(--bg-base); }
@@ -102,7 +104,7 @@
             background: var(--bg-acrylic); backdrop-filter: blur(var(--blur)) saturate(150%); -webkit-backdrop-filter: blur(var(--blur)) saturate(150%);
             border: 1px solid var(--stroke); border-top-color: var(--stroke-light);
             border-radius: var(--radius-lg); box-shadow: var(--shadow-md);
-            overflow-y: auto; overscroll-behavior: contain;
+            overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain;
             scrollbar-width: thin; scrollbar-color: var(--stroke) transparent;
             pointer-events: auto;
             transition: transform .28s cubic-bezier(.2,.8,.2,1), opacity .2s ease;
@@ -217,7 +219,7 @@
         #intro-modal[hidden] { display: none !important; }
         .intro-dialog {
             display: flex; flex-direction: column;
-            width: min(1120px, 94vw); max-height: min(880px, 92vh);
+            width: min(1120px, 94vw); max-height: min(880px, 92vh); max-height: min(880px, 92dvh);
             background: linear-gradient(180deg, rgba(34,34,38,.98), rgba(20,20,23,.99));
             border: 1px solid var(--stroke-light); border-radius: 18px;
             box-shadow: 0 30px 90px rgba(0,0,0,.65), inset 0 0 0 1px rgba(216,166,87,.08);
@@ -227,7 +229,7 @@
         .intro-brand { font-size: 17px; font-weight: 600; letter-spacing: .04em; }
         .intro-brand span { margin-left: 10px; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; color: var(--text-tertiary); text-transform: uppercase; }
         .intro-step { font: 500 11px/1 var(--mono); letter-spacing: .08em; color: var(--accent); }
-        .intro-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 26px 18px; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
+        .intro-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px 26px 18px; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
         .intro-page[hidden] { display: none !important; }
         .intro-page { animation: introIn .24s ease; }
         @keyframes introIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
@@ -336,6 +338,60 @@
             .intro-foot-note { display: none; }
             .intro-btn { padding: 9px 16px; }
         }
+
+        /* Phones: compact bar, full-height rail/dialog, thumb-sized rows. */
+        @media (max-width: 600px) {
+            #ui {
+                height: 50px; gap: 6px; padding: 0 8px;
+                padding-left: max(8px, env(safe-area-inset-left));
+                padding-right: max(8px, env(safe-area-inset-right));
+            }
+            #menu-btn, #purple-mode-btn { width: 34px; height: 34px; }
+            #menu-btn svg { width: 16px; height: 16px; }
+            #purple-mode-btn { font-size: 16px; }
+            #ui h1 { font-size: 13px; }
+            #technique-name { font-size: 15px; max-width: 46vw; letter-spacing: .02em; }
+            #left-rail {
+                top: calc(58px + env(safe-area-inset-top)); left: 8px;
+                bottom: calc(8px + env(safe-area-inset-bottom));
+                width: min(340px, calc(100vw - 16px)); padding: 12px;
+            }
+            .rail-tab { padding: 9px 2px; font-size: 12px; }
+            .set-row { padding: 9px 0; }
+            .audio-row { padding: 8px 0; }
+            #debug-panel {
+                top: calc(58px + env(safe-area-inset-top)); right: 8px;
+                width: calc(100vw - 16px);
+                max-height: calc(100dvh - 74px - env(safe-area-inset-top));
+                font-size: 11px;
+            }
+            #intro-modal { padding: 0; }
+            .intro-dialog {
+                width: 100%; height: 100dvh; max-height: 100dvh;
+                border: 0; border-radius: 0;
+            }
+            .intro-head { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top)); }
+            .intro-body { padding: 14px 14px 10px; }
+            .intro-title { font-size: 19px; }
+            .intro-tech-title { font-size: 19px; }
+            .intro-step-text { font-size: 12px; }
+            .intro-figure img { max-height: 26vh; }
+            .intro-foot { padding: 10px 14px calc(10px + env(safe-area-inset-bottom)); flex-wrap: wrap; }
+            .intro-actions { flex: 1 1 100%; justify-content: flex-end; }
+            .intro-btn { padding: 10px 16px; }
+            #void-egg-bar { height: auto; padding: 8px 10px; padding-top: calc(8px + env(safe-area-inset-top)); }
+            .void-egg-hint { display: none; }
+        }
+
+        /* Landscape phones: the fixed 56px bar + 68px rail offset eat too much height. */
+        @media (max-height: 480px) {
+            #ui { height: 44px; }
+            #left-rail { top: calc(52px + env(safe-area-inset-top)); bottom: 6px; }
+            #debug-panel { top: calc(52px + env(safe-area-inset-top)); max-height: calc(100dvh - 58px); }
+            #intro-modal { padding: 4px; }
+            .intro-dialog { max-height: 96dvh; }
+            .intro-figure img { max-height: 30vh; }
+        }
     </style>
     
     <script type="importmap">
@@ -351,7 +407,7 @@
     <script src="/vendor/mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 </head>
 <body>
-    <video class="input_video"></video>
+    <video class="input_video" playsinline muted autoplay></video>
     <div class="stage-shade"></div>
     <div id="void-cinema"></div>
     <canvas id="output_canvas"></canvas>
@@ -360,7 +416,7 @@
     <audio id="he-voice-2" src="/audio/he-2.mp3" preload="auto"></audio>
     <audio id="void-voice" src="/audio/void.mp3" preload="auto"></audio>
     <audio id="void-long-voice" src="/audio/void-long.mp3" preload="auto"></audio>
-    <audio id="purple-voice" src="/audio/purple-2026.mp3" preload="auto"></audio>
+    <audio id="purple-voice" src="/audio/purple-short.mp3" preload="auto"></audio>
     <audio id="purple-clasp-voice" src="/audio/purple-clasp.mp3" preload="auto"></audio>
     <audio id="fail-voice" src="/audio/fail.mp3" preload="auto"></audio>
     <audio id="creed-voice" src="/audio/creed.mp3" preload="auto"></audio>
@@ -454,7 +510,7 @@
                                 <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>发射：</strong>前推，或拇指内扣后快速向外弹开；小球射向屏幕正中心爆开，松手取消蓄势。</span></div>
                                 <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>双手契印：</strong>双手交叉扣住，<strong>一只手食指朝上</strong>，另一只手扣在它的手掌上，拇指内扣、双腕贴近，会自动播放约 23 秒的双球长动画，不需要按钮。無量空処只用单手，两者不会互相误开。</span></div>
                             </div>
-                            <div class="intro-tip">释放后有 2 秒冷却；发射瞬间会播放 2026 短语音。</div>
+                            <div class="intro-tip">释放后有 2 秒冷却；发射瞬间会播放茈的短语音。</div>
                         </div>
                     </div>
                 </section>
@@ -1759,7 +1815,7 @@
         { key: 'he-2', el: document.getElementById('he-voice-2'), label: '術式反転「赫」· 二', dur: '0:04' },
         { key: 'void', el: document.getElementById('void-voice'), label: '領域展開「無量空処」· 単人', dur: '0:05' },
         { key: 'void-long', el: document.getElementById('void-long-voice'), label: '領域展開「無量空処」· 長時間', dur: '0:31' },
-        { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 2026（短）', dur: '0:02' },
+        { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 短', dur: '0:02' },
         { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印', dur: '0:22' },
         // Click-only clips: nothing in the gesture pipeline fires these two.
         { key: 'fail', el: document.getElementById('fail-voice'), label: '失败 · 人声', dur: '0:01' },
@@ -2212,8 +2268,16 @@
     let cameraStarted = false;
     let cameraStarting = false;
     let cameraStatus = 'off';
+    // Tracking health. "camera on" only means getUserMedia resolved; on a phone the
+    // model can still starve (video paused, a rejected frame killed MediaPipe's
+    // loop, model failed to load). These drive the start switch's status text.
+    let trackFrames = 0;
+    let trackLastResultMs = 0;
+    let trackLastError = '';
+    let cameraStartedAtMs = 0;
+    const TRACK_STALL_MS = 20000;
     // Shown in the About panel so a stale cached page is instantly recognisable.
-    const BUILD_TAG = '2026-11-27 · 契印单手守卫 3';
+    const BUILD_TAG = '11-27 · 契印单手守卫 4 · 手机适配';
     const buildTagEl = document.getElementById('build-tag');
     if (buildTagEl) buildTagEl.textContent = BUILD_TAG;
 
@@ -2829,7 +2893,7 @@
         purpleCooldownUntilMs = nowMs + PURPLE_CAST.cooldownMs;
         techCooldownUntilMs = Math.max(techCooldownUntilMs, nowMs + PURPLE_CAST.cooldownMs);
         setTechniqueName('虚式「茈」 · 射出');
-        playAudioClip('purple'); // the short 2026 line belongs to the button-mode shot
+        playAudioClip('purple'); // the short purple line belongs to the button-mode shot
         playSfx('purple');
         shakeIntensity = Math.max(shakeIntensity, 0.5);
     }
@@ -3468,9 +3532,11 @@
 
     function updateKeybindMenu() {
         const cameraNote = cameraStatus === 'starting' ? '启动中…'
-            : cameraStatus === 'on' ? '运行中'
-                : cameraStatus === 'error' ? '启动失败'
-                    : '点击开始';
+            : cameraStatus === 'tracking' ? '追踪中'
+                : cameraStatus === 'on' ? '等待追踪…'
+                    : cameraStatus === 'stalled' ? (trackLastError ? '追踪失败' : '追踪无输出')
+                        : cameraStatus === 'error' ? '启动失败'
+                            : '点击开始';
         const settings = [
             { action: 'start', key: '▶', label: '启动按钮 · Start', on: cameraEnabled, note: cameraNote, primary: true },
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
@@ -3604,7 +3670,7 @@
         { gesture: '点右上「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
         { foot: '点击右上角「茈」开启枪指模式：苍/赫暂停；枪形、捏合或拇指内扣改为构筑紫色小球' },
         { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
-        { foot: '小球射向屏幕正中心并爆开；发射瞬间播放 2026 短语音；松手取消蓄势；释放后 2 秒冷却' },
+        { foot: '小球射向屏幕正中心并爆开；发射瞬间播放茈的短语音；松手取消蓄势；释放后 2 秒冷却' },
         { sep: '虚式「茈」 · 双手契印' },
         { gesture: '一只手只竖食指（中指不竖）、另一只手扣在它的手掌上、双腕贴近', tech: '自动发动' },
         { foot: '右侧蓝色蒼球先从中球膨胀成半个屏幕大的巨球；1.5 秒后左侧红色赫球用 2.5 秒长大，两球对称' },
@@ -3734,6 +3800,7 @@
             'Debug (toggle: D)',
             `currentTech: ${currentTech}`,
             `fps: ${fpsValue.toFixed(0)}`,
+            `camera: ${cameraStatus} frames:${trackFrames} last:${trackLastResultMs ? Math.max(0, nowMs - trackLastResultMs).toFixed(0) : '-'}ms err:${trackLastError || '-'}`,
             `nextGesture: ${nextGesture}`,
             `flickScore: ${scoreText(frameFlickScore)}`,
             `flickPulse: ${flickPulseLeftMs.toFixed(0)}ms`,
@@ -3928,6 +3995,12 @@
     };
 
     function handleHandResults(results) {
+        trackFrames += 1;
+        trackLastResultMs = performance.now();
+        if (cameraStatus === 'on' || cameraStatus === 'stalled') {
+            cameraStatus = 'tracking';
+            updateKeybindMenu();
+        }
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         const nowMs = performance.now();
 
@@ -3969,6 +4042,10 @@
         if (cameraStarted || cameraStarting) return;
         cameraStarting = true;
         try {
+            // Mobile browsers (iOS Safari especially) will not autoplay inline video
+            // unless it is muted and playsinline; a paused video starves the model.
+            videoElement.setAttribute('playsinline', '');
+            videoElement.muted = true;
             if (!hands) {
                 hands = new Hands({locateFile: (file) => `/vendor/mediapipe/hands/${file}`});
                 hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7 });
@@ -3977,9 +4054,24 @@
             if (!cameraUtils) {
                 cameraUtils = new Camera(videoElement, {
                     onFrame: async () => {
-                        canvasElement.width = videoElement.videoWidth;
-                        canvasElement.height = videoElement.videoHeight;
-                        await hands.send({image: videoElement});
+                        // MediaPipe's Camera stops its requestAnimationFrame loop forever
+                        // if onFrame rejects once. On a phone an early frame can fail while
+                        // metadata catches up, which then looks exactly like "camera opens,
+                        // no tracking". Skip until the video has real dimensions, and never
+                        // let a frame rejection kill the loop.
+                        const vw = videoElement.videoWidth;
+                        const vh = videoElement.videoHeight;
+                        if (!vw || !vh) return;
+                        if (canvasElement.width !== vw) canvasElement.width = vw;
+                        if (canvasElement.height !== vh) canvasElement.height = vh;
+                        try {
+                            await hands.send({image: videoElement});
+                            trackLastError = '';
+                        } catch (err) {
+                            const msg = (err && (err.message || String(err))) || 'unknown';
+                            if (msg !== trackLastError) console.warn('SAT0RU tracking frame failed:', err);
+                            trackLastError = msg;
+                        }
                     }, width: 640, height: 480
                 });
             }
@@ -3991,6 +4083,15 @@
                 return;
             }
             cameraStarted = true;
+            trackFrames = 0;
+            trackLastResultMs = 0;
+            trackLastError = '';
+            cameraStartedAtMs = performance.now();
+            // The MediaPipe Camera util calls play() without handling its rejection.
+            try { await videoElement.play(); } catch (err) { console.warn('SAT0RU video play was blocked:', err); }
+            // On a phone the rail covers most of the camera: get out of the way once
+            // the feed is live. The menu button brings it back.
+            if (window.innerWidth <= 600 && railOpen) setRailOpen(false);
         } finally {
             cameraStarting = false;
         }
@@ -4011,6 +4112,31 @@
         releaseCameraTracks();
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
     }
+
+    // "Running" from getUserMedia alone is not proof of tracking. If the model never
+    // returns a result, say so on the start switch instead of pretending it works.
+    window.setInterval(() => {
+        if (!cameraEnabled || !cameraStarted || document.visibilityState !== 'visible') return;
+        const now = performance.now();
+        const reference = trackLastResultMs || cameraStartedAtMs;
+        const stale = reference > 0 && (now - reference) > TRACK_STALL_MS;
+        if (stale && cameraStatus !== 'stalled' && cameraStatus !== 'error') {
+            cameraStatus = 'stalled';
+            updateKeybindMenu();
+        } else if (!stale && cameraStatus === 'stalled') {
+            cameraStatus = 'tracking';
+            updateKeybindMenu();
+        }
+    }, 2000);
+
+    // Mobile browsers pause camera video when the tab is hidden; resume it so the
+    // tracker comes back without toggling the switch.
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && cameraEnabled && cameraStarted) {
+            const playResult = videoElement.play();
+            if (playResult && playResult.catch) playResult.catch(() => { /* still blocked */ });
+        }
+    });
 
     function updateState(tech, force = false) {
         if (claspCast) {

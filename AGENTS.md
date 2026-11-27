@@ -19,7 +19,7 @@
   **原地保持 8 秒**才进入 ~34 秒长动画（黑幕淡入也放慢到 1.5 秒），语音在等待期间继续放、先结束；
   松手则 8 秒等待从头计（语音不中断）
 - **虚式「茈」**（投射）：点右上角「茈」开关 → 苍/赫暂停；枪形、捏合或拇指内扣构筑紫色小球 →
-  前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开，发射瞬间播 2026 短语音（`audio/purple-2026.mp3`）；
+  前推或「拇指内扣后快速向外弹开」发射到屏幕正中心爆开，发射瞬间播茈的短语音（`audio/purple-short.mp3`）；
   松手取消；释放后 2 秒冷却
 - **虚式「茈」· 双手契印**（无需按钮，约 23 秒长动画）：双手交叉扣住、食指朝上、拇指内扣 →
   **右侧蓝球**从中球长到**半个屏幕宽**（1.5 秒）→ **左侧红球**再用 2.5 秒长到对称 →
@@ -52,13 +52,15 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   - 状态 `systemctl --user status sat0ru` · 日志 `journalctl --user -u sat0ru`
   - 只监听 `127.0.0.1:8787`；主人通过 SSH 隧道访问
 - 浏览器只在 `localhost`/`https` 下给摄像头；无摄像头时 MediaPipe 会弹错（正常）
+- 手机访问也必须 HTTPS，且 `serve.py` 只绑 127.0.0.1：推荐 `tailscale serve --bg 8787`，手机开
+  `https://lain.tailc73ce5.ts.net`（tailnet 内；首次要下载 ~23MB 本地模型，等启动开关变成「追踪中」）
 - 全部依赖在 `vendor/`，**零外网请求**；MIME 必须有 `.wasm→application/wasm`、`.data/.tflite→application/octet-stream`（`tools/serve.py` 已处理）
 
 ## 铁律
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 194 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 202 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -71,7 +73,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `vendor/` | MediaPipe Hands、three.js r160、字体（本地化） |
 | `tools/serve.py` | 静态服务器（wasm/data MIME） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
-| `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
+| `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈短语音 `purple-short.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
 | `assets/tutorial/` | 首次进入教程的 4 张本地图：`blue/red/purple/void.jpg` |
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
@@ -130,5 +132,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 194/194 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 202/202 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

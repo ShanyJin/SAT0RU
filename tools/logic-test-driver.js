@@ -548,7 +548,7 @@
             }
             markState('purple forward push fires', 'shot',
                 (typeof purpleShot !== 'undefined' && purpleShot) ? 'shot' : (purpleCharge ? 'charge' : 'idle'));
-            markState('purple shot plays the 2026 clip', 'played',
+            markState('purple shot plays the short clip', 'played',
                 (audioPlayCounts.purple === pv0 + 1 && lastAudioKey === 'purple') ? 'played' : 'silent');
             step(gun1(0.5), 15);
             mark('purple shot impacts', 'purple');
@@ -897,10 +897,31 @@
             markState('creed clip plays on click', 'played',
                 ((audioPlayCounts.creed || 0) === creedClicks0 + 1 && lastAudioKey === 'creed')
                     ? 'played' : 'silent');
+            const audioListText = document.getElementById('audio-list')?.textContent || '';
+            markState('audio labels drop the old year', 'clean',
+                (!audioListText.includes('2026') && audioListText.includes('虚式「茈」· 短'))
+                    ? 'clean' : 'stale');
+            markState('purple voice uses the renamed clip', 'purple-short',
+                (document.getElementById('purple-voice')?.getAttribute('src') || '').includes('purple-short')
+                    ? 'purple-short' : 'wrong');
 
             // --- Left rail: three small sub-menu tabs at the top ---
             markState('about shows the build tag', BUILD_TAG,
                 document.getElementById('build-tag')?.textContent || 'missing');
+            const viewportMeta = document.querySelector('meta[name="viewport"]');
+            markState('viewport meta enables phone layout', 'device-width',
+                (viewportMeta && (viewportMeta.getAttribute('content') || '').includes('width=device-width'))
+                    ? 'device-width' : 'missing');
+            const camVideoEl = document.querySelector('.input_video');
+            markState('camera video is inline and muted', 'inline|true',
+                camVideoEl
+                    ? ((camVideoEl.hasAttribute('playsinline') ? 'inline' : 'no-inline')
+                        + '|' + (camVideoEl.muted ? 'true' : 'false'))
+                    : 'missing');
+            const styleText = Array.from(document.querySelectorAll('style'))
+                .map((el) => el.textContent).join('\n');
+            markState('phone layout has a small-screen rule', 'yes',
+                styleText.includes('@media (max-width: 600px)') ? 'yes' : 'no');
             const railTabs = document.querySelectorAll('#left-rail .rail-tab');
             markState('left rail has three sub-menu tabs', '3', String(railTabs.length));
             markState('rail tab order', 'main,guide,about',
@@ -917,6 +938,9 @@
             if (railTabs[1]) railTabs[1].click();
             markState('guide tab switches the panel', 'guide',
                 (guidePanel && !guidePanel.hidden && mainPanel && mainPanel.hidden) ? 'guide' : 'other');
+            const guideText = document.getElementById('gesture-guide')?.textContent || '';
+            markState('guide drops the old year', 'clean',
+                !guideText.includes('2026') ? 'clean' : 'stale');
             if (railTabs[2]) railTabs[2].click();
             markState('about tab switches the panel', 'about',
                 (aboutPanel && !aboutPanel.hidden && guidePanel && guidePanel.hidden) ? 'about' : 'other');
@@ -984,6 +1008,10 @@
             if (introNext) { introNext.click(); introNext.click(); introNext.click(); }
             markState('tutorial walks through to the void page', 'void',
                 document.querySelector('#intro-modal [data-intro-page="void"]:not([hidden])') ? 'void' : 'other');
+            const purpleIntroText = document.querySelector('#intro-modal [data-intro-page="purple"]')?.textContent || '';
+            markState('purple tutorial text drops the old year', 'clean',
+                (!purpleIntroText.includes('2026') && purpleIntroText.includes('茈的短语音'))
+                    ? 'clean' : 'stale');
             if (introNext) introNext.click();
             markState('finishing the tutorial closes the modal', 'closed',
                 introModalEl && introModalEl.hidden ? 'closed' : 'open');
@@ -1011,6 +1039,9 @@
             }
             if (startRow) startRow.click();
             markState('start switch calls the camera once', '1', String(camStartCalls));
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            markState('start switch waits for tracking', '等待追踪…',
+                (document.querySelector('#settings-list [data-action="start"] .kb-value') || {}).textContent || 'missing');
             markState('start switch shows running', 'true',
                 document.querySelector('#settings-list [data-action="start"]')?.getAttribute('aria-checked') || 'missing');
             const startRowOn = document.querySelector('#settings-list [data-action="start"]');
