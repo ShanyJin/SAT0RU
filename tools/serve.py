@@ -64,7 +64,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                             _cache.clear()
                         _cache[key] = body
                 self.send_response(200)
-                self.send_header("Content-Type", self.guess_type(path)[0] or "application/octet-stream")
+                self.send_header("Content-Type", self.guess_type(path))
                 self.send_header("Content-Encoding", "gzip")
                 self.send_header("Content-Length", str(len(body)))
                 self.send_header("Last-Modified", self.date_time_string(st.st_mtime))
