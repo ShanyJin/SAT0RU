@@ -4,7 +4,7 @@
 
 > 个人拍摄 / 娱乐用途，非商业项目。原仓库未附 LICENSE，使用、引用与分发前请先确认原项目与素材的授权。
 
-**文档**：`AGENTS.md`（工作区入口/铁律）· `docs/ARCHITECTURE.md`（技术全貌/参数表）· `docs/TESTING.md`（回归+截图验收）· `docs/CHANGELOG.md`（改造史）
+**文档**：`AGENTS.md`（工作区入口/铁律）· `docs/ARCHITECTURE.md`（技术全貌/参数表）· `docs/TESTING.md`（回归+截图验收）· `docs/CHANGELOG.md`（改造史）· `docs/DEPLOY.md`（GitHub Pages / 宝塔部署）
 
 ## 首次进入：启动门禁与四式教程
 

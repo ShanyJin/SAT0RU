@@ -66,6 +66,8 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 手机访问也必须 HTTPS，且 `serve.py` 只绑 127.0.0.1：推荐 `tailscale serve --bg 8787`，手机开
   `https://lain.tailc73ce5.ts.net`（tailnet 内；首次要下载 ~23MB 本地模型，等顶部「启动」按钮变成「追踪中」）
 - 全部依赖在 `vendor/`，**零外网请求**；MIME 必须有 `.wasm→application/wasm`、`.data/.tflite→application/octet-stream`（`tools/serve.py` 已处理）
+- 公网部署 → `docs/DEPLOY.md`：GitHub Pages（官方静态托管、免费 CDN）或宝塔静态站 + Nginx；
+  资源路径全为相对路径，域名根目录或 `/SAT0RU/` 子目录都能跑
 - `tools/serve.py` 默认 gzip + 缓存头：文本/模型压缩结果缓存在内存，`/vendor/`、`/assets/`、`/audio/` 为 immutable，HTML 为 `no-cache`；改了 `index.html` 刷新即生效，改 `serve.py` 后要 `systemctl --user restart sat0ru`
 
 发布到主人的 GitHub 仓库（`main` 与 `final` 同步；`origin` 不动）：
@@ -104,6 +106,7 @@ git push --force-with-lease mine final:main   # main 跟 final 对齐
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
 | `docs/CHANGELOG.md` | 改造史（含每轮为什么改） |
+| `docs/DEPLOY.md` | 部署菜谱：GitHub Pages（官方静态托管）与宝塔/Nginx |
 | `CONTRIBUTORS.md` | 本项目与上游贡献者名单（GitHub 自动列表不认无账号的 Claude，以此为准） |
 
 ## 去哪改（grep 锚点）

@@ -27,6 +27,9 @@
   初版多写了个 `[0]`，把 `Content-Type` 截成首字母（模块脚本直接报 MIME 错、整站白屏），已修复并单独提交。
 - **关于页仓库链接**：改版仓库从误写的 `shanyaojinjin/SAT0RU` 更正为 **`ShanyJin/SAT0RU`**
   （`https://github.com/ShanyJin/SAT0RU`），回归加 1 项确认 href 与显示名。
+- **可子目录部署**：`index.html` 的 19 处根绝对路径（import map、MediaPipe、音频、教程图）改成相对路径，
+  站点放在域名根或 `/SAT0RU/` 子目录都能跑；加 `.nojekyll`（GitHub Pages 不走 Jekyll），
+  新增 `docs/DEPLOY.md`（GitHub Pages 与宝塔/Nginx 两套菜谱）。
 - **目录整理**：教程图 `assets/tutorial/*.webp`；`docs/archive/domain-expansion-pr7/` 留档旧开场页；
   README/AGENTS/ARCHITECTURE/TESTING/CHANGELOG 全部同步最终版（双语、加载、缓存、验收清单）。
 - **回归 265 → 301 项**：新增覆盖包括双语（默认中文、标题/标签/指南/关于/自定义面板/音频标签的英文渲染、

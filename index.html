@@ -511,8 +511,8 @@
     <script type="importmap">
         {
             "imports": {
-                "three": "/vendor/three/build/three.module.js",
-                "three/addons/": "/vendor/three/examples/jsm/"
+                "three": "./vendor/three/build/three.module.js",
+                "three/addons/": "./vendor/three/examples/jsm/"
             }
         }
     </script>
@@ -522,15 +522,15 @@
     <div class="stage-shade"></div>
     <div id="void-cinema"></div>
     <canvas id="output_canvas"></canvas>
-    <audio id="blue-voice" src="/audio/blue.mp3" preload="none"></audio>
-    <audio id="he-voice-1" src="/audio/he-1.mp3" preload="none"></audio>
-    <audio id="he-voice-2" src="/audio/he-2.mp3" preload="none"></audio>
-    <audio id="void-voice" src="/audio/void.mp3" preload="none"></audio>
-    <audio id="void-long-voice" src="/audio/void-long.mp3" preload="none"></audio>
-    <audio id="purple-voice" src="/audio/purple-short.mp3" preload="none"></audio>
-    <audio id="purple-clasp-voice" src="/audio/purple-clasp.mp3" preload="none"></audio>
-    <audio id="fail-voice" src="/audio/fail.mp3" preload="none"></audio>
-    <audio id="creed-voice" src="/audio/creed.mp3" preload="none"></audio>
+    <audio id="blue-voice" src="audio/blue.mp3" preload="none"></audio>
+    <audio id="he-voice-1" src="audio/he-1.mp3" preload="none"></audio>
+    <audio id="he-voice-2" src="audio/he-2.mp3" preload="none"></audio>
+    <audio id="void-voice" src="audio/void.mp3" preload="none"></audio>
+    <audio id="void-long-voice" src="audio/void-long.mp3" preload="none"></audio>
+    <audio id="purple-voice" src="audio/purple-short.mp3" preload="none"></audio>
+    <audio id="purple-clasp-voice" src="audio/purple-clasp.mp3" preload="none"></audio>
+    <audio id="fail-voice" src="audio/fail.mp3" preload="none"></audio>
+    <audio id="creed-voice" src="audio/creed.mp3" preload="none"></audio>
     <div id="grain"></div>
     <div id="idle-flash"></div>
     <div id="technique-subtitle" lang="zh-Hant" aria-hidden="true"><span class="ts-prefix"></span><span class="ts-name"></span></div>
@@ -596,7 +596,7 @@
                 <section class="intro-page" data-intro-page="blue" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img data-src="/assets/tutorial/blue.webp" width="900" height="900" decoding="async" alt="術式順転「蒼」手势示范" data-i18n-attr="alt:tut.blue.alt">
+                            <img data-src="assets/tutorial/blue.webp" width="900" height="900" decoding="async" alt="術式順転「蒼」手势示范" data-i18n-attr="alt:tut.blue.alt">
                             <figcaption data-i18n="tut.blue.caption">術式順転「蒼」 · 引力 / Lapse: Blue</figcaption>
                         </figure>
                         <div>
@@ -615,7 +615,7 @@
                 <section class="intro-page" data-intro-page="red" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img data-src="/assets/tutorial/red.webp" width="900" height="900" decoding="async" alt="術式反転「赫」手势示范" data-i18n-attr="alt:tut.red.alt">
+                            <img data-src="assets/tutorial/red.webp" width="900" height="900" decoding="async" alt="術式反転「赫」手势示范" data-i18n-attr="alt:tut.red.alt">
                             <figcaption data-i18n="tut.red.caption">術式反転「赫」 · 斥力 / Reversal: Red</figcaption>
                         </figure>
                         <div>
@@ -634,7 +634,7 @@
                 <section class="intro-page" data-intro-page="purple" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img data-src="/assets/tutorial/purple.webp" width="900" height="769" decoding="async" alt="虚式「茈」手势示范" data-i18n-attr="alt:tut.purple.alt">
+                            <img data-src="assets/tutorial/purple.webp" width="900" height="769" decoding="async" alt="虚式「茈」手势示范" data-i18n-attr="alt:tut.purple.alt">
                             <figcaption data-i18n="tut.purple.caption">虚式「茈」 · 投射 / Imaginary: Purple</figcaption>
                         </figure>
                         <div>
@@ -654,7 +654,7 @@
                 <section class="intro-page" data-intro-page="void" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img data-src="/assets/tutorial/void.webp" width="840" height="900" decoding="async" alt="領域展開「無量空処」手势示范" data-i18n-attr="alt:tut.void.alt">
+                            <img data-src="assets/tutorial/void.webp" width="840" height="900" decoding="async" alt="領域展開「無量空処」手势示范" data-i18n-attr="alt:tut.void.alt">
                             <figcaption data-i18n="tut.void.caption">領域展開「無量空処」 · Domain Expansion</figcaption>
                         </figure>
                         <div>
@@ -5527,9 +5527,9 @@
     // injected on the first 启动 (and prefetched while idle after the intro), so a
     // visitor who never enables the camera never downloads them.
     const MEDIA_PIPE_SCRIPTS = [
-        '/vendor/mediapipe/camera_utils/camera_utils.js',
-        '/vendor/mediapipe/hands/hands.js',
-        '/vendor/mediapipe/drawing_utils/drawing_utils.js'
+        'vendor/mediapipe/camera_utils/camera_utils.js',
+        'vendor/mediapipe/hands/hands.js',
+        'vendor/mediapipe/drawing_utils/drawing_utils.js'
     ];
     let mediaPipeLoadPromise = null;
 
@@ -5574,7 +5574,7 @@
             videoElement.setAttribute('playsinline', '');
             videoElement.muted = true;
             if (!hands) {
-                hands = new Hands({locateFile: (file) => `/vendor/mediapipe/hands/${file}`});
+                hands = new Hands({locateFile: (file) => `vendor/mediapipe/hands/${file}`});
                 hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7 });
                 hands.onResults(handleHandResults);
             }

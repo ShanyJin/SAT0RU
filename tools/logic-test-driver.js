@@ -1349,7 +1349,7 @@
             const introImgs = Array.from(document.querySelectorAll('#intro-modal .intro-figure img'));
             const introImgSources = introImgs.map((img) => img.getAttribute('data-src') || '');
             markState('tutorial images are local webp files', 'local,local,local,local',
-                introImgSources.map((src) => (src.startsWith('/assets/tutorial/') && src.endsWith('.webp') ? 'local' : 'remote')).join(','));
+                introImgSources.map((src) => (src.startsWith('assets/tutorial/') && src.endsWith('.webp') ? 'local' : 'remote')).join(','));
             const introImgServed = await Promise.all(introImgSources.map(async (src) => {
                 try { return (await fetch(src)).ok; } catch (e) { return false; }
             }));
@@ -1934,7 +1934,7 @@
             markState('audio elements do not preload at startup', '9/9',
                 initialAudioPreloadNone + '/9');
             markState('MediaPipe scripts stay out of the first load', '0',
-                String(document.querySelectorAll('script[src*="/vendor/mediapipe/"]').length));
+                String(document.querySelectorAll('script[src*="vendor/mediapipe/"]').length));
             markState('MediaPipe lazy loader exists', 'function', typeof loadMediaPipeScripts);
             await loadMediaPipeScripts();
             markState('MediaPipe header scripts load on demand', '3',
