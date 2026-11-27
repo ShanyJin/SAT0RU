@@ -1822,6 +1822,35 @@
                     document.title = endMode === 'charge' ? 'CHARGE DEMO' : 'BLUE DEMO';
                 }
             }
+
+        if (!endMode) {
+            const langBtn = (code) => document.querySelector('#intro-lang [data-lang="' + code + '"]');
+            const welcomeTextLater = document.querySelector('#intro-modal [data-intro-page="welcome"]')?.textContent || '';
+            markState('language defaults to Chinese', 'zh-CN', document.documentElement.lang || 'missing');
+            markState('site title uses the new Chinese name', '五条悟术式模拟', document.title || 'missing');
+            markState('welcome uses the new Chinese name and tagline', 'ok ok',
+                [welcomeTextLater.includes('五条悟术式模拟'), welcomeTextLater.includes('咒术回战手势触发模拟')]
+                    .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
+            markState('settings hold a language row outside the switches', 'yes',
+                (document.getElementById('lang-row')
+                    && !document.getElementById('lang-row').closest('[data-action]')) ? 'yes' : 'no');
+            if (langBtn('en')) langBtn('en').click();
+            markState('English switch updates html lang', 'en', document.documentElement.lang || 'missing');
+            markState('English switch updates the title', 'Gojo Satoru Cursed Technique Simulator', document.title || 'missing');
+            markState('English switch localizes the rail tabs', 'Mode & Audio,Guide,About',
+                Array.from(document.querySelectorAll('#left-rail .rail-tab')).map((b) => b.textContent.trim()).join(','));
+            markState('English start label is localized', 'yes',
+                ['Start', 'Starting…', 'Waiting for tracking', 'Tracking', 'Tracking error', 'Start failed']
+                    .includes((document.getElementById('start-btn-label') || {}).textContent || '') ? 'yes' : 'no');
+            markState('English keeps technique names in Traditional Chinese', 'ok ok',
+                [document.getElementById('audio-list')?.textContent.includes('術式反転「赫」'),
+                    document.getElementById('audio-list')?.textContent.includes('術式順転「蒼」')]
+                    .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
+            markState('language choice is persisted', 'en', localStorage.getItem('sat0ru.language') || 'missing');
+            if (langBtn('zh')) langBtn('zh').click();
+            markState('switching back restores Chinese', 'zh-CN', document.documentElement.lang || 'missing');
+            markState('switching back restores the Chinese title', '五条悟术式模拟', document.title || 'missing');
+        }
         } catch (err) {
             log.push('EXCEPTION -> ' + (err && err.message ? err.message : String(err)));
             const where = String((err && err.stack) || '').split('\n').filter(Boolean)[1];

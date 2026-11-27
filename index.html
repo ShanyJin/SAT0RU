@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#202020">
-    <title>JJK: Cursed Technique</title>
+    <title>五条悟术式模拟</title>
     <style>
         :root{
             --bg-base:#202020; --bg-acrylic:rgba(30,30,32,.55);
@@ -141,6 +141,16 @@
         .set-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: rgba(255,255,255,.72); transition: transform .18s ease, background .18s; }
         .set-row[aria-checked="true"] .set-track { background: var(--accent-soft); border-color: var(--accent); }
         .set-row[aria-checked="true"] .set-track::after { transform: translateX(16px); background: var(--accent); }
+        .lang-row { cursor: default; }
+        .lang-picks { flex: none; display: flex; align-items: center; gap: 4px; }
+        .lang-pick {
+            min-width: 30px; height: 20px; padding: 0 7px;
+            font: 600 10px/1 var(--mono); color: var(--text-secondary);
+            background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: var(--radius-pill);
+            cursor: pointer; transition: color .15s, background .15s, border-color .15s;
+        }
+        .lang-pick:hover { color: var(--text-primary); border-color: var(--stroke-light); }
+        .lang-pick.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
         /* Audio block: one row per local clip, click to play/stop. */
         .audio-row { display: flex; width: 100%; align-items: center; gap: 9px; padding: 5px 0; background: none; border: 0; color: inherit; font-family: inherit; text-align: left; cursor: pointer; }
         .audio-play {
@@ -255,7 +265,16 @@
         .intro-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--stroke); }
         .intro-brand { font-size: 17px; font-weight: 600; letter-spacing: .04em; }
         .intro-brand span { margin-left: 10px; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; color: var(--text-tertiary); text-transform: uppercase; }
+        .intro-brand > span:first-child { margin-left: 0; }
         .intro-step { font: 500 11px/1 var(--mono); letter-spacing: .08em; color: var(--accent); }
+        .intro-lang { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+        .intro-lang-btn {
+            padding: 5px 10px; font: 500 11px/1 var(--font); color: var(--text-secondary);
+            background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: var(--radius-pill);
+            cursor: pointer; transition: color .15s, background .15s, border-color .15s;
+        }
+        .intro-lang-btn:hover { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        .intro-lang-btn.active { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
         .intro-body { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 22px 26px 18px; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
         .intro-page[hidden] { display: none !important; }
         .intro-page { animation: introIn .24s ease; }
@@ -457,7 +476,10 @@
                 width: 100%; height: 100dvh; max-height: 100dvh;
                 border: 0; border-radius: 0;
             }
-            .intro-head { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top)); }
+            .intro-head { padding: 12px 14px; padding-top: calc(12px + env(safe-area-inset-top)); flex-wrap: wrap; gap: 8px 12px; }
+            .intro-brand { font-size: 14px; }
+            .intro-lang { margin-left: auto; }
+            .intro-lang-btn { padding: 5px 8px; font-size: 10px; }
             .intro-body { padding: 14px 14px 10px; }
             .intro-title { font-size: 19px; }
             .intro-tech-title { font-size: 19px; }
@@ -514,7 +536,11 @@
     <div id="intro-modal" role="dialog" aria-modal="true" aria-labelledby="intro-welcome-title">
         <div class="intro-dialog">
             <div class="intro-head">
-                <div class="intro-brand">SAT0RU <span>五条悟模式 · 启动说明</span></div>
+                <div class="intro-brand"><span data-i18n="welcome.brand">五条悟术式模拟</span> <span data-i18n="welcome.brandSub">启动说明</span></div>
+                <div class="intro-lang" id="intro-lang" role="group" aria-label="语言 / Language">
+                    <button class="intro-lang-btn active" type="button" data-lang="zh" aria-pressed="true">中文</button>
+                    <button class="intro-lang-btn" type="button" data-lang="en" aria-pressed="false">English</button>
+                </div>
                 <div class="intro-step" id="intro-step">01 / 05</div>
             </div>
             <div class="intro-body" id="intro-body">
@@ -526,8 +552,8 @@
                 </div>
 
                 <section class="intro-page" data-intro-page="welcome">
-                    <h2 class="intro-title" id="intro-welcome-title">欢迎来到 SAT0RU</h2>
-                    <p class="intro-sub">咒术回战手势粒子工具 · 五条悟模式 · 单人拍摄 / 娱乐用途</p>
+                    <h2 class="intro-title" id="intro-welcome-title" data-i18n="welcome.title">欢迎来到 五条悟术式模拟</h2>
+                    <p class="intro-sub" data-i18n="welcome.tagline">咒术回战手势触发模拟</p>
                     <div class="intro-play-tip"><strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。</div>
                     <div class="intro-grid">
                         <div class="intro-facts">
@@ -643,17 +669,17 @@
 
     <header id="ui">
         <div class="ui-group ui-left">
-            <button id="menu-btn" type="button" aria-label="收起控制栏" aria-expanded="true" aria-controls="left-rail" title="收起控制栏（菜单）">
+            <button id="menu-btn" type="button" aria-label="收起控制栏" aria-expanded="true" aria-controls="left-rail" title="收起控制栏（菜单）" data-i18n-attr="aria-label:menu.collapse,title:menu.collapse">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
                     <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
                 </svg>
             </button>
-            <button id="start-btn" type="button" aria-pressed="false" data-state="off" title="启动摄像头">
+            <button id="start-btn" type="button" aria-pressed="false" data-state="off" title="启动摄像头" data-i18n-attr="title:start.turnOn">
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
                     <path d="M10 2.5v7"/>
                     <path d="M6.2 5.4a6 6 0 1 0 7.6 0"/>
                 </svg>
-                <span id="start-btn-label">启动</span>
+                <span id="start-btn-label" data-i18n="start.off">启动</span>
             </button>
             <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
         </div>
@@ -668,17 +694,25 @@
         <div class="rail-head">
             <div>
                 <div class="rail-title">控制台</div>
-                <div class="rail-sub" id="rail-mode">SAT0RU · GOJO MODE</div>
+                <div class="rail-sub" id="rail-mode" data-i18n="rail.sub">五条悟术式模拟 · GOJO MODE</div>
             </div>
         </div>
         <div class="rail-tabs" role="tablist" aria-label="控制栏菜单">
-            <button class="rail-tab active" type="button" role="tab" data-tab="main" aria-selected="true">模式与音频</button>
-            <button class="rail-tab" type="button" role="tab" data-tab="guide" aria-selected="false">指南</button>
-            <button class="rail-tab" type="button" role="tab" data-tab="about" aria-selected="false">关于</button>
+            <button class="rail-tab active" type="button" role="tab" data-tab="main" aria-selected="true" data-i18n="rail.tab.main">模式与音频</button>
+            <button class="rail-tab" type="button" role="tab" data-tab="guide" aria-selected="false" data-i18n="rail.tab.guide">指南</button>
+            <button class="rail-tab" type="button" role="tab" data-tab="about" aria-selected="false" data-i18n="rail.tab.about">关于</button>
         </div>
         <section class="rail-panel" id="rail-panel-main" data-panel="main" role="tabpanel">
             <div class="panel-title">设置 · Settings</div>
             <div id="settings-list"></div>
+            <div class="set-row lang-row" id="lang-row">
+                <span class="kb-key" aria-hidden="true">文</span>
+                <span class="set-label" data-i18n="lang.row">语言 · Language</span>
+                <span class="lang-picks" role="group" aria-label="语言 / Language">
+                    <button class="lang-pick active" type="button" data-lang="zh" aria-pressed="true">中</button>
+                    <button class="lang-pick" type="button" data-lang="en" aria-pressed="false">EN</button>
+                </span>
+            </div>
             <div id="egg-panel" class="egg-panel" hidden>
                 <div class="egg-versions" role="group" aria-label="自定义无量空处视频版本">
                     <span class="egg-versions-label">视频版本</span>
@@ -760,11 +794,120 @@
     </aside>
     <div id="debug-panel"></div>
 
+    <script>
+        // Early i18n bootstrap: runs before the module (so before three.js loads) and applies
+        // saved language choices to the static markup, avoiding a flash of Chinese for
+        // English users. The module re-renders the dynamic areas from this same dictionary.
+        const SAT0RU_LANG_KEY = 'sat0ru.language';
+        const SAT0RU_I18N = {
+            zh: {
+                'site.title': '五条悟术式模拟',
+                'welcome.brand': '五条悟术式模拟',
+                'welcome.brandSub': '启动说明',
+                'welcome.title': '欢迎来到 五条悟术式模拟',
+                'welcome.tagline': '咒术回战手势触发模拟',
+                'rail.sub': '五条悟术式模拟 · GOJO MODE',
+                'rail.tab.main': '模式与音频',
+                'rail.tab.guide': '指南',
+                'rail.tab.about': '关于',
+                'start.off': '启动',
+                'start.starting': '启动中',
+                'start.waiting': '等待追踪',
+                'start.tracking': '追踪中',
+                'start.stalled': '追踪异常',
+                'start.error': '启动失败',
+                'start.turnOn': '启动摄像头',
+                'start.turnOff': '关闭摄像头 · {label}',
+                'menu.expand': '打开控制栏',
+                'menu.collapse': '收起控制栏',
+                'menu.title': '{label}（菜单）',
+                'lang.row': '语言 · Language'
+            },
+            en: {
+                'site.title': 'Gojo Satoru Cursed Technique Simulator',
+                'welcome.brand': 'Gojo Satoru Cursed Technique Simulator',
+                'welcome.brandSub': 'Setup',
+                'welcome.title': 'Welcome to Gojo Satoru Cursed Technique Simulator',
+                'welcome.tagline': 'A cursed-technique gesture simulator',
+                'rail.sub': 'GOJO SATORU · GOJO MODE',
+                'rail.tab.main': 'Mode & Audio',
+                'rail.tab.guide': 'Guide',
+                'rail.tab.about': 'About',
+                'start.off': 'Start',
+                'start.starting': 'Starting…',
+                'start.waiting': 'Waiting for tracking',
+                'start.tracking': 'Tracking',
+                'start.stalled': 'Tracking error',
+                'start.error': 'Start failed',
+                'start.turnOn': 'Start camera',
+                'start.turnOff': 'Turn camera off · {label}',
+                'menu.expand': 'Open control rail',
+                'menu.collapse': 'Collapse control rail',
+                'menu.title': '{label} (menu)',
+                'lang.row': 'Language · 语言'
+            }
+        };
+
+        function sat0ruT(key, vars) {
+            const lang = window.SAT0RU_LANG === 'en' ? 'en' : 'zh';
+            const table = SAT0RU_I18N[lang] || SAT0RU_I18N.zh;
+            let text = table[key];
+            if (text == null) text = SAT0RU_I18N.zh[key];
+            if (text == null) return key;
+            if (vars) {
+                text = text.replace(/\{(\w+)\}/g, (match, name) => (
+                    vars[name] == null ? match : String(vars[name])
+                ));
+            }
+            return text;
+        }
+
+        function sat0ruApplyStaticI18n() {
+            const lang = window.SAT0RU_LANG === 'en' ? 'en' : 'zh';
+            document.documentElement.lang = lang === 'en' ? 'en' : 'zh-CN';
+            document.title = sat0ruT('site.title');
+            document.querySelectorAll('[data-i18n]').forEach((el) => {
+                el.textContent = sat0ruT(el.dataset.i18n);
+            });
+            document.querySelectorAll('[data-i18n-html]').forEach((el) => {
+                el.innerHTML = sat0ruT(el.dataset.i18nHtml);
+            });
+            document.querySelectorAll('[data-i18n-attr]').forEach((el) => {
+                el.dataset.i18nAttr.split(',').forEach((pair) => {
+                    const [attr, key] = pair.split(':');
+                    if (attr && key) el.setAttribute(attr.trim(), sat0ruT(key.trim()));
+                });
+            });
+        }
+
+        try {
+            const saved = localStorage.getItem(SAT0RU_LANG_KEY);
+            window.SAT0RU_LANG = saved === 'en' ? 'en' : 'zh';
+        } catch (err) {
+            window.SAT0RU_LANG = 'zh';
+        }
+        window.SAT0RU_I18N = SAT0RU_I18N;
+        window.sat0ruT = sat0ruT;
+        window.sat0ruApplyStaticI18n = sat0ruApplyStaticI18n;
+        window.sat0ruSetLang = function (next, persist = true) {
+            window.SAT0RU_LANG = next === 'en' ? 'en' : 'zh';
+            if (persist) {
+                try { localStorage.setItem(SAT0RU_LANG_KEY, window.SAT0RU_LANG); } catch (err) { /* blocked */ }
+            }
+            sat0ruApplyStaticI18n();
+            return window.SAT0RU_LANG;
+        };
+        sat0ruApplyStaticI18n();
+    </script>
+
 <script type="module">
     import * as THREE from 'three';
     import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
     import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
     import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+
+    // Static copy lives in the early classic script; dynamic areas re-render through this.
+    const t = (key, vars) => window.sat0ruT(key, vars);
 
     // --- Scene & Rendering ---
     const scene = new THREE.Scene();
@@ -3085,6 +3228,8 @@
     const purpleHint = document.getElementById('purple-hint');
     let purpleMode = false; // top-bar right 「茈」 switch: the button selects the technique, it does not cast
     const settingsList = document.getElementById('settings-list');
+    const introLangEl = document.getElementById('intro-lang');
+    const langRowEl = document.getElementById('lang-row');
     const startBtn = document.getElementById('start-btn');
     const startBtnLabel = document.getElementById('start-btn-label');
     const eggPanel = document.getElementById('egg-panel');
@@ -3297,9 +3442,7 @@
     }
 
     updatePurpleHint();
-    const railModeEl = document.getElementById('rail-mode');
-    if (railModeEl) railModeEl.innerText = 'SAT0RU · GOJO MODE';
-    purpleModeBtn.addEventListener('click', (event) => {
+        purpleModeBtn.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
         setPurpleMode(!purpleMode);
@@ -4436,15 +4579,12 @@
 
     function updateStartButton() {
         if (!startBtn) return;
-        const label = cameraStatus === 'starting' ? '启动中'
-            : cameraStatus === 'tracking' ? '追踪中'
-                : cameraStatus === 'on' ? '等待追踪'
-                    : cameraStatus === 'stalled' ? '追踪异常'
-                        : cameraStatus === 'error' ? '启动失败'
-                            : '启动';
+        const state = cameraStatus === 'on' ? 'waiting'
+            : ['starting', 'tracking', 'stalled', 'error'].includes(cameraStatus) ? cameraStatus : 'off';
+        const label = t('start.' + state);
         startBtn.dataset.state = cameraStatus === 'on' ? 'waiting' : cameraStatus;
         startBtn.setAttribute('aria-pressed', cameraEnabled ? 'true' : 'false');
-        startBtn.title = cameraEnabled ? '关闭摄像头 · ' + label : '启动摄像头';
+        startBtn.title = cameraEnabled ? t('start.turnOff', { label }) : t('start.turnOn');
         if (startBtnLabel) startBtnLabel.textContent = label;
     }
 
@@ -4501,6 +4641,7 @@
             settingsList.innerHTML = rows;
         }
         updateEggPanel();
+        syncLangButtons();
     }
 
     // The only path to the camera/model. Turning this on creates the MediaPipe graph and
@@ -4543,15 +4684,48 @@
         updateKeybindMenu();
     }
 
+    function syncLangButtons() {
+        document.querySelectorAll('[data-lang]').forEach((btn) => {
+            const on = btn.dataset.lang === window.SAT0RU_LANG;
+            btn.classList.toggle('active', on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+        });
+    }
+
+    function setLanguage(next, persist = true) {
+        window.sat0ruSetLang(next, persist);
+        syncLangButtons();
+        buildGuide();
+        buildAudioLibrary();
+        updateKeybindMenu();
+        updateEggPanel();
+        showIntroPage(introPage);
+        updateStartButton();
+        setRailOpen(railOpen);
+    }
+
+    if (introLangEl) {
+        introLangEl.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-lang]');
+            if (btn) setLanguage(btn.dataset.lang);
+        });
+    }
+    if (langRowEl) {
+        langRowEl.addEventListener('click', (event) => {
+            const btn = event.target.closest('[data-lang]');
+            if (btn) setLanguage(btn.dataset.lang);
+        });
+    }
+
     function setRailOpen(open) {
         railOpen = open;
         if (leftRail) leftRail.classList.toggle('collapsed', !railOpen);
         if (menuBtn) {
             menuBtn.classList.toggle('active', railOpen);
             menuBtn.setAttribute('aria-expanded', railOpen ? 'true' : 'false');
-            const label = railOpen ? '收起控制栏' : '打开控制栏';
+            const label = t(railOpen ? 'menu.collapse' : 'menu.expand');
             menuBtn.setAttribute('aria-label', label);
-            menuBtn.title = `${label}（菜单）`;
+            menuBtn.title = t('menu.title', { label });
         }
     }
 
@@ -4650,7 +4824,12 @@
                 <span class="audio-label">${track.label}</span>
                 <span class="audio-dur">${track.dur}</span>
             </button>`).join('');
-        list.addEventListener('click', (event) => {
+    }
+
+    // Delegated once: rebuilding the rows for a language switch must not stack listeners.
+    const audioListEl = document.getElementById('audio-list');
+    if (audioListEl) {
+        audioListEl.addEventListener('click', (event) => {
             const row = event.target.closest('.audio-row');
             if (!row) return;
             toggleAudioClip(row.dataset.audio);
@@ -4853,6 +5032,7 @@
     setRailTab('main');
     setRailOpen(true);
     updateKeybindMenu();
+    syncLangButtons();
     window.addEventListener('keydown', (event) => {
         if (event.repeat) return;
         if (voidEggOpen) {
