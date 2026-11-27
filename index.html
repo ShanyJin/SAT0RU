@@ -1980,25 +1980,25 @@
     let lastRedSeenMs = 0;
 
     // --- 赫 cast (術式反転「赫」): activation is a forward shot, expiry is a burn-out ----
-    // 赫 itself is a sustained repel field, but its two transitions must never look alike:
-    //  * activation: a hot muzzle on the fingertip, a narrow red lance flying out along the
-    //    aim, a forward shock cone, the field snapping up from a compressed scale, and a
-    //    recoil kick opposite the shot. Strictly directional — never a radial burst
-    //    ("不是炸开").
-    //  * release: the field stops where it was, implodes, and sheds falling ash.
+    // 赫 itself is a sustained repel orb (incandescent white-hot core + saturated crimson
+    // corona + wide scarlet-orange atmospheric glow), with two distinct transitions:
+    //  * activation: brief violent muzzle flash + blinding white-crimson energy lance
+    //    blasting along the aim, expanding Mach shockwave rings & forward pressure cone,
+    //    the orb snapping up from compression with a recoil kick. Strictly directional.
+    //  * release: the orb collapses and fades in place while glowing embers fall away.
     // Both timelines are pure functions of age so the regression can pin the geometry.
     const RED_CAST = {
-        lanceMs: 420,      // the shot's lifetime: tip travel = lanceSpeed * age
-        coneMs: 380,       // forward shock-cone lifetime
-        flashMs: 210,      // muzzle flash
-        fadeMs: 420,       // field pop / recoil settle
-        lanceSpeed: 170,   // world units per second: the tip clears the 42-radius field
-        coneLength: 18,    // how far the shock cone reaches at full age
-        coneSpread: 4.2,   // lateral half-width there (<< length: directional, not a blast)
-        flashRadius: 1.6,  // muzzle spark-ball radius
-        popFrom: 0.6,      // field scale at the instant of the shot
-        joltDist: 3.4,     // recoil kick opposite the aim
-        bloomKick: 1.5,    // extra bloom on the muzzle flash
+        lanceMs: 560,      // the shot's lifetime: high-velocity surge + fiery wake
+        coneMs: 480,       // forward shock-cone + Mach rings lifetime
+        flashMs: 260,      // blazing white-red muzzle flash
+        fadeMs: 480,       // field pop / recoil settle
+        lanceSpeed: 175,   // world units per second base speed
+        coneLength: 26,    // how far the shock cone & Mach rings reach at full age
+        coneSpread: 5.2,   // lateral half-width there (<< length: directional, not a blast)
+        flashRadius: 1.8,  // muzzle spark-ball radius
+        popFrom: 0.56,     // field scale at the instant of the shot (compressed charge)
+        joltDist: 3.8,     // recoil kick opposite the aim
+        bloomKick: 2.2,    // extra bloom on the muzzle flash
         burnMs: 620,       // release burn-out window
         burnGravity: 24    // ash fall acceleration (world units / s²)
     };
@@ -2011,24 +2011,31 @@
         const coneT = Math.min(1, age / RED_CAST.coneMs);
         const flashT = Math.min(1, age / RED_CAST.flashMs);
         const joltT = Math.min(1, age / RED_CAST.fadeMs);
-        const reach = RED_CAST.lanceSpeed * (age / 1000);
+        // Punchy initial launch with fast sustained travel (keeps linear-ish reach growth
+        // across 200-400 ms while snapping out hard right after the muzzle flash).
+        const easeOut = 1 - Math.pow(1 - lanceT, 1.55);
+        const maxReach = RED_CAST.lanceSpeed * (RED_CAST.lanceMs / 1000);
+        const reach = maxReach * easeOut;
         return {
             active: age < Math.max(RED_CAST.lanceMs, RED_CAST.coneMs, RED_CAST.fadeMs),
             x: origin ? origin.x : 0,
             y: origin ? origin.y : 0,
             dirX: origin ? origin.dirX : 0,
             dirY: origin ? origin.dirY : 1,
+            age,
+            lanceT,
+            coneT,
             reach,
-            width: 0.6 + reach * 0.05,
-            coneLength: 3 + (RED_CAST.coneLength - 3) * coneT,
-            spread: 0.4 + (RED_CAST.coneSpread - 0.4) * coneT,
+            width: 0.75 + reach * 0.042,
+            coneLength: 3.5 + (RED_CAST.coneLength - 3.5) * Math.pow(coneT, 0.8),
+            spread: 0.5 + (RED_CAST.coneSpread - 0.5) * Math.pow(coneT, 0.85),
             back: RED_CAST.flashRadius,
-            flashSpread: RED_CAST.flashRadius * (1 + 0.9 * flashT),
-            flash: Math.pow(1 - flashT, 1.6),
-            lance: Math.pow(1 - lanceT, 1.1),
-            cone: Math.pow(1 - coneT, 1.5),
+            flashSpread: RED_CAST.flashRadius * (1 + 1.45 * Math.pow(flashT, 0.7)),
+            flash: Math.pow(1 - flashT, 1.45),
+            lance: Math.pow(1 - lanceT, 1.05),
+            cone: Math.pow(1 - coneT, 1.35),
             // The field snaps up past full size and settles; the recoil is negative along aim.
-            pop: 1 + (RED_CAST.popFrom - 1) * Math.exp(-age / 110) * Math.cos(age / 90),
+            pop: 1 + (RED_CAST.popFrom - 1) * Math.exp(-age / 115) * Math.cos(age / 92),
             jolt: -RED_CAST.joltDist * Math.sin(Math.PI * joltT) * (1 - joltT)
         };
     }
@@ -2041,7 +2048,7 @@
             x: origin ? origin.x : 0,
             y: origin ? origin.y : 0,
             alpha: Math.pow(1 - t, 1.35),
-            spread: 1 + 0.3 * t,
+            spread: 1 + 0.35 * t,
             fall: RED_CAST.burnGravity * Math.pow(age / 1000, 2)
         };
     }
@@ -2049,13 +2056,33 @@
     function fillRedLancePositions(lance, L) {
         const perpX = -L.dirY;
         const perpY = L.dirX;
+        const twist = (L.age || 0) * 0.018;
         for (let i = 0; i < lance.seeds.length; i++) {
             const s = lance.seeds[i];
-            const along = L.reach * (0.05 + 0.95 * s.u) * s.spd;
-            const side = s.lat * (0.18 + L.width * (0.3 + 0.7 * s.u));
+            let along, side, z;
+            if (s.kind === 'head') {
+                // Dense incandescent bolt head leading the shot.
+                along = L.reach * (0.90 + 0.10 * s.u);
+                const r = (0.35 + L.width * 0.55) * s.rad;
+                side = Math.cos(s.ang + twist) * r;
+                z = Math.sin(s.ang + twist) * r * 0.65 + s.z;
+            } else if (s.kind === 'core') {
+                // Tight high-energy plasma beam connecting muzzle to bolt head.
+                along = L.reach * (0.04 + 0.90 * s.u);
+                const taper = 0.28 + 0.72 * Math.sin(s.u * Math.PI * 0.85 + 0.15);
+                const r = (0.22 + L.width * 0.38) * taper * s.rad;
+                side = Math.cos(s.ang + s.u * 7.0 - twist) * r;
+                z = Math.sin(s.ang + s.u * 7.0 - twist) * r * 0.6 + s.z;
+            } else {
+                // Fiery crimson sparks shearing off in the wake behind the bolt.
+                along = L.reach * (0.06 + 0.88 * s.u) * s.spd;
+                const flare = 0.35 + 0.65 * (1 - s.u * 0.35);
+                side = s.lat * (0.25 + L.width * 1.15 * flare);
+                z = s.z;
+            }
             lance.positions[i * 3] = L.x + L.dirX * along + perpX * side;
             lance.positions[i * 3 + 1] = L.y + L.dirY * along + perpY * side;
-            lance.positions[i * 3 + 2] = s.z;
+            lance.positions[i * 3 + 2] = z;
         }
     }
 
@@ -2064,8 +2091,8 @@
         const perpY = L.dirX;
         for (let i = 0; i < flash.seeds.length; i++) {
             const s = flash.seeds[i];
-            const along = L.reach * 0.1 * s.spd + L.flashSpread * 0.3 * s.fwd;
-            const side = s.lat * L.flashSpread;
+            const along = L.reach * 0.08 * s.spd + L.flashSpread * (0.35 + 1.15 * s.fwd);
+            const side = s.lat * L.flashSpread * (s.ray ? 0.32 : 1.15);
             flash.positions[i * 3] = L.x + L.dirX * along + perpX * side;
             flash.positions[i * 3 + 1] = L.y + L.dirY * along + perpY * side;
             flash.positions[i * 3 + 2] = s.z;
@@ -2077,13 +2104,26 @@
         const perpY = L.dirX;
         for (let i = 0; i < cone.seeds.length; i++) {
             const s = cone.seeds[i];
-            const rr = L.spread * s.a * s.rj;
-            const side = Math.cos(s.theta) * rr;
-            // Surface of a cone whose apex sits on the muzzle and opens along the aim:
-            // every point is in front of the hand, the rim stays narrow.
-            cone.positions[i * 3] = L.x + L.dirX * L.coneLength * s.a + perpX * side;
-            cone.positions[i * 3 + 1] = L.y + L.dirY * L.coneLength * s.a + perpY * side;
-            cone.positions[i * 3 + 2] = Math.sin(s.theta) * rr * 0.35 + s.z;
+            if (s.ringIdx >= 0) {
+                // Expanding Mach shockwave rings spaced along the firing axis.
+                const ringFrac = (s.ringIdx + 0.55) / 4;
+                const ringDist = L.coneLength * ringFrac;
+                const ringR = (0.9 + L.spread * (0.42 + 0.72 * ringFrac)) * s.rj;
+                const side = Math.cos(s.theta) * ringR;
+                const depth = Math.sin(s.theta) * ringR * 0.42;
+                // Slight axial thickness so each ring reads as a crisp glowing disc-rim.
+                const axial = ringDist + Math.sin(s.theta) * 0.25 + s.z * 0.35;
+                cone.positions[i * 3] = L.x + L.dirX * axial + perpX * side;
+                cone.positions[i * 3 + 1] = L.y + L.dirY * axial + perpY * side;
+                cone.positions[i * 3 + 2] = depth;
+            } else {
+                // Forward pressure-cone wake wrapping the Mach rings.
+                const rr = L.spread * s.a * s.rj;
+                const side = Math.cos(s.theta) * rr;
+                cone.positions[i * 3] = L.x + L.dirX * L.coneLength * s.a + perpX * side;
+                cone.positions[i * 3 + 1] = L.y + L.dirY * L.coneLength * s.a + perpY * side;
+                cone.positions[i * 3 + 2] = Math.sin(s.theta) * rr * 0.38 + s.z;
+            }
         }
     }
 
@@ -2097,16 +2137,114 @@
         }
     }
 
+    // Procedural radial glow textures for 赫 (zero network requests, created once):
+    //  * redParticleTex: soft circular glowing dot so particles read as plasma sparks, not squares.
+    //  * redCoreTex: blinding white-hot solar core + tight saturated crimson-orange corona.
+    //  * redAuraTex: massive diffuse crimson-orange atmospheric haze (matches reference art).
+    function makeRadialGlowTexture(size, stops, flareRays) {
+        const c = document.createElement('canvas');
+        c.width = size;
+        c.height = size;
+        const ctx = c.getContext('2d');
+        const half = size / 2;
+        const grad = ctx.createRadialGradient(half, half, 0, half, half, half);
+        for (const [offset, color] of stops) grad.addColorStop(offset, color);
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, size, size);
+        if (flareRays) {
+            ctx.save();
+            ctx.translate(half, half);
+            for (let k = 0; k < flareRays; k++) {
+                const ang = (k / flareRays) * Math.PI;
+                ctx.save();
+                ctx.rotate(ang);
+                const rg = ctx.createLinearGradient(-half, 0, half, 0);
+                rg.addColorStop(0, 'rgba(255,40,10,0)');
+                rg.addColorStop(0.35, 'rgba(255,90,30,0.28)');
+                rg.addColorStop(0.5, 'rgba(255,255,245,0.85)');
+                rg.addColorStop(0.65, 'rgba(255,90,30,0.28)');
+                rg.addColorStop(1, 'rgba(255,40,10,0)');
+                ctx.fillStyle = rg;
+                ctx.fillRect(-half, -size * 0.022, size, size * 0.044);
+                ctx.restore();
+            }
+            ctx.restore();
+        }
+        const tex = new THREE.CanvasTexture(c);
+        tex.needsUpdate = true;
+        return tex;
+    }
+
+    const redParticleTex = makeRadialGlowTexture(64, [
+        [0.0, 'rgba(255,255,255,1.0)'],
+        [0.24, 'rgba(255,255,255,0.90)'],
+        [0.54, 'rgba(255,255,255,0.34)'],
+        [0.80, 'rgba(255,255,255,0.06)'],
+        [1.0, 'rgba(255,255,255,0.0)']
+    ]);
+    const redCoreTex = makeRadialGlowTexture(256, [
+        [0.0, 'rgba(255,255,255,1.0)'],
+        [0.22, 'rgba(255,252,252,1.0)'],
+        [0.29, 'rgba(255,210,208,0.96)'],
+        [0.37, 'rgba(255,26,12,0.90)'],
+        [0.50, 'rgba(232,12,4,0.56)'],
+        [0.66, 'rgba(185,4,0,0.22)'],
+        [0.82, 'rgba(120,0,0,0.05)'],
+        [0.95, 'rgba(80,0,0,0.0)'],
+        [1.0, 'rgba(80,0,0,0.0)']
+    ]);
+    const redAuraTex = makeRadialGlowTexture(256, [
+        [0.0, 'rgba(255,20,6,0.72)'],
+        [0.18, 'rgba(238,14,4,0.52)'],
+        [0.36, 'rgba(205,8,2,0.30)'],
+        [0.56, 'rgba(155,4,0,0.13)'],
+        [0.74, 'rgba(100,0,0,0.04)'],
+        [0.88, 'rgba(60,0,0,0.008)'],
+        [0.96, 'rgba(40,0,0,0.0)'],
+        [1.0, 'rgba(40,0,0,0.0)']
+    ]);
+    const redMuzzleTex = makeRadialGlowTexture(256, [
+        [0.0, 'rgba(255,255,255,1.0)'],
+        [0.18, 'rgba(255,230,226,0.95)'],
+        [0.34, 'rgba(255,28,10,0.72)'],
+        [0.62, 'rgba(200,8,2,0.22)'],
+        [0.86, 'rgba(120,0,0,0.03)'],
+        [0.96, 'rgba(80,0,0,0.0)'],
+        [1.0, 'rgba(80,0,0,0.0)']
+    ], 4);
+
+    function createRedGlowSprite(map, baseOpacity) {
+        const mat = new THREE.SpriteMaterial({
+            map,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: baseOpacity,
+            depthWrite: false
+        });
+        const sprite = new THREE.Sprite(mat);
+        sprite.visible = false;
+        sprite.frustumCulled = false;
+        scene.add(sprite);
+        return sprite;
+    }
+
+    const redCoreSprite = createRedGlowSprite(redCoreTex, 1.0);
+    const redAuraSprite = createRedGlowSprite(redAuraTex, 0.85);
+    const redMuzzleSprite = createRedGlowSprite(redMuzzleTex, 0.0);
+
     // Effect meshes (created once; dark unless a cast or burn-out is running).
-    const RED_LANCE_COUNT = 700;
-    const RED_FLASH_COUNT = 520;
-    const RED_CONE_COUNT = 380;
-    const RED_EMBER_COUNT = 260;
+    const RED_LANCE_COUNT = 1100;
+    const RED_FLASH_COUNT = 600;
+    const RED_CONE_COUNT = 680;
+    const RED_EMBER_COUNT = 340;
 
     function buildRedFxPoints(count, size, tint) {
         const pts = createClaspPoints(count, size);
+        pts.material.map = redParticleTex;
+        pts.material.alphaTest = 0.005;
+        pts.material.needsUpdate = true;
         for (let i = 0; i < count; i++) {
-            const vary = 0.65 + 0.35 * Math.random();
+            const vary = 0.68 + 0.32 * Math.random();
             pts.colorArr[i * 3] = tint[0] * vary;
             pts.colorArr[i * 3 + 1] = tint[1] * vary;
             pts.colorArr[i * 3 + 2] = tint[2] * vary;
@@ -2114,96 +2252,145 @@
         pts.geometry.attributes.color.needsUpdate = true;
         return pts;
     }
-    const redLance = buildRedFxPoints(RED_LANCE_COUNT, 0.5, [1.0, 0.12, 0.04]);
+    const redLance = buildRedFxPoints(RED_LANCE_COUNT, 1.15, [1.0, 0.16, 0.04]);
     for (let i = 0; i < RED_LANCE_COUNT; i++) {
-        // 20% of the points bunch at the far end: a hot bolt head leads the shot,
-        // the rest trail behind it as the red wake.
-        const head = i % 5 === 0;
-        const u = head ? 0.93 + Math.random() * 0.07 : Math.random() * 0.92;
+        const frac = i / RED_LANCE_COUNT;
+        const kind = frac < 0.25 ? 'head' : frac < 0.70 ? 'core' : 'wake';
+        const u = Math.random();
         redLance.seeds.push({
+            kind,
             u,
+            rad: Math.pow(Math.random(), 0.55),
+            ang: Math.random() * Math.PI * 2,
             lat: (Math.random() - 0.5) * 2,
-            spd: 0.75 + Math.random() * 0.5,
+            spd: 0.78 + Math.random() * 0.42,
             z: (Math.random() - 0.5) * 1.4
         });
-        const hot = head ? 1 : u * u;
-        const vary = 0.7 + 0.3 * Math.random();
-        redLance.colorArr[i * 3] = 1.0 * vary;
-        redLance.colorArr[i * 3 + 1] = (0.06 + 0.34 * hot) * vary;
-        redLance.colorArr[i * 3 + 2] = (0.02 + 0.10 * hot) * vary;
+        const vary = 0.75 + 0.25 * Math.random();
+        if (kind === 'head') {
+            // Blazing white-hot projectile tip (rose-white, never yellow).
+            redLance.colorArr[i * 3] = 1.0 * vary;
+            redLance.colorArr[i * 3 + 1] = (0.72 + 0.28 * u) * vary;
+            redLance.colorArr[i * 3 + 2] = (0.70 + 0.30 * u) * vary;
+        } else if (kind === 'core') {
+            // Incandescent white-crimson → fierce scarlet along the beam.
+            const hot = Math.pow(u, 1.5);
+            redLance.colorArr[i * 3] = 1.0 * vary;
+            redLance.colorArr[i * 3 + 1] = (0.06 + 0.52 * hot) * vary;
+            redLance.colorArr[i * 3 + 2] = (0.04 + 0.48 * hot) * vary;
+        } else {
+            // Fiery crimson sparks shearing off in the wake.
+            redLance.colorArr[i * 3] = 1.0 * vary;
+            redLance.colorArr[i * 3 + 1] = (0.03 + 0.08 * u) * vary;
+            redLance.colorArr[i * 3 + 2] = 0.02 * vary;
+        }
     }
     redLance.geometry.attributes.color.needsUpdate = true;
-    const redFlash = buildRedFxPoints(RED_FLASH_COUNT, 0.42, [1.0, 0.42, 0.14]);
+
+    const redFlash = buildRedFxPoints(RED_FLASH_COUNT, 1.05, [1.0, 0.55, 0.24]);
     for (let i = 0; i < RED_FLASH_COUNT; i++) {
+        const ray = i % 3 === 0;
         redFlash.seeds.push({
+            ray,
             lat: (Math.random() - 0.5) * 2,
             fwd: Math.random(),
-            spd: 0.6 + Math.random() * 0.8,
+            spd: 0.65 + Math.random() * 0.85,
             z: (Math.random() - 0.5) * 1.6
         });
+        const vary = 0.75 + 0.25 * Math.random();
+        redFlash.colorArr[i * 3] = 1.0 * vary;
+        redFlash.colorArr[i * 3 + 1] = (ray ? 0.80 : 0.14) * vary;
+        redFlash.colorArr[i * 3 + 2] = (ray ? 0.78 : 0.08) * vary;
     }
-    const redCone = buildRedFxPoints(RED_CONE_COUNT, 0.4, [0.85, 0.10, 0.05]);
+    redFlash.geometry.attributes.color.needsUpdate = true;
+
+    const redCone = buildRedFxPoints(RED_CONE_COUNT, 0.95, [1.0, 0.10, 0.04]);
     for (let i = 0; i < RED_CONE_COUNT; i++) {
+        const isRing = i < RED_CONE_COUNT * 0.65;
+        const ringIdx = isRing ? (i % 4) : -1;
         redCone.seeds.push({
-            a: Math.pow(Math.random(), 1.6),
+            ringIdx,
+            a: Math.pow(Math.random(), 1.35),
             theta: Math.random() * Math.PI * 2,
-            rj: 0.75 + Math.random() * 0.35,
+            rj: isRing ? (0.94 + Math.random() * 0.12) : (0.75 + Math.random() * 0.35),
             z: (Math.random() - 0.5) * 0.6
         });
+        const vary = 0.75 + 0.25 * Math.random();
+        if (isRing) {
+            // Hot rose-white inner shock rings fading to pure crimson further downrange.
+            const heat = 1 - ringIdx / 4;
+            redCone.colorArr[i * 3] = 1.0 * vary;
+            redCone.colorArr[i * 3 + 1] = (0.08 + 0.44 * heat) * vary;
+            redCone.colorArr[i * 3 + 2] = (0.06 + 0.42 * heat) * vary;
+        } else {
+            redCone.colorArr[i * 3] = 0.95 * vary;
+            redCone.colorArr[i * 3 + 1] = 0.05 * vary;
+            redCone.colorArr[i * 3 + 2] = 0.02 * vary;
+        }
     }
-    const redEmber = buildRedFxPoints(RED_EMBER_COUNT, 0.46, [1.0, 0.30, 0.08]);
+    redCone.geometry.attributes.color.needsUpdate = true;
+
+    const redEmber = buildRedFxPoints(RED_EMBER_COUNT, 0.95, [1.0, 0.32, 0.08]);
     for (let i = 0; i < RED_EMBER_COUNT; i++) {
         // Ash starts at the field rim and just outside it, so it is visible falling
         // clear of the orb instead of being buried inside it.
         redEmber.seeds.push({
             a: Math.random() * Math.PI * 2,
-            r: 8 + Math.random() * 10,
+            r: 5.5 + Math.random() * 11,
             g: 0.5 + Math.random() * 0.9,
             z: (Math.random() - 0.5) * 3
         });
     }
 
-    // --- 赫's sustained field: a small dense orb + a few drifting sparks ---------------
+    // --- 赫's sustained field: blinding white-hot sun core + crimson corona + fiery sparks --
     // The shared 20k swarm stays fully dark the whole time 赫 is held (no per-frame lerp,
-    // no 240 KB attribute uploads); 赫 owns this compact mesh instead. Radius ~5 with a
-    // sparse spark halo — a small red ball that breathes and swirls slowly, not a big
-    // spinning disc.
+    // no 240 KB attribute uploads); 赫 owns this compact 1500-point mesh + 2 glow sprites.
+    // Matches the reference art: intense pure-white centre, tight vermilion-crimson corona,
+    // and a wide atmospheric scarlet-orange radiance with swirling/repelling embers.
     const RED_BALL = {
         count: 1500,
-        radius: 4.6,       // core ball radius (world units)
-        breathe: 0.07,     // ± radial breathing
-        spin: 0.85,        // rad/s slow swirl around the vertical axis
-        sparkRadius: 1.65, // outer sparks sit at radius × this (plus jitter/drift)
-        alpha: 0.80
+        radius: 4.8,       // core ball radius (world units)
+        breathe: 0.08,     // ± radial breathing
+        spin: 1.15,        // rad/s energetic swirl around the core
+        sparkRadius: 1.75, // outer sparks sit at radius × this (plus jitter/drift)
+        alpha: 0.92
     };
-    // Hot core -> deep red rim; sparks a dim ember red.
-    const redBall = createClaspPoints(RED_BALL.count, 0.5);
+    const redBall = createClaspPoints(RED_BALL.count, 1.15);
+    redBall.material.map = redParticleTex;
+    redBall.material.alphaTest = 0.005;
+    redBall.material.needsUpdate = true;
     for (let i = 0; i < RED_BALL.count; i++) {
-        const outer = i % 6 === 0; // ~17% of the points are the outer spark halo
+        const frac = i / RED_BALL.count;
+        const tier = frac < 0.32 ? 'core' : frac < 0.78 ? 'corona' : 'spark';
         const phi = Math.acos(2 * Math.random() - 1);
-        const T = Math.pow(Math.random(), 0.6); // 0 = centre, 1 = rim
+        const T = Math.pow(Math.random(), tier === 'core' ? 0.55 : 0.72);
         redBall.seeds.push({
             theta: Math.random() * Math.PI * 2,
             sinPhi: Math.sin(phi),
             cosPhi: Math.cos(phi),
             r: T,
-            spin: 0.6 + 0.8 * Math.random(),
+            spin: (tier === 'core' ? 1.2 : tier === 'corona' ? 0.85 : 0.45) + 0.7 * Math.random(),
             ph: Math.random() * Math.PI * 2,
-            outer
+            tier
         });
-        const vary = 0.75 + 0.25 * Math.random();
-        if (outer) {
-            redBall.colorArr[i * 3] = 0.90 * vary;
-            redBall.colorArr[i * 3 + 1] = 0.08 * vary;
-            redBall.colorArr[i * 3 + 2] = 0.03 * vary;
-        } else {
-            // Stay red even where the additive layers stack: G/B must stay low enough that
-            // a dozen overlapping sprites still clip mostly on the red channel, or the core
-            // blows out to white and reads as an explosion instead of a red orb.
-            const hot = 1 - T; // slightly hotter toward the core
+        const vary = 0.78 + 0.22 * Math.random();
+        if (tier === 'core') {
+            // Blazing incandescent white-rose plasma shell hugging the white sun core.
+            const hot = 1 - T;
             redBall.colorArr[i * 3] = 1.0 * vary;
-            redBall.colorArr[i * 3 + 1] = (0.04 + 0.08 * hot) * vary;
-            redBall.colorArr[i * 3 + 2] = (0.01 + 0.03 * hot) * vary;
+            redBall.colorArr[i * 3 + 1] = (0.58 + 0.42 * hot) * vary;
+            redBall.colorArr[i * 3 + 2] = (0.56 + 0.44 * hot) * vary;
+        } else if (tier === 'corona') {
+            // Saturated crimson-scarlet turbulent corona (keep G low so it stays pure red).
+            const hot = 1 - T;
+            redBall.colorArr[i * 3] = 1.0 * vary;
+            redBall.colorArr[i * 3 + 1] = (0.02 + 0.12 * hot) * vary;
+            redBall.colorArr[i * 3 + 2] = (0.01 + 0.05 * hot) * vary;
+        } else {
+            // Outer repelling crimson sparks & embers drifting into the red aura.
+            redBall.colorArr[i * 3] = 1.0 * vary;
+            redBall.colorArr[i * 3 + 1] = (0.05 + 0.08 * (1 - T)) * vary;
+            redBall.colorArr[i * 3 + 2] = 0.02 * vary;
         }
     }
     redBall.geometry.attributes.color.needsUpdate = true;
@@ -2223,17 +2410,21 @@
         const spin = nowSec * RED_BALL.spin;
         for (let i = 0; i < RED_BALL.count; i++) {
             const s = redBall.seeds[i];
-            const breathe = 1 + RED_BALL.breathe * Math.sin(nowSec * 2.2 + s.ph);
+            const breathe = 1 + RED_BALL.breathe * Math.sin(nowSec * 2.8 + s.ph);
             const a = s.theta + spin * s.spin;
             let rr;
-            if (s.outer) {
-                const drift = 0.5 + 0.5 * Math.sin(nowSec * 0.9 + s.ph);
-                rr = radius * (RED_BALL.sparkRadius + 0.3 * drift + 0.25 * s.r) * breathe;
+            if (s.tier === 'core') {
+                rr = radius * (0.18 + 0.58 * s.r) * breathe;
+            } else if (s.tier === 'corona') {
+                const wave = 0.14 * Math.sin(nowSec * 3.6 + s.ph + s.theta * 2);
+                rr = radius * (0.72 + 0.85 * s.r + wave) * breathe;
             } else {
-                rr = radius * (0.5 + 0.5 * s.r) * breathe;
+                // Repulsion: outer sparks stream outward cyclically and recycle at the corona rim.
+                const cycle = (nowSec * 0.55 + s.ph / (Math.PI * 2)) % 1;
+                rr = radius * (1.25 + cycle * (RED_BALL.sparkRadius + 0.9 * s.r)) * breathe;
             }
             redBall.positions[i * 3] = Math.cos(a) * s.sinPhi * rr;
-            redBall.positions[i * 3 + 1] = s.cosPhi * rr * 0.92;
+            redBall.positions[i * 3 + 1] = s.cosPhi * rr * 0.95;
             redBall.positions[i * 3 + 2] = Math.sin(a) * s.sinPhi * rr;
         }
         redBall.geometry.attributes.position.needsUpdate = true;
@@ -2272,16 +2463,24 @@
                 fillRedLancePositions(redLance, L);
                 fillRedFlashPositions(redFlash, L);
                 fillRedConePositions(redCone, L);
-                redLance.material.opacity = 0.95 * L.lance;
-                redFlash.material.opacity = 0.95 * L.flash;
-                redCone.material.opacity = 0.5 * L.cone;
+                redLance.material.opacity = 0.98 * L.lance;
+                redFlash.material.opacity = 0.98 * L.flash;
+                redCone.material.opacity = 0.78 * L.cone;
                 redLance.points.visible = L.lance > 0.01;
                 redFlash.points.visible = L.flash > 0.01;
                 redCone.points.visible = L.cone > 0.01;
                 redLance.geometry.attributes.position.needsUpdate = true;
                 redFlash.geometry.attributes.position.needsUpdate = true;
                 redCone.geometry.attributes.position.needsUpdate = true;
-                bloom = RED_CAST.bloomKick * L.flash;
+                // Blazing star-flare sprite right on the muzzle during launch.
+                redMuzzleSprite.visible = L.flash > 0.02;
+                if (redMuzzleSprite.visible) {
+                    const mScale = (7.5 + 14.5 * (1 - L.flash)) * (0.85 + 0.3 * L.flash);
+                    redMuzzleSprite.position.set(L.x + L.dirX * 1.4, L.y + L.dirY * 1.4, 0.5);
+                    redMuzzleSprite.scale.set(mScale, mScale, 1);
+                    redMuzzleSprite.material.opacity = 0.95 * L.flash;
+                }
+                bloom = RED_CAST.bloomKick * Math.max(L.flash, L.cone * 0.45);
                 field = { joltX: L.dirX * L.jolt, joltY: L.dirY * L.jolt, pop: L.pop };
             }
         }
@@ -2289,6 +2488,7 @@
             redLance.points.visible = false;
             redFlash.points.visible = false;
             redCone.points.visible = false;
+            redMuzzleSprite.visible = false;
         }
         if (redBurn) {
             const L = redBurnLayout(nowMs - redBurn.startMs, redBurn);
@@ -2297,7 +2497,7 @@
                 redEmber.points.visible = false;
             } else {
                 fillRedBurnPositions(redEmber, L);
-                redEmber.material.opacity = 0.9 * L.alpha;
+                redEmber.material.opacity = 0.92 * L.alpha;
                 redEmber.points.visible = true;
                 redEmber.geometry.attributes.position.needsUpdate = true;
             }
@@ -5021,6 +5221,8 @@
         const orbActive = redFollow.init && orbVisual.active
             && (currentTech === 'red' || burnAge >= 0);
         redBall.points.visible = orbActive;
+        redCoreSprite.visible = orbActive;
+        redAuraSprite.visible = orbActive;
         if (orbActive) {
             const nowSec = nowMs / 1000;
             let orbX = redFollow.x;
@@ -5037,6 +5239,16 @@
             redBall.material.opacity = orbVisual.alpha;
             // The orb keeps spinning through a burn-out so the fade never looks frozen.
             redBall.points.rotation.z = nowSec * 0.18;
+            const fadeRatio = orbVisual.alpha / RED_BALL.alpha;
+            const pulse = 1 + 0.05 * Math.sin(nowSec * 5.2);
+            const coreSize = orbVisual.radius * orbScale * 3.15 * pulse;
+            const auraSize = orbVisual.radius * orbScale * 10.6 * (1 + 0.04 * Math.cos(nowSec * 3.1));
+            redCoreSprite.position.set(orbX, orbY, 0.2);
+            redCoreSprite.scale.set(coreSize, coreSize, 1);
+            redCoreSprite.material.opacity = Math.min(1, 0.98 * fadeRatio);
+            redAuraSprite.position.set(orbX, orbY, -0.3);
+            redAuraSprite.scale.set(auraSize, auraSize, 1);
+            redAuraSprite.material.opacity = 0.86 * fadeRatio;
         } else {
             redBall.points.position.set(0, 0, 0);
             redBall.points.scale.setScalar(1);
