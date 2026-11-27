@@ -281,13 +281,17 @@
         @keyframes introIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
         .intro-title { margin: 0 0 4px; font-size: 24px; font-weight: 600; letter-spacing: .02em; }
         .intro-sub { margin: 0 0 14px; font-size: 12.5px; color: var(--text-tertiary); }
-        .intro-play-tip {
-            display: flex; align-items: center; gap: 8px;
-            margin: 0 0 18px; padding: 9px 12px;
-            font-size: 12.5px; line-height: 1.6; color: var(--text-primary);
-            background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px;
+        .intro-hero { margin-bottom: 14px; }
+        .intro-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 18px; }
+        .intro-card {
+            padding: 12px 14px;
+            border: 1px solid var(--stroke); border-radius: 10px;
+            background: var(--bg-surface);
         }
-        .intro-play-tip strong { flex: none; color: var(--accent); font-weight: 600; }
+        .intro-card-title { margin-bottom: 6px; font-size: 12px; font-weight: 600; color: var(--accent); }
+        .intro-card-list { margin: 0; padding-left: 16px; font-size: 12px; line-height: 1.65; color: var(--text-secondary); }
+        .intro-card-list li + li { margin-top: 2px; }
+        .intro-card-list li::marker { color: var(--accent); }
         .intro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
         .intro-facts { display: flex; flex-direction: column; }
         .intro-fact { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 8px 0; border-bottom: 1px solid var(--stroke); font-size: 13px; }
@@ -430,8 +434,9 @@
             #intro-modal { padding: 10px; }
             .intro-dialog { width: 100%; max-height: 96vh; border-radius: 12px; }
             .intro-head { padding: 12px 16px; }
-            .intro-brand span { display: none; }
+            .intro-brand span:last-child { display: none; }
             .intro-body { padding: 16px; }
+            .intro-cards { grid-template-columns: 1fr; }
             .intro-grid, .intro-tutorial { grid-template-columns: 1fr; gap: 16px; }
             .intro-figure img { max-height: 34vh; }
             .intro-title { font-size: 20px; }
@@ -552,9 +557,30 @@
                 </div>
 
                 <section class="intro-page" data-intro-page="welcome">
-                    <h2 class="intro-title" id="intro-welcome-title" data-i18n="welcome.title">欢迎来到 五条悟术式模拟</h2>
-                    <p class="intro-sub" data-i18n="welcome.tagline">咒术回战手势触发模拟</p>
-                    <div class="intro-play-tip" data-i18n-html="welcome.playTip"><strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。</div>
+                    <div class="intro-hero">
+                        <h2 class="intro-title" id="intro-welcome-title" data-i18n="welcome.title">欢迎来到 五条悟术式模拟</h2>
+                        <p class="intro-sub" data-i18n="welcome.tagline">咒术回战手势触发模拟</p>
+                    </div>
+                    <div class="intro-cards">
+                        <section class="intro-card">
+                            <div class="intro-card-title" data-i18n="welcome.supportTitle">推荐环境</div>
+                            <ul class="intro-card-list">
+                                <li data-i18n="welcome.supportChrome">Chrome / Edge 最新版（桌面端体验最佳）</li>
+                                <li data-i18n="welcome.supportFirefox">Firefox 最新版可用</li>
+                                <li data-i18n="welcome.supportSafari">Safari 17+ 可用；部分 iPhone / iPad 性能较弱</li>
+                                <li data-i18n="welcome.supportNeeds">需要 HTTPS 或 localhost、摄像头权限，以及 WebGL 与 WebAssembly</li>
+                            </ul>
+                        </section>
+                        <section class="intro-card">
+                            <div class="intro-card-title" data-i18n="welcome.perfTitle">性能提醒</div>
+                            <ul class="intro-card-list">
+                                <li data-i18n="welcome.perfAccel">开启浏览器硬件加速</li>
+                                <li data-i18n="welcome.perfTabs">关闭其他占用显卡的标签页或程序</li>
+                                <li data-i18n="welcome.perfLight">请在光线充足、背景清晰的环境中游玩，手部识别会更稳定</li>
+                                <li data-i18n="welcome.perfFps">低端设备或软件渲染可能只有 1–3 fps，属正常现象；桌面 Chrome / Edge 最佳</li>
+                            </ul>
+                        </section>
+                    </div>
                     <div class="intro-grid">
                         <div class="intro-facts">
                             <div class="intro-fact"><span class="intro-fact-k" data-i18n="fact.author">原作作者</span><span class="intro-fact-v">芥见下下 / Gege Akutami</span></div>
@@ -850,9 +876,18 @@
                 'audio.purpleClasp': '虚式「茈」· 双手契印',
                 'audio.fail': '失败 · 人声',
                 'audio.creed': '校训 · 人声',
-                'welcome.playTip': '<strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。',
-                'welcome.notice': '<p><strong>本项目不会上传任何内容。</strong>手部识别使用本地 <strong>MediaPipe Hands</strong>，粒子使用 three.js，全部推理都在浏览器内完成，不保存任何画面或识别数据。</p><p>默认不调用摄像头，点顶部栏<strong>「启动」</strong>才请求权限；关闭「自定义无量空处」时不会发起任何外部请求。</p>',
+                                'welcome.notice': '<p><strong>本项目不会上传任何内容。</strong>手部识别使用本地 <strong>MediaPipe Hands</strong>，粒子使用 three.js，全部推理都在浏览器内完成，不保存任何画面或识别数据。</p><p>默认不调用摄像头，点顶部栏<strong>「启动」</strong>才请求权限；关闭「自定义无量空处」时不会发起任何外部请求。</p>',
                 'welcome.asset': '感谢《咒术回战》作者芥见下下；所有用到的素材均来源于网络，仅作个人非商业展示，如有侵权请邮件联系 shanyaojinjin@gmail.com。',
+                'welcome.supportTitle': '推荐环境',
+                'welcome.supportChrome': 'Chrome / Edge 最新版（桌面端体验最佳）',
+                'welcome.supportFirefox': 'Firefox 最新版可用',
+                'welcome.supportSafari': 'Safari 17+ 可用；部分 iPhone / iPad 性能较弱',
+                'welcome.supportNeeds': '需要 HTTPS 或 localhost、摄像头权限，以及 WebGL 与 WebAssembly',
+                'welcome.perfTitle': '性能提醒',
+                'welcome.perfAccel': '开启浏览器硬件加速',
+                'welcome.perfTabs': '关闭其他占用显卡的标签页或程序',
+                'welcome.perfLight': '请在光线充足、背景清晰的环境中游玩，手部识别会更稳定',
+                'welcome.perfFps': '低端设备或软件渲染可能只有 1–3 fps，属正常现象；桌面 Chrome / Edge 最佳',
                 'fact.author': '原作作者',
                 'fact.project': '原版项目',
                 'fact.fork': '改版作者',
@@ -986,9 +1021,18 @@
                 'audio.purpleClasp': '虚式「茈」 · Two-Hand Clasp',
                 'audio.fail': 'Fail · Voice',
                 'audio.creed': 'Creed · Voice',
-                'welcome.playTip': '<strong>Play tip:</strong> Play in a well-lit room with a clear background — hand tracking stays steadier.',
-                'welcome.notice': '<p><strong>This project never uploads anything.</strong> Hand tracking runs locally with <strong>MediaPipe Hands</strong> and particles use three.js; all inference happens in your browser, and no video or tracking data is stored.</p><p>The camera is off by default — permission is only requested when you tap <strong>Start</strong> in the top bar. With “Custom Infinite Void” off, the page makes no external requests.</p>',
+                                'welcome.notice': '<p><strong>This project never uploads anything.</strong> Hand tracking runs locally with <strong>MediaPipe Hands</strong> and particles use three.js; all inference happens in your browser, and no video or tracking data is stored.</p><p>The camera is off by default — permission is only requested when you tap <strong>Start</strong> in the top bar. With “Custom Infinite Void” off, the page makes no external requests.</p>',
                 'welcome.asset': 'Thanks to Gege Akutami, author of Jujutsu Kaisen. All assets come from the internet and are used for a personal, non-commercial showcase only; for takedown requests, email shanyaojinjin@gmail.com.',
+                'welcome.supportTitle': 'Recommended setup',
+                'welcome.supportChrome': 'Latest Chrome / Edge (best on desktop)',
+                'welcome.supportFirefox': 'Latest Firefox works',
+                'welcome.supportSafari': 'Safari 17+ works; some iPhone / iPad models are slower',
+                'welcome.supportNeeds': 'Requires HTTPS or localhost, camera permission, WebGL and WebAssembly',
+                'welcome.perfTitle': 'Performance tips',
+                'welcome.perfAccel': 'Turn on browser hardware acceleration',
+                'welcome.perfTabs': 'Close other GPU-heavy tabs or apps',
+                'welcome.perfLight': 'Play in a well-lit room with a clear background for steadier hand tracking',
+                'welcome.perfFps': 'Low-end devices or software rendering may run at only 1–3 fps — that is expected; desktop Chrome / Edge is best',
                 'fact.author': 'Original author',
                 'fact.project': 'Original project',
                 'fact.fork': 'Fork author',

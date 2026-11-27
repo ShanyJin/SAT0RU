@@ -1295,6 +1295,10 @@
                     && welcomeText.includes('shanyaojinjin@gmail.com')) ? 'yes' : 'no');
             markState('intro asks for a bright clear play space', 'yes',
                 (welcomeText.includes('光线充足') && welcomeText.includes('背景清晰')) ? 'yes' : 'no');
+            markState('welcome lists supported browsers', 'yes',
+                ['Chrome', 'Edge', 'Firefox', 'Safari'].every((b) => welcomeText.includes(b)) ? 'yes' : 'no');
+            markState('welcome warns about performance', 'yes',
+                (welcomeText.includes('硬件加速') && welcomeText.includes('1–3 fps')) ? 'yes' : 'no');
             const introTechPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-tech]'));
             markState('tutorial technique order', 'blue,red,purple,void',
                 introTechPages.map((p) => p.dataset.introTech).join(','));
@@ -1850,6 +1854,10 @@
             markState('English localizes the welcome tutorial body', 'yes',
                 (document.querySelector('#intro-modal [data-intro-page="blue"]')?.textContent || '')
                     .includes('Four fingers fully extended') ? 'yes' : 'no');
+            const welcomeTextEn = document.querySelector('#intro-modal [data-intro-page="welcome"]')?.textContent || '';
+            markState('English welcome keeps the support and performance cards', 'ok ok',
+                [welcomeTextEn.includes('Recommended setup'), welcomeTextEn.includes('Performance tips')]
+                    .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
             markState('English localizes the settings labels', 'yes',
                 (document.getElementById('settings-list')?.textContent || '')
                     .includes('Technique Voices') ? 'yes' : 'no');
