@@ -460,7 +460,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
     再往下是 **音频 · Audio**（`#audio-list`，见 §11.1）；
   - `#rail-panel-guide`（指南）：`#gesture-guide` 渲染 `GUIDE_GOJO`；
   - `#rail-panel-about`（关于）：`#about-body`（原作作者 + 改版作者/网站/仓库、原项目、素材鸣谢与侵权联系邮箱、
-    两条彩蛋视频的 B 站链接、开源依赖、本地化说明、DeepSeek-V4.1 flash / Gemini 4 Neon 双模型鸣谢（本地内联 SVG 图标））。
+    两条彩蛋视频的 B 站链接、开源依赖、本地化说明、DeepSeek-V4.1 flash / Gemini 4 Neon 双模型鸣谢）。
   `setRailTab(name)` 校验名字后设 `railTab`、切 `.active`/`aria-selected`、隐藏其它面板；栏收起时点击标签
   会先展开。H 键走 `toggleGuideTab()`（指南 ⇄ 主菜单）。音乐、按键表、纯净模式、技法轮换、
   独立开场页入口、黒閃均已按主人要求删除。
@@ -599,7 +599,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   直接排除。剩下的近似是「另一只手恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/minWristGap/minShapeDelta`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **249 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **248 项断言**
   （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   术式语音总闸/小红球/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
