@@ -207,15 +207,23 @@ radius  = (2.4 + 6.6*grow) * breathe + 0.22*sin(0.005t)     // 直径约 15~25cm
 
 ### 5.4 双手契印（无需按钮）
 
-参考视频 `视频/虚式『茈』 2.mp4`：双手合拢、十指交叉扣住、两根食指并拢朝上、拇指内扣。
-与单手茈互相独立，**不经过「茈」按钮**，也不分左右手。
+参考视频 `视频/虚式『茈』 2.mp4`：双手交叉扣住、一只手食指朝上、另一只手扣在它的手掌上、拇指内扣。
+这是本作**唯一的双手技法**；無量空処始终是**单手**。与单手茈互相独立，**不经过「茈」按钮**，也不分左右手。
 
 **扫描结论**（同参数 MediaPipe，13 帧，见 TESTING §1.8）：
 
 - 双手扣合时 MediaPipe **经常只认出一只手**（6 帧双手 / 6 帧单手 / 1 帧无手）；
 - 判据只取双手帧里稳定的量：两只手 `indexUp=1`、至少一只手 `middleUp=1`、两只手 `thumbGapRatio<0.75`、
-  `wristGap<2.2`、`tipGap<1.3`（后两者都除以平均掌长）；
-- 因此**不要求连续双手帧**：`updateClaspDetection()` 在 400ms 内累积 ≥4 帧且持续 ≥120ms 即发动。
+  `wristGap` 在 `0.30~2.2`、`tipGap<0.50`、`middleGap>0.55`（后三者都除以平均掌长）；
+- **同一只手不算一对**：`wristGap<0.30` 直接否决；MediaPipe 的 handedness 标签必须不同
+  （`handsAreDistinct`），同一只手被识别两次通常带同一个标签；刚体偏移的重复检测有
+  `tipGap == middleGap`，不可能同时满足 `tipGap<0.50` 与 `middleGap>0.55`；
+- **与無量空処解耦**：领域是**单手**动作，契印必须**双手**扣合；`claspPoseInfo/claspHandsNear` 用
+  `voidSignShape` 排除领域手型；单手的领域手势也**不进掉手嫌疑窗**（`claspSuspect` 显式排除
+  `voidSignShape`），所以「先比过契印、再换成单手领域」不会累积发动契印
+  （回归 `domain sign after clasp context is not a cast`）；
+- 因此**不要求连续双手帧**：`updateClaspDetection()` 在 400ms 内累积 ≥4 帧且持续 ≥120ms 即发动，
+  但其中真实双手姿势必须至少出现 **2 帧**（`claspRealPoseFrames>=2`），单帧鬼影不足以发动。
 
 **状态机**：`claspCast = { startMs, phase, voicePlayed, burstStartMs, collisions }`，时长轴全部相对发动时刻（`CLASP_CAST` 的 getter 派生）：
 
@@ -246,13 +254,16 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 
 **边界**：
 
-- 触发要求双手；单手同形仍是無量空処（回归专门验证）；
-- 双手分得很开（阈值外）不算契印，退回普通双手评分（两只手都比 void 时就是 void）；
+- 触发要求双手；**领域只用单手**，单手比出食指+中指仍是無量空処（回归专门验证）；
+- 双手分得很开（阈值外）不算契印，各自按普通单手评分；
+- 双手都是领域手型也不会算契印（`voidSignShape` 守卫），同一只手被识别成两只由 `minWristGap` 否决；
 - 契印候选/动画期间 void/red/blue 全压制，防止交错的手指被读成领域展开；
-- **掉手不误触赫**：MediaPipe 扣合时常只给一只手。`claspHandsNear(landmarks, shapes)` 只在
+- **掉手不误触赫**：MediaPipe 扣合时常只给一只手。`claspHandsNear(landmarks, shapes, labels)` 只在
   「两手都 indexUp 且 thumbGapRatio<0.75、`wristGap<nearWristGapMax 2.9`」时记 `claspNearMs`；
   随后 600ms（`suspectMs`）内若只剩一只手且 indexUp，就视为 clasp 嫌疑、把 red/void/blue 分清零，
-  同时 `updateClaspDetection` 继续按累积帧推进（`claspSawRealPose` 保证至少见过一次真双手姿势）。
+  同时 `updateClaspDetection` 继续按累积帧推进（`claspSawRealPose` + `claspRealPoseFrames>=2` 保证见过真双手姿势）。
+  **单手的無量空処手型永远不进这个嫌疑窗**（`claspSuspect` 显式排除 `voidSignShape`）——这是此前
+  「比领域却发动契印」的真正根因；
   张开手掌/握拳的拇指外张，不会污染这个窗口（回归 `red gun is not void` 锁死）；
 - 与茈按钮模式共存：契印开始时取消当前单手蓄势，动画期间旁路 `updatePurpleMode`。
 
@@ -411,14 +422,25 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 - 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），顶部是三枚
   **小菜单标签** `.rail-tab`（`data-tab = main | guide | about`），下面三个 `.rail-panel` 互斥显示
   （`[hidden]` + `display:none!important`）：
-  - `#rail-panel-main`（模式与音频）：`#settings-list` 的 Win11 开关行（D 调试 / H 手势指南 / V 语音 /
-    L 长时间无量空处 / **SFX 释放音效**，点击即切换） + **音频 · Audio**（`#audio-list`，见 §11.1）；
+  - `#rail-panel-main`（模式与音频）：`#settings-list` 的 Win11 开关行（**启动按钮** / D 调试 / H 手势指南 /
+    V 语音 / L 长时间无量空处 / **SFX 释放音效** / **彩蛋**，点击即切换；彩蛋打开后展开版本 1/2） +
+    **音频 · Audio**（`#audio-list`，见 §11.1）；
   - `#rail-panel-guide`（指南）：`#gesture-guide` 渲染 `GUIDE_GOJO`；
   - `#rail-panel-about`（关于）：`#about-body`（改版作者/网站/仓库、原项目、开源依赖、本地化说明）。
   `setRailTab(name)` 校验名字后设 `railTab`、切 `.active`/`aria-selected`、隐藏其它面板；栏收起时点击标签
   会先展开。H 键走 `toggleGuideTab()`（指南 ⇄ 主菜单）。音乐、按键表、纯净模式、技法轮换、
   独立开场页入口、黒閃均已按主人要求删除。
-- `D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`。
+- **启动门禁**：`cameraEnabled` 默认 `false`，`startCameraPipeline()` 只在开关打开时调用；关掉走
+  `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。「启动按钮」行显示「点击开始 / 运行中 / 已停止」。
+- **首次进入教程**：`INTRO_PAGES = welcome, blue, red, purple, void`；`showIntroPage()` 切页、
+  `finishIntro()` 关闭并令 `introDone=true`（渲染循环在 `introDone` 前直接 return）。欢迎页含原项目、
+  改版作者、隐私（本地推理、不上传）与素材来源声明；四页教程图在 `assets/tutorial/`（本地）。
+- **亂入影院彩蛋**：`voidEggEnabled`（默认关）+ `voidEggVersion`；短版 `VOID_CINEMA` 播到 `ringAtMs`
+  （白环出现前）时 `openVoidEgg()`，全屏 `#void-egg` iframe 自动播放所选 B 站视频（版本 1/2 URL 由
+  `buildVoidEggUrl()` 拼 bvid/cid）。Esc/关闭按钮退出并清空 iframe；长版动画不受影响。
+  这是页面唯一可能的外部请求，未开启时零外网。
+- `D` 面板显示 raw/smoothed 分数、`fps`、`charge`、`blueStages`、`bluePulse`、`gestureLock`、`cooldown`、
+  `claspSig`（`wrist/tip`）。
 - 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
   Firefox 不支持；Google 在线识别国内可能不通。术式语音与音频库不走 Web Speech（见 §11.1）。
 
@@ -493,13 +515,13 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `TECH_COOLDOWN_MS` | 全局冷却 | 2000ms | 任何术式触发后 |
 | `PURPLE_CAST.*` | 茈模式 | 见 §5 | poseHold 3 帧 / grace 280ms / readyGrace 500ms / snapWindow 500ms / snapJump 0.15 / 跟手 90ms / 飞行 380ms / 冷却 2000ms |
 | `PURPLE_ORB_COUNT` | 茈小球粒子数 | 700 | 8% 核 / 58% 环 / 34% 雾 |
-| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap<2.2`、`tipGap<1.3`；语音 500ms；蓝 1500 / 红 1500+2500 / 靠拢 3000 / 漩涡 6000 / 碰撞 7000 / 爆炸 1600 / 余波 1400，全 23000ms；冷却 2000ms |
+| `CLASP_CAST.*` | 双手契印 | 见 §5.4 | 4 帧 / 120ms 累积、gap 400ms、`wristGap 0.30~2.2`、`tipGap<0.50`、`middleGap>0.55`、handedness 标签须不同、真实双手姿势 ≥2 帧（`voidSignShape` 排除领域手型）；语音 500ms；蓝 1500 / 红 1500+2500 / 靠拢 3000 / 漩涡 6000 / 碰撞 7000 / 爆炸 1600 / 余波 1400，全 23000ms；冷却 2000ms |
 | `CLASP_ORB_COUNT` | 契印球粒子数 | 2400 ×2 | 蓝球在右、红球在左 |
 | `CLASP_CORE_COUNT` / `CLASP_RING_COUNT` / `CLASP_SHOCK_COUNT` | 漩涡粒子数 | 3200 / 800 ×3 / 700 | 三臂星核 / 三道陀螺环 / 冲击波 |
 | `CLASP_CAST.vortexRadiusFraction` / `vortexSpin` | 星核 | 0.26 / 0.55 | 星核半径占半宽比 / 基础角速度 |
 | `CLASP_CAST.ringRadiusFractions` / `ringTilts` / `ringSpins` / `ringZClamp` | 陀螺环 | 0.50,0.36,0.62 / 0.72,-0.55,0.95 / 0.9,-1.25,0.62 / 0.34 | 半径 / 倾斜 / 自旋 / z 夹取（防点精灵变大方块） |
 | `CLASP_CAST.shockMs` / `shockMaxFraction` | 冲击波 | 900ms / 1.08 | 生命周期 / 扩到半宽的倍数 |
-| `CLASP_CAST.nearWristGapMax` / `suspectMs` | 掉手嫌疑窗 | 2.9 / 600ms | 近手判定（含拇指内扣）后 600ms 内单手 index-up 归为 clasp 嫌疑 |
+| `CLASP_CAST.nearWristGapMax` / `suspectMs` | 掉手嫌疑窗 | 2.9 / 600ms | 近手判定（含拇指内扣）后 600ms 内单手 index-up 归为 clasp 嫌疑；**领域手型除外**（`claspSuspect` 里的 `voidSignShape`） |
 | `sfxEnabled` / `sfxPlayCounts` | 释放音效 | 开 / 4 类 | `playSfx('blue'|'purple'|'purpleBurst'|'clasp')` |
 | `VOID_CINEMA` | 無量空処开场动画 | 见 §7.4 | hold 3000 / 黑幕 600 / 成型 400+2200 / 换环 4000+1000 / 黑幕保持 10000 / 黑幕淡出 1500 / 环停留 800 / 环淡出 1800 / 全 18100ms |
 | `VOID_CINEMA_LONG` | 长时间无量空处 | 见 §7.5 | hold 1000（同帧起长语音）/ **等待 8000** / 黑幕淡入 1500 / 黑幕保持 24000 / 黑幕淡出 2000 / 环淡出 3000 / 动画全 33800ms（从黑幕算）；语音 `audioMs` 31164ms（先结束） |
@@ -532,11 +554,12 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   短窗口累积能缓解，但如果整段只认出一只手就不会发动。手腕/食指尖间距阈值调大更敏感、调小更防误触。
   掉手期间残留那只手由 `claspNearMs` + `suspectMs` 归类为 clasp 嫌疑，不会再误触赫（但嫌疑窗只有 600ms，
   更长的手部丢失会正常回落到赫）。
-- **两只靠得很近的 void 手可能被判成契印**：MediaPipe 解析不了「交叉」，所以判据里没有交叉；
-  可调 `CLASP_CAST.wristGapMax/tipGapMax`，或接受这个近似。
+- **契印没有「交叉」判据**：MediaPipe 解析不了手指交叉，所以判据是间距+手型。两只手都做领域手型
+  会被 `voidSignShape` 否决，同一只手被识别两次会被 `minWristGap`/handedness/`middleGap` 否决；
+  剩下的近似是「其他成对手型恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/tipGapMax/middleGapMin`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **149 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **194 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫）。
 
@@ -558,7 +581,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 2s → 构筑 → 释放 |
 | `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処开场动画（正常 3s 触发；长版 1s 展开领域并起长语音，8s 等待后启动画面） |
 | `setVoidLongMode` | 「长时间无量空处」开关（L 键/侧栏），切换 `VOID_CINEMA_LONG` 时间轴 |
-| `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：7 条本地语音的按钮、高亮与停止 |
+| `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：9 条本地语音的按钮、高亮与停止 |
 | `playAudioClip` / `primeAudio` | 单条播放（先停其它轨道）+ 首次点击/按键静音预热解锁自动播放 |
 | `updateTechniqueVoices` | 每帧检查语音门槛：赫/無量空処 1 秒保持、苍构筑后 2 秒延迟 |
 | `fillOrbPositions` | 每帧重算 4000 点构筑球 |
@@ -567,7 +590,10 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `startClaspCast` / `updateClaspCast` / `impactClaspCast` | 契印长动画状态机（blue/red/converge/purple/burst/fade）、0.5s 语音、中心紫色爆炸、2s 冷却 |
 | `claspOrbLayout` / `claspCollisionPulse` / `claspBloomStrength` | 两球位置/半径/透明度（纯函数，回归直接断言）、碰撞脉冲、分阶段 bloom |
 | `claspVortexLayout` / `fillClaspCorePositions` / `fillClaspRingPositions` / `fillClaspShockPositions` | 紫色星系漩涡的纯布局契约与每帧填充 |
-| `claspHandsNear` | 近手 + 拇指内扣的 clasp 上下文判定（掉手嫌疑窗） |
+| `claspHandsNear` / `voidSignShape` | 近手 + 拇指内扣的 clasp 上下文判定（掉手嫌疑窗）；领域手型守卫，防止单手领域发动契印 |
+| `startCameraPipeline` / `stopCameraPipeline` / `setCameraEnabled` | 启动门禁：只有开关打开才建 MediaPipe/摄像头 |
+| `showIntroPage` / `finishIntro` / `initIntro` | 首次进入的五页教程弹窗与 `introDone` 闸门 |
+| `buildVoidEggUrl` / `openVoidEgg` / `closeVoidEgg` / `setVoidEggEnabled` | 亂入影院彩蛋：到点切 B 站 iframe、开关与清理 |
 | `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（2400 ×2） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（现在只有 red/void/purple/blue 四个） |

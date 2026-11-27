@@ -11,7 +11,7 @@
   构筑成型再满 2 秒才播苍语音（`audio/blue.mp3`，每次构筑一次；提前释放/取消不播）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场；
   任一赫手势保持 1 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
-- **領域展開「無量空処」**（领域）：食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
+- **領域展開「無量空処」**（领域）：**只用单手**，食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
   保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；比出满 1 秒播单人版语音；
   **定格 >3 秒**自动播开场动画（旧 PR #7 的流星宇宙移植进主场景，删标题/按钮，结尾换成本作白环粒子场；
   环出现后黑幕再保持 10 秒，随后黑幕先淡出、背景透明环还在，最后环淡出；一次保持只播一次）；
@@ -25,11 +25,18 @@
   **右侧蓝球**从中球长到**半个屏幕宽**（1.5 秒）→ **左侧红球**再用 2.5 秒长到对称 →
   两球 3 秒靠拢、压缩重叠 → **紫色星系漩涡** 6 秒（三臂星核差速旋转 + 三道倾斜陀螺环进动 + 周期性冲击波）
   然后碰撞回弹 7 秒 → 第 20 秒紫色大爆炸 → 23 秒收尾；
-  **发动 0.5 秒后自动播契印语音**（`audio/purple-clasp.mp3`，21.9 秒，比动画先结束）；单手同形仍是無量空処；
+  **发动 0.5 秒后自动播契印语音**（`audio/purple-clasp.mp3`，21.9 秒，比动画先结束）；
+  契印只在**双手扣合**时成立；無量空処始终**单手**，单手比出的食指+中指仍是领域，不会发动契印
+  （`claspSuspect` 显式排除领域手型，嫌疑窗不会把单手领域续成契印）；
   双手扣合期间 MediaPipe 掉成单手时，残留的食指手不会误判成赫（近手上下文 + 600ms 嫌疑窗）
+- **首次进入**：五页弹窗（欢迎 + 蒼/赫/茈/無量空処 教程，图在 `assets/tutorial/`）；欢迎页写明原项目、
+  改版作者、隐私（本地推理、不上传摄像头画面）与素材来源声明；关掉弹窗后**还要在左侧栏打开「启动按钮」**
+  才会请求摄像头（默认不建 MediaPipe、不开摄像头）
 - **左侧栏**：顶部分「模式与音频 / 指南 / 关于」三个小菜单（点击切换，H 切指南）；「模式与音频」里是
-  设置开关（调试 D / 指南 H / 语音 V / 长时间无量空处 L / **释放音效 SFX**）与「音频」区块：
-  **9 个本地音频**各一行，点击播放/停止，同一时间只播一条；失败 / 校训两条只手动点击、不接任何手势
+  设置开关（**启动按钮** / 调试 D / 指南 H / 语音 V / 长时间无量空处 L / **释放音效 SFX** / **彩蛋**）与
+  「音频」区块：**9 个本地音频**各一行，点击播放/停止，同一时间只播一条；失败 / 校训两条只手动点击、不接任何手势
+- **無量空処 · 亂入影院**（彩蛋，默认关闭）：设置里选版本 1/2；短版定格动画播到「穿梭」、白环出现前
+  切断并全屏自动播放对应 B 站视频，Esc/关闭退出；这是唯一可能发起的外部请求，长版动画不触发
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
 其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
@@ -51,7 +58,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑 149 项无摄像头回归**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 194 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -65,6 +72,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `tools/serve.py` | 静态服务器（wasm/data MIME） |
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
 | `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈模式 2026 `purple-2026.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
+| `assets/tutorial/` | 首次进入教程的 4 张本地图：`blue/red/purple/void.jpg` |
 | `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
@@ -96,7 +104,8 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   `updateClaspCast`、`impactClaspCast`、`claspCast`、`claspBlueOrb/claspRedOrb`、`claspOrbLayout`、
   `fillClaspOrbPositions`、`claspCore/claspRingA/B/C/claspShock`、`createClaspCore/createClaspRing/createClaspShock`、
   `fillClaspCorePositions`、`fillClaspRingPositions`、`fillClaspShockPositions`、`claspVortexLayout`、
-  `claspCollisionPulse`、`claspBloomStrength`；阈值 `wristGapMax/tipGapMax/nearWristGapMax/suspectMs`，
+  `claspCollisionPulse`、`claspBloomStrength`；阈值 `wristGapMax/minWristGap/tipGapMax/middleGapMin/nearWristGapMax/suspectMs`、
+  领域/契印解耦守卫 `voidSignShape`、`handsAreDistinct`（handedness 标签）、`claspRealPoseFrames`（≥2 帧真姿势）；
   语音延迟 `voiceDelayMs`（0.5 秒），
   时间轴 `blueGrowMs/redStartMs/redGrowMs/convergeMs/vortexMs/collideMs/burstMs/fadeMs`
   （`redEndMs/convergeEndMs/collideStartMs/explodeAtMs/burstEndMs/endMs` 为 getter 派生的绝对时刻）；
@@ -112,10 +121,14 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-section`
 - 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
   （`#rail-panel-main/guide/about`）、`setRailTab()`、`toggleGuideTab()`、`railTab`、
-  `updateKeybindMenu()`（设置开关 D/H/V/L/SFX）、`setRailOpen()`
+  `updateKeybindMenu()`（设置开关 启动/D/H/V/L/SFX/彩蛋）、`setRailOpen()`
+- 启动门禁/首次教程 → `cameraEnabled`、`cameraStarted`、`startCameraPipeline`、`stopCameraPipeline`、
+  `INTRO_PAGES`、`showIntroPage`、`finishIntro`、`initIntro`、`introDone`、`#intro-modal`、`#settings-list`
+- 無量空処彩蛋 → `voidEggEnabled`、`voidEggVersion`、`VOID_EGG_VIDEOS`、`buildVoidEggUrl`、`openVoidEgg`、
+  `closeVoidEgg`、`#void-egg`、`#void-egg-frame`、`maybeTriggerVoidCinematic` 里的 `ringAtMs` 切点
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 149/149 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 194/194 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

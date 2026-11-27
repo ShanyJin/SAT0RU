@@ -105,12 +105,34 @@
         // 無量空処: the reference video's crossed two-finger sign. MediaPipe does not resolve
         // the crossing reliably, but the tucked thumb (thumbGapRatio < 0.75) is stable.
         const void1 = (x, y = 0.75) => [mkHand(x, y, thumbUnderPts(0))];
-        // 虚式「茈」 clasp cast: two hands, fingers interlocked, index up, thumbs tucked.
-        // Placed close enough that the index tips nearly meet, as in the reference footage.
-        const claspPts = thumbUnderPts(0);
-        const clasp2 = () => [mkHand(0.455, 0.65, claspPts), mkHand(0.545, 0.65, claspPts)];
-        const claspFar2 = () => [mkHand(0.30, 0.65, claspPts), mkHand(0.70, 0.65, claspPts)];
-        // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
+        // 虚式「茈」 clasp cast — real landmarks captured from the user's own photos by
+        // the local MediaPipe build (three consecutive 2-hand frames of the same pose).
+        // MediaPipe reports both hands as almost fully open on this pose, so the fixtures
+        // are what the app really sees; hand-tuned synthetic fingers would hide that.
+        const REAL_CLASP = [
+            [[[0.5518,0.2725],[0.5513,0.2355],[0.5513,0.1989],[0.5538,0.1717],[0.5575,0.1493],[0.5510,0.1742],[0.5458,0.1287],[0.5436,0.1032],[0.5417,0.0813],[0.5548,0.1860],[0.5489,0.1385],[0.5454,0.1118],[0.5419,0.0886],[0.5586,0.2086],[0.5526,0.1845],[0.5519,0.1710],[0.5522,0.1550],[0.5624,0.2387],[0.5550,0.2346],[0.5508,0.2311],[0.5478,0.2262]],
+             [[0.4981,0.2970],[0.5056,0.2546],[0.5200,0.2154],[0.5346,0.1913],[0.5448,0.1730],[0.5193,0.1923],[0.5341,0.1494],[0.5402,0.1163],[0.5418,0.0869],[0.5215,0.2072],[0.5458,0.1839],[0.5541,0.1745],[0.5578,0.1520],[0.5297,0.2231],[0.5474,0.2081],[0.5522,0.1991],[0.5551,0.1881],[0.5372,0.2391],[0.5474,0.2312],[0.5514,0.2242],[0.5532,0.2169]]],
+            [[[0.5518,0.2725],[0.5513,0.2355],[0.5513,0.1989],[0.5538,0.1717],[0.5575,0.1493],[0.5510,0.1742],[0.5458,0.1287],[0.5436,0.1032],[0.5417,0.0813],[0.5548,0.1860],[0.5489,0.1385],[0.5454,0.1118],[0.5419,0.0886],[0.5586,0.2086],[0.5526,0.1845],[0.5519,0.1710],[0.5522,0.1550],[0.5624,0.2387],[0.5550,0.2346],[0.5508,0.2311],[0.5478,0.2262]],
+             [[0.4994,0.2963],[0.5070,0.2551],[0.5212,0.2170],[0.5351,0.1931],[0.5454,0.1751],[0.5204,0.1932],[0.5344,0.1509],[0.5394,0.1180],[0.5404,0.0893],[0.5222,0.2076],[0.5460,0.1842],[0.5536,0.1746],[0.5568,0.1522],[0.5303,0.2235],[0.5472,0.2084],[0.5514,0.1994],[0.5540,0.1884],[0.5377,0.2395],[0.5473,0.2313],[0.5510,0.2243],[0.5528,0.2170]]],
+            [[[0.5518,0.2725],[0.5513,0.2355],[0.5513,0.1989],[0.5538,0.1717],[0.5575,0.1493],[0.5510,0.1742],[0.5458,0.1287],[0.5436,0.1032],[0.5417,0.0813],[0.5548,0.1860],[0.5489,0.1385],[0.5454,0.1118],[0.5419,0.0886],[0.5586,0.2086],[0.5526,0.1845],[0.5519,0.1710],[0.5522,0.1550],[0.5624,0.2387],[0.5550,0.2346],[0.5508,0.2311],[0.5478,0.2262]],
+             [[0.5002,0.2956],[0.5078,0.2553],[0.5218,0.2178],[0.5354,0.1942],[0.5458,0.1760],[0.5210,0.1938],[0.5346,0.1516],[0.5390,0.1190],[0.5398,0.0903],[0.5225,0.2079],[0.5459,0.1844],[0.5531,0.1747],[0.5561,0.1524],[0.5306,0.2237],[0.5471,0.2086],[0.5510,0.1996],[0.5535,0.1886],[0.5379,0.2397],[0.5472,0.2314],[0.5507,0.2244],[0.5525,0.2171]]]
+        ];
+        const realHand = (hand) => hand.map(([x, y]) => ({ x, y }));
+        const shiftHand = (hand, dx) => hand.map((p) => ({ x: p.x + dx, y: p.y }));
+        // One physical hand reported twice: same landmarks, shifted a little, same label.
+        const claspWrapHand = () => realHand(REAL_CLASP[0][1]);
+        const claspGhost = () => [claspWrapHand(), shiftHand(claspWrapHand(), 0.04)];
+        const clasp2 = () => REAL_CLASP[0].map(realHand);
+        // Two hands with the clasp family geometry but held well apart: only 赫 remains.
+        const claspFar2 = () => [mkHand(0.30, 0.65, RED_PTS), mkHand(0.70, 0.65, FIST_PTS)];
+        // What the clasp's pointing hand reads as once the other hand drops away: index
+        // up, rest curled, thumb tucked — indistinguishable from 赫 without context.
+        const claspPointPts = (() => {
+            const pts = RED_PTS.map((p) => p.slice());
+            pts[4] = [pts[5][0] + 0.005, pts[5][1] + 0.015];
+            return pts;
+        })();
+                // Fast-forward a running clasp cast on the synthetic clock (used by the assertions).
         // The voice flag is pre-set so skipping ahead cannot re-fire the 0.5 s clip.
         const finishClasp = () => {
             if (!claspCast) return;
@@ -199,12 +221,12 @@
             overlay: voidCinemaEl ? Number(voidCinemaEl.style.opacity || 0) : null,
             now: performance.now()
         });
-        const runFrame = (hands, ms) => {
+        const runFrame = (hands, ms, labels) => {
             // Mirror onResults: the 無量空処 cinematic freezes the gesture pipeline.
             if (voidCinematic) return;
             const results = {
                 multiHandLandmarks: hands,
-                multiHandedness: hands.map((_, i) => ({ label: 'H' + i }))
+                multiHandedness: hands.map((_, i) => ({ label: labels ? labels[i] : 'H' + i }))
             };
             const scores = computeFrameScores(results, ms);
             const purpleArmedNow = currentTech === 'purple' && (ms - purpleEnteredAtMs) >= FLICK.purpleArmMs;
@@ -224,8 +246,8 @@
             maybeTriggerVoidCinematic(ms);
             updateTechniqueVoices(ms);
         };
-        const step = (hands, n) => {
-            for (let i = 0; i < n; i++) { runFrame(hands, t); t += 33; }
+        const step = (hands, n, labels) => {
+            for (let i = 0; i < n; i++) { runFrame(hands, t, labels); t += 33; }
             return currentTech;
         };
         // Moves a single open hand horizontally `n` frames from `x0` at `dx` per frame.
@@ -268,6 +290,8 @@
             claspCooldownUntilMs = 0;
             claspPoseReleaseRequired = false;
             claspSuppressUntilMs = 0;
+            claspSawRealPose = false;
+            claspRealPoseFrames = 0;
             voidLongMode = false;
             voidCinematic = null;
             voidHoldAwarded = false;
@@ -576,18 +600,69 @@
 
             // --- 虚式「茈」 clasp cast: two hands interlocked, no top button ---
             step([], 220); // drain cooldowns
-            // One hand in the same two-finger pose is still the Void domain, never the clasp.
+            // One hand in the two-finger Void pose is still the Void domain, never the clasp.
             step(void1(0.5), 20);
-            markState('one hand clasp-like is void, not cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            markState('one hand void is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 100); // drain the Void entry cooldown before the next pose
+            // MediaPipe can report the single Void hand twice, and while the sign is held the
+            // other hand often sits in frame. 無量空処 is one-handed: neither case may turn
+            // it into the two-hand clasp.
+            step([mkHand(0.50, 0.65, thumbUnderPts(0)), mkHand(0.50, 0.65, thumbUnderPts(0))], 30);
+            markState('duplicate void hand is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            markState('duplicate void hand stays void', 'void', currentTech);
+            if (claspCast) finishClasp();
+            step([], 100); // drain the Void entry cooldown
+            step([mkHand(0.44, 0.65, OPEN_PTS), mkHand(0.50, 0.65, thumbUnderPts(0))], 30);
+            markState('void next to an open palm is not clasp', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
             step([], 100);
+            // The reported failure: two clasp hands warm the context, the user switches to
+            // the one-hand domain sign, and the old suspect window counted it as a dropped
+            // clasp hand and cast 茈. The domain sign must stay out of that window.
+            step(clasp2(), 2); // real two-hand context, far short of the 4-frame cast
+            markState('clasp context warms without casting', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step(void1(0.5), 60, ['Right']); // the user switches to one-hand 無量空処
+            markState('domain sign after clasp context is not a cast', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
+            markState('domain sign after clasp context stays void', 'void', currentTech);
+            step([], 100);
+            // A pointing hand next to an OPEN palm is Red next to an open hand, not a clasp.
+            step([mkHand(0.44, 0.65, RED_PTS), mkHand(0.50, 0.65, OPEN_PTS)], 30);
+            markState('pointing hand plus open palm is not clasp', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
+            step([], 100);
+            step(clasp2(), 30);
+            markState('clasp still fires after the near misses', 'cast', claspCast ? 'cast' : 'idle');
+            if (claspCast) finishClasp();
+            step([], 400); // drain the recast's 2s cooldown and the release lock
             // Two hands, long-form cinematic: voice at 0.5 s; blue grows on the RIGHT
             // 0–1.5 s; red grows on the LEFT 1.5–4 s; the two approach 4–7 s; purple then
             // entwines/collides/explodes for 16 s (blast at 20 s, aftermath to 23 s). The
             // 21.9 s audio ends before the animation does.
+            // MediaPipe sometimes reports the same hand twice on the interlocked pose; a
+            // hand duplicated with itself must never fire the cast.
+            step([realHand(REAL_CLASP[0][1]), realHand(REAL_CLASP[0][1])], 30);
+            markState('duplicate clasp hand is not a cast', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            step([], 100);
+            // A hand reported twice with a small offset still carries the same MediaPipe
+            // label; even with two labels it fails the index-pressed/middle-apart split.
+            step(claspGhost(), 30, ['Right', 'Right']);
+            markState('same-label duplicate hand is not a cast', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
+            step([], 100);
+            step(claspGhost(), 30, ['Left', 'Right']);
+            markState('offset duplicate clasp hand is not a cast', 'no-cast',
+                claspCast ? 'cast' : 'no-cast');
+            step([], 100);
             markState('clasp purple choreography spans 16 s', '16000',
                 String(CLASP_CAST.endMs - CLASP_CAST.convergeEndMs));
             markState('clasp audio ends before the animation', 'yes',
                 CLASP_CAST.voiceDelayMs + CLASP_CAST.audioMs < CLASP_CAST.endMs ? 'yes' : 'no');
+            // The duplicate-hand probes above reuse open-palm landmarks; drop any Blue hold they
+            // left behind so this section measures the clasp only.
+            cancelBlueCharge();
+            resetBlueHandStates();
+            gestureLockUntilMs = 0;
             const claspVoice0 = audioPlayCounts['purple-clasp'];
             step(clasp2(), 10); // ~0.3 s: cast started, voice not due yet
             markState('clasp cast starts', 'cast', claspCast ? 'cast' : 'idle');
@@ -681,19 +756,20 @@
             markState('clasp recast after cooldown', 'cast', claspCast ? 'cast' : 'idle');
             finishClasp();
             step([], 70); // drain the recast's 2s cooldown
-            // Two clasp-like hands held far apart are two separate Void signs, not a clasp.
+            // The clasp-family pose held far apart is not a clasp: the pointing hand is just 赫.
             step(claspFar2(), 20);
-            markState('far two-hand pose is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
-            markState('far two-hand pose stays void', 'void', currentTech);
+            markState('far clasp-family pose is not clasp', 'no-cast', claspCast ? 'cast' : 'no-cast');
+            markState('far clasp-family pose stays red', 'red', currentTech);
             step([], 100);
 
-            // MediaPipe often drops one hand mid-clasp. The remaining index-up hand used to
-            // read as 赫; with a recent near-two-hand history it must not, and the clasp must
-            // still cast from the frames already accumulated.
+            // MediaPipe often drops one hand mid-clasp. The remaining hand is the pointing
+            // hand (index only, thumb tucked) and used to read as 赫; with a recent
+            // near-two-hand history it must not, and the clasp must still cast from the
+            // frames already accumulated.
             step(clasp2(), 2);
             markState('clasp warming before a hand drops', 'warming',
                 claspCast ? 'cast' : (claspRunFrames > 0 ? 'warming' : 'idle'));
-            step(red1(0.5), 30);
+            step([mkHand(0.46, 0.65, claspPointPts)], 30); // what the lone hand reads as
             markState('dropped-hand clasp does not fire red', 'ok',
                 currentTech === 'red' ? 'red' : 'ok');
             markState('dropped-hand clasp still casts', 'cast', claspCast ? 'cast' : 'idle');
@@ -823,6 +899,8 @@
                     ? 'played' : 'silent');
 
             // --- Left rail: three small sub-menu tabs at the top ---
+            markState('about shows the build tag', BUILD_TAG,
+                document.getElementById('build-tag')?.textContent || 'missing');
             const railTabs = document.querySelectorAll('#left-rail .rail-tab');
             markState('left rail has three sub-menu tabs', '3', String(railTabs.length));
             markState('rail tab order', 'main,guide,about',
@@ -844,7 +922,7 @@
                 (aboutPanel && !aboutPanel.hidden && guidePanel && guidePanel.hidden) ? 'about' : 'other');
             if (railTabs[0]) railTabs[0].click();
             markState('main tab returns', 'main', (mainPanel && !mainPanel.hidden) ? 'main' : 'hidden');
-            markState('settings keep debug/voice/voidlong/sfx', 'debug,voice,voidlong,sfx',
+            markState('settings keep start/debug/voice/voidlong/sfx/egg', 'start,debug,voice,voidlong,sfx,egg',
                 Array.from(document.querySelectorAll('#settings-list [data-action]'))
                     .map((row) => row.dataset.action).join(','));
 
@@ -868,6 +946,139 @@
             markState('sound-effects switch toggles back on', 'on',
                 (typeof sfxEnabled !== 'undefined' && sfxEnabled) ? 'on' : 'off');
 
+            // --- First-run gate: welcome modal -> four-page tutorial -> camera opt-in ---
+            const introModalEl = document.getElementById('intro-modal');
+            markState('first visit shows the intro modal', 'visible',
+                introModalEl && !introModalEl.hidden ? 'visible' : 'hidden');
+            const introPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-page]'));
+            markState('intro has welcome plus four technique pages', '5', String(introPages.length));
+            const welcomeText = document.querySelector('#intro-modal [data-intro-page="welcome"]')?.textContent || '';
+            markState('intro credits the original project, fork author and site',
+                'ok ok ok',
+                [welcomeText.includes('reinesana/SAT0RU'), welcomeText.includes('闪耀金金'), welcomeText.includes('shany.cc')]
+                    .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
+            markState('intro promises local-only processing', 'yes',
+                (welcomeText.includes('不会上传任何内容') && welcomeText.includes('MediaPipe Hands')) ? 'yes' : 'no');
+            markState('intro carries the asset notice', 'yes',
+                welcomeText.includes('所有用到的素材均取自于网络') ? 'yes' : 'no');
+            const introTechPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-tech]'));
+            markState('tutorial technique order', 'blue,red,purple,void',
+                introTechPages.map((p) => p.dataset.introTech).join(','));
+            const introImgs = Array.from(document.querySelectorAll('#intro-modal .intro-figure img'));
+            const introImgSources = introImgs.map((img) => img.getAttribute('src') || '');
+            markState('tutorial images live under assets', 'local,local,local,local',
+                introImgSources.map((src) => (src.startsWith('/assets/tutorial/') ? 'local' : 'remote')).join(','));
+            const introImgServed = await Promise.all(introImgSources.map(async (src) => {
+                try { return (await fetch(src)).ok; } catch (e) { return false; }
+            }));
+            markState('tutorial image files are served', '4/4',
+                introImgServed.filter(Boolean).length + '/4');
+            const introStepEl = document.getElementById('intro-step');
+            markState('intro starts at step one', '01 / 05', introStepEl ? introStepEl.textContent.trim() : 'missing');
+            const introAck = document.querySelector('#intro-modal [data-intro-action="ack"]');
+            markState('intro acknowledgement button exists', 'yes', introAck ? 'yes' : 'no');
+            if (introAck) introAck.click();
+            markState('acknowledgement opens the blue tutorial', 'blue',
+                document.querySelector('#intro-modal [data-intro-page="blue"]:not([hidden])') ? 'blue' : 'other');
+            const introNext = document.querySelector('#intro-modal [data-intro-action="next"]');
+            if (introNext) { introNext.click(); introNext.click(); introNext.click(); }
+            markState('tutorial walks through to the void page', 'void',
+                document.querySelector('#intro-modal [data-intro-page="void"]:not([hidden])') ? 'void' : 'other');
+            if (introNext) introNext.click();
+            markState('finishing the tutorial closes the modal', 'closed',
+                introModalEl && introModalEl.hidden ? 'closed' : 'open');
+            markState('intro gate reaches the app', 'yes',
+                (typeof introDone !== 'undefined' && introDone) ? 'yes' : 'no');
+
+            // --- Camera opt-in: the switch is the only path to the camera/model ---
+            markState('camera and model are idle before opt-in', 'off',
+                (typeof cameraEnabled !== 'undefined' && !cameraEnabled
+                    && typeof cameraStarted !== 'undefined' && !cameraStarted
+                    && (typeof cameraUtils === 'undefined' || !cameraUtils)
+                    && (typeof hands === 'undefined' || !hands)) ? 'off' : 'on');
+            const startRow = document.querySelector('#settings-list [data-action="start"]');
+            markState('settings include the start switch', 'yes', startRow ? 'yes' : 'no');
+            markState('start switch defaults off with a click-to-start hint', 'false|点击开始',
+                startRow ? (startRow.getAttribute('aria-checked') + '|'
+                    + ((startRow.querySelector('.kb-value') || {}).textContent || '')) : 'missing');
+            const camOrigStart = (typeof cameraPipeline !== 'undefined') ? cameraPipeline.start : null;
+            const camOrigStop = (typeof cameraPipeline !== 'undefined') ? cameraPipeline.stop : null;
+            let camStartCalls = 0;
+            let camStopCalls = 0;
+            if (startRow && typeof cameraPipeline !== 'undefined' && cameraPipeline.start) {
+                cameraPipeline.start = () => { camStartCalls += 1; cameraStarted = true; return Promise.resolve(); };
+                cameraPipeline.stop = () => { camStopCalls += 1; cameraStarted = false; };
+            }
+            if (startRow) startRow.click();
+            markState('start switch calls the camera once', '1', String(camStartCalls));
+            markState('start switch shows running', 'true',
+                document.querySelector('#settings-list [data-action="start"]')?.getAttribute('aria-checked') || 'missing');
+            const startRowOn = document.querySelector('#settings-list [data-action="start"]');
+            if (startRowOn) startRowOn.click();
+            markState('switching off stops the camera', '1', String(camStopCalls));
+            markState('start switch returns to off', 'false',
+                document.querySelector('#settings-list [data-action="start"]')?.getAttribute('aria-checked') || 'missing');
+            if (typeof cameraPipeline !== 'undefined' && camOrigStart) {
+                cameraPipeline.start = camOrigStart;
+                cameraPipeline.stop = camOrigStop;
+            }
+
+            // --- 無量空処 easter egg: cut the transit into a full-screen Bilibili video ---
+            const eggRow = document.querySelector('#settings-list [data-action="egg"]');
+            markState('settings include the void easter egg', 'yes', eggRow ? 'yes' : 'no');
+            markState('void easter egg defaults off', 'off',
+                (eggRow && eggRow.getAttribute('aria-checked') === 'false'
+                    && typeof voidEggEnabled !== 'undefined' && !voidEggEnabled) ? 'off' : 'on');
+            if (eggRow) eggRow.click();
+            markState('egg switch turns on', 'true',
+                document.querySelector('#settings-list [data-action="egg"]')?.getAttribute('aria-checked') || 'missing');
+            const eggVersionBtns = Array.from(document.querySelectorAll('#settings-list [data-egg-version]'));
+            markState('egg offers two versions and starts at one', '2|1',
+                eggVersionBtns.length + '|' + (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?'));
+            if (eggVersionBtns[1]) eggVersionBtns[1].click();
+            markState('egg version two is selected', '2|true',
+                (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?') + '|'
+                + (document.querySelector('#settings-list [data-egg-version="2"]')?.getAttribute('aria-pressed') || 'missing'));
+            const eggOverlay = document.getElementById('void-egg');
+            markState('void egg overlay starts hidden', 'hidden',
+                eggOverlay && eggOverlay.hidden ? 'hidden' : 'visible');
+            step([], 240); // drain the previous void cooldown
+            step(void1(0.5), 20);
+            step(void1(0.5), 130); // hold past 3 s: the cinematic starts
+            markState('void cinematic arms for the egg', 'yes', voidCinematic ? 'yes' : 'no');
+            if (voidCinematic) {
+                voidCinematic.startMs = t - (VOID_CINEMA.ringAtMs - 100);
+                voidCinematic.lastMs = t;
+                updateVoidCinematic(t);
+            }
+            markState('egg waits for the transit to finish', 'hidden|active',
+                (eggOverlay && eggOverlay.hidden ? 'hidden' : 'visible') + '|'
+                + (voidCinematic ? 'active' : 'ended'));
+            if (voidCinematic) {
+                voidCinematic.startMs = t - VOID_CINEMA.ringAtMs;
+                voidCinematic.lastMs = t;
+                updateVoidCinematic(t);
+            }
+            markState('egg cuts in when the transit ends', 'visible|ended',
+                (eggOverlay && !eggOverlay.hidden ? 'visible' : 'hidden') + '|'
+                + (voidCinematic ? 'active' : 'ended'));
+            const eggFrame = document.getElementById('void-egg-frame');
+            const eggSrc = eggFrame ? (eggFrame.getAttribute('src') || '') : '';
+            markState('egg plays the selected bilibili video', 'yes',
+                (eggSrc.includes('BV1QC3G6DEKX') && eggSrc.includes('cid=40301496754')
+                    && eggSrc.includes('autoplay=1')) ? 'yes' : (eggSrc || 'none'));
+            const eggClose = document.getElementById('void-egg-close');
+            if (eggClose) eggClose.click();
+            markState('egg can be closed and clears the iframe', 'hidden|cleared',
+                (eggOverlay && eggOverlay.hidden ? 'hidden' : 'visible') + '|'
+                + (!eggFrame || !eggFrame.getAttribute('src') || eggFrame.getAttribute('src') === 'about:blank'
+                    ? 'cleared' : 'loaded'));
+            const eggRowOff = document.querySelector('#settings-list [data-action="egg"]');
+            if (eggRowOff) eggRowOff.click();
+            markState('egg switch turns off again', 'off',
+                (typeof voidEggEnabled !== 'undefined' && !voidEggEnabled) ? 'off' : 'on');
+            step([], 40); // release the held void sign before the demos
+
             step([], 10); mark('end', null);
 
             // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring
@@ -877,7 +1088,8 @@
                 || endMode === 'claspconverge' || endMode === 'claspvortex'
                 || endMode === 'claspclash' || endMode === 'claspburst';
             const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo) {
+            const isEggDemo = endMode === 'voidegg';
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isEggDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
@@ -927,6 +1139,22 @@
                     forceTechnique('void', 999999999);
                     updateState('void', true);
                     document.title = 'VOID DEMO';
+                } else if (isEggDemo) {
+                    // Screenshot helper: arm the egg, jump to the transit cut, let it open the
+                    // Bilibili overlay on the real clock. The player itself may need network.
+                    forceTechnique('void', 999999999);
+                    updateState('void', true);
+                    voidEggEnabled = true;
+                    voidEggVersion = 1;
+                    updateKeybindMenu();
+                    startVoidCinematic(performance.now(), false);
+                    if (voidCinematic) {
+                        const now = performance.now();
+                        voidCinematic.startMs = now - VOID_CINEMA.ringAtMs;
+                        voidCinematic.lastMs = now;
+                        updateVoidCinematic(now);
+                    }
+                    document.title = 'VOID EGG DEMO';
                 } else if (isVoidCinemaDemo) {
                     // 無量空処 hold-3s cinematic: pin the domain field, start the ported
                     // opening animation on the real clock, then keep its phase frozen at the
@@ -1037,7 +1265,8 @@
         const banner = document.createElement('div');
         banner.id = 'logictest-banner';
         banner.style.cssText = 'position:fixed;top:8px;left:8px;z-index:99999;background:' + (fails.length ? '#a00' : '#080') + ';color:#fff;font:13px/1.5 monospace;padding:10px 14px;white-space:pre;border-radius:6px';
-        banner.textContent = 'LOGICTEST ' + (fails.length ? 'FAIL' : 'PASS') + '\n' + log.join('\n');
+        banner.textContent = 'LOGICTEST ' + (fails.length ? 'FAIL' : 'PASS')
+            + ' · ' + log.length + ' assertions\n' + log.join('\n');
         if (!new URLSearchParams(location.search).has('nobanner')) document.body.appendChild(banner);
         document.title = 'LOGICTEST ' + (fails.length
             ? 'FAIL ' + fails.length + ': ' + fails.map((line) => line.replace(/ -> .*$/, '')).join(' | ')

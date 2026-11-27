@@ -202,6 +202,121 @@
         body.void-cinema #trigger-word-text { display: none !important; }
         body.void-cinema #output_canvas { visibility: hidden; }
 
+        /* --- First-run gate: a large welcome/tutorial dialog over the idle stage --- */
+        #intro-modal {
+            position: fixed; inset: 0; z-index: 9000;
+            display: flex; align-items: center; justify-content: center;
+            box-sizing: border-box; padding: 24px;
+            background:
+                radial-gradient(900px 520px at 18% 8%, rgba(77,125,255,.16), transparent 70%),
+                radial-gradient(820px 520px at 86% 92%, rgba(187,0,255,.14), transparent 70%),
+                rgba(8,8,10,.82);
+            backdrop-filter: blur(18px) saturate(140%);
+            -webkit-backdrop-filter: blur(18px) saturate(140%);
+        }
+        #intro-modal[hidden] { display: none !important; }
+        .intro-dialog {
+            display: flex; flex-direction: column;
+            width: min(1120px, 94vw); max-height: min(880px, 92vh);
+            background: linear-gradient(180deg, rgba(34,34,38,.98), rgba(20,20,23,.99));
+            border: 1px solid var(--stroke-light); border-radius: 18px;
+            box-shadow: 0 30px 90px rgba(0,0,0,.65), inset 0 0 0 1px rgba(216,166,87,.08);
+            overflow: hidden;
+        }
+        .intro-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 16px 24px; border-bottom: 1px solid var(--stroke); }
+        .intro-brand { font-size: 17px; font-weight: 600; letter-spacing: .04em; }
+        .intro-brand span { margin-left: 10px; font-size: 11.5px; font-weight: 500; letter-spacing: .08em; color: var(--text-tertiary); text-transform: uppercase; }
+        .intro-step { font: 500 11px/1 var(--mono); letter-spacing: .08em; color: var(--accent); }
+        .intro-body { flex: 1; min-height: 0; overflow-y: auto; padding: 22px 26px 18px; scrollbar-width: thin; scrollbar-color: var(--stroke) transparent; }
+        .intro-page[hidden] { display: none !important; }
+        .intro-page { animation: introIn .24s ease; }
+        @keyframes introIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+        .intro-title { margin: 0 0 4px; font-size: 24px; font-weight: 600; letter-spacing: .02em; }
+        .intro-sub { margin: 0 0 18px; font-size: 12.5px; color: var(--text-tertiary); }
+        .intro-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; align-items: start; }
+        .intro-facts { display: flex; flex-direction: column; }
+        .intro-fact { display: flex; align-items: baseline; justify-content: space-between; gap: 18px; padding: 8px 0; border-bottom: 1px solid var(--stroke); font-size: 13px; }
+        .intro-fact:last-child { border-bottom: 0; }
+        .intro-fact-k { color: var(--text-tertiary); }
+        .intro-fact-v { color: var(--text-primary); text-align: right; }
+        .intro-fact-v a { color: var(--accent); text-decoration: none; }
+        .intro-fact-v a:hover { text-decoration: underline; }
+        .intro-notice { padding: 14px 16px; border: 1px solid rgba(216,166,87,.28); border-radius: 10px; background: rgba(216,166,87,.07); font-size: 12.5px; line-height: 1.75; color: var(--text-secondary); }
+        .intro-notice strong { color: var(--accent); font-weight: 600; }
+        .intro-notice p { margin: 0 0 9px; }
+        .intro-notice p:last-child { margin-bottom: 0; }
+        .intro-notice code { font: 500 11px/1 var(--mono); color: var(--text-primary); background: rgba(255,255,255,.06); padding: 2px 5px; border-radius: 4px; }
+        .intro-asset-note { margin-top: 14px; font-size: 11.5px; line-height: 1.7; color: var(--text-tertiary); text-align: center; }
+        .intro-tabs { display: flex; gap: 6px; margin-bottom: 16px; }
+        .intro-tabs[hidden] { display: none !important; }
+        .intro-tab {
+            flex: 1; min-width: 0; padding: 8px 4px;
+            font-family: inherit; font-size: 12px; font-weight: 500;
+            color: var(--text-secondary); background: var(--bg-surface);
+            border: 1px solid var(--stroke); border-radius: 6px; cursor: pointer;
+            transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
+        }
+        .intro-tab:hover { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        .intro-tab.active { color: var(--text-primary); background: var(--accent-soft); border-color: var(--accent); box-shadow: 0 0 10px var(--accent-soft); }
+        .intro-tutorial { display: grid; grid-template-columns: minmax(0, 1.02fr) minmax(0, .98fr); gap: 26px; align-items: start; }
+        .intro-figure { margin: 0; }
+        .intro-figure img { display: block; width: 100%; max-height: 52vh; object-fit: contain; border-radius: 12px; border: 1px solid var(--stroke-light); background: #000; box-shadow: var(--shadow-md); }
+        .intro-figure figcaption { margin-top: 8px; font-size: 10.5px; color: var(--text-tertiary); text-align: center; }
+        .intro-tech-title { margin: 0 0 2px; font-size: 22px; font-weight: 600; }
+        .intro-tech-en { font-size: 11px; letter-spacing: .1em; color: var(--text-tertiary); text-transform: uppercase; }
+        .intro-steps { display: flex; flex-direction: column; gap: 9px; margin-top: 16px; }
+        .intro-step-item { display: flex; gap: 11px; padding: 10px 12px; border: 1px solid var(--stroke); border-radius: 8px; background: var(--bg-surface); }
+        .intro-step-num { flex: none; font: 600 11px/1.6 var(--mono); color: var(--accent); }
+        .intro-step-text { font-size: 12.5px; line-height: 1.65; color: var(--text-secondary); }
+        .intro-step-text strong { color: var(--text-primary); font-weight: 600; }
+        .intro-tip { margin-top: 12px; font-size: 11.5px; line-height: 1.7; color: var(--text-tertiary); }
+        .intro-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 26px; border-top: 1px solid var(--stroke); background: rgba(0,0,0,.18); }
+        .intro-foot-note { min-width: 0; font-size: 11px; line-height: 1.5; color: var(--text-tertiary); }
+        .intro-actions { display: flex; flex: none; gap: 8px; }
+        .intro-btn {
+            font-family: inherit; font-size: 13px; font-weight: 500; padding: 10px 22px;
+            border-radius: 8px; border: 1px solid var(--stroke-light);
+            background: var(--bg-surface); color: var(--text-secondary); cursor: pointer;
+            transition: color .15s, background .15s, border-color .15s;
+        }
+        .intro-btn:hover { color: var(--text-primary); background: var(--bg-surface-hover); }
+        .intro-btn.primary { color: #1a1408; background: var(--accent); border-color: var(--accent); }
+        .intro-btn.primary:hover { color: #1a1408; background: var(--accent-hover); border-color: var(--accent-hover); }
+        .intro-btn[hidden] { display: none !important; }
+
+        /* Primary start row + egg version selector in the settings panel. */
+        .set-row.primary { margin: 2px 0 6px; padding: 11px 10px; border: 1px solid rgba(216,166,87,.30); border-radius: 8px; background: rgba(216,166,87,.08); }
+        .set-row.primary:hover { background: rgba(216,166,87,.13); }
+        .set-row.primary .set-label { color: var(--text-primary); font-size: 13px; font-weight: 600; }
+        .set-row.primary .kb-key { color: var(--accent); border-color: rgba(216,166,87,.35); background: rgba(216,166,87,.12); }
+        .set-row.primary .kb-value { color: var(--accent); }
+        .egg-versions { display: flex; align-items: center; gap: 6px; padding: 0 0 6px 46px; }
+        .egg-versions-label { font-size: 11px; color: var(--text-tertiary); }
+        .egg-version-btn {
+            min-width: 30px; padding: 4px 8px;
+            font-family: inherit; font-size: 11px; font-weight: 600;
+            color: var(--text-secondary); background: var(--bg-surface);
+            border: 1px solid var(--stroke); border-radius: 5px; cursor: pointer;
+            transition: color .15s, background .15s, border-color .15s;
+        }
+        .egg-version-btn:hover { color: var(--text-primary); border-color: var(--stroke-light); }
+        .egg-version-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+
+        /* Void easter egg: a full-viewport Bilibili player after the transit cut. */
+        #void-egg { position: fixed; inset: 0; z-index: 9500; display: flex; flex-direction: column; background: #000; }
+        #void-egg[hidden] { display: none !important; }
+        .void-egg-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px; height: 44px; box-sizing: border-box; padding: 0 14px; background: #0c0c0f; border-bottom: 1px solid rgba(255,255,255,.09); color: rgba(255,255,255,.72); font-size: 12px; }
+        .void-egg-bar strong { color: #fff; font-weight: 600; letter-spacing: .03em; }
+        .void-egg-hint { margin-left: 10px; color: rgba(255,255,255,.5); }
+        .void-egg-close {
+            flex: none; padding: 6px 14px; font-family: inherit; font-size: 12px;
+            color: rgba(255,255,255,.8); background: rgba(255,255,255,.08);
+            border: 1px solid rgba(255,255,255,.14); border-radius: 6px; cursor: pointer;
+            transition: color .15s, background .15s, border-color .15s;
+        }
+        .void-egg-close:hover { color: #fff; background: rgba(255,255,255,.16); border-color: rgba(255,255,255,.28); }
+        .void-egg-frame { flex: 1; width: 100%; min-height: 0; border: 0; background: #000; }
+
         @media (max-width: 900px) {
             #ui { gap: 10px; padding: 0 10px; }
             #ui h1 .sub { display: none; }
@@ -209,6 +324,17 @@
             #technique-name { font-size: 16px; max-width: 40vw; }
             #left-rail { width: min(320px, 82vw); }
             #debug-panel { width: min(300px, 48vw); }
+            #intro-modal { padding: 10px; }
+            .intro-dialog { width: 100%; max-height: 96vh; border-radius: 12px; }
+            .intro-head { padding: 12px 16px; }
+            .intro-brand span { display: none; }
+            .intro-body { padding: 16px; }
+            .intro-grid, .intro-tutorial { grid-template-columns: 1fr; gap: 16px; }
+            .intro-figure img { max-height: 34vh; }
+            .intro-title { font-size: 20px; }
+            .intro-foot { padding: 12px 16px; }
+            .intro-foot-note { display: none; }
+            .intro-btn { padding: 9px 16px; }
         }
     </style>
     
@@ -240,6 +366,137 @@
     <audio id="creed-voice" src="/audio/creed.mp3" preload="auto"></audio>
     <div id="grain"></div>
     <div id="idle-flash"></div>
+
+    <div id="intro-modal" role="dialog" aria-modal="true" aria-labelledby="intro-welcome-title">
+        <div class="intro-dialog">
+            <div class="intro-head">
+                <div class="intro-brand">SAT0RU <span>五条悟模式 · 启动说明</span></div>
+                <div class="intro-step" id="intro-step">01 / 05</div>
+            </div>
+            <div class="intro-body" id="intro-body">
+                <div class="intro-tabs" id="intro-tabs" role="tablist" aria-label="术式教程" hidden>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="blue" aria-selected="false">蒼 · 引力</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="red" aria-selected="false">赫 · 斥力</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="purple" aria-selected="false">茈 · 投射</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="void" aria-selected="false">無量空処 · 领域</button>
+                </div>
+
+                <section class="intro-page" data-intro-page="welcome">
+                    <h2 class="intro-title" id="intro-welcome-title">欢迎来到 SAT0RU</h2>
+                    <p class="intro-sub">咒术回战手势粒子工具 · 单人拍摄 / 娱乐用途 · 五条悟模式</p>
+                    <div class="intro-grid">
+                        <div class="intro-facts">
+                            <div class="intro-fact"><span class="intro-fact-k">原版项目</span><span class="intro-fact-v"><a href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></span></div>
+                            <div class="intro-fact"><span class="intro-fact-k">改版作者</span><span class="intro-fact-v">闪耀金金 / ShanyJin</span></div>
+                            <div class="intro-fact"><span class="intro-fact-k">个人网站</span><span class="intro-fact-v"><a href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></span></div>
+                            <div class="intro-fact"><span class="intro-fact-k">改版仓库</span><span class="intro-fact-v"><a href="https://github.com/shanyaojinjin/SAT0RU" target="_blank" rel="noopener">github.com/shanyaojinjin/SAT0RU</a></span></div>
+                            <div class="intro-fact"><span class="intro-fact-k">运行方式</span><span class="intro-fact-v">本地静态页 · 无需登录</span></div>
+                        </div>
+                        <div class="intro-notice">
+                            <p><strong>本项目不会上传任何内容。</strong>摄像头调用是本地算力：手部识别使用 <strong>MediaPipe Hands</strong>（Google 开源，依赖与模型已放在本地 <code>vendor/</code>），粒子画面使用 <strong>three.js</strong>。全部推理都在你的浏览器里完成，不上传、不保存任何摄像头画面或识别数据。</p>
+                            <p>默认<strong>不调用摄像头</strong>。只有你在左侧栏打开「启动按钮」后，浏览器才会请求摄像头权限；随时关掉开关即可停止，页面不会保留画面。</p>
+                            <p>唯一的外部请求：如果你手动开启并触发「無量空処 · 亂入影院」彩蛋，才会加载哔哩哔哩播放器。默认关闭。</p>
+                        </div>
+                    </div>
+                    <div class="intro-asset-note">所有用到的素材均取自于网络，无任何侵权行为。仅作个人非商业展示。</div>
+                </section>
+
+                <section class="intro-page" data-intro-page="blue" hidden>
+                    <div class="intro-tutorial">
+                        <figure class="intro-figure">
+                            <img src="/assets/tutorial/blue.jpg" alt="術式順転「蒼」手势示范">
+                            <figcaption>術式順転「蒼」 · 引力 / Lapse: Blue</figcaption>
+                        </figure>
+                        <div>
+                            <h2 class="intro-title intro-tech-title">術式順転「蒼」</h2>
+                            <div class="intro-tech-en">Lapse: Blue · 引力</div>
+                            <div class="intro-steps">
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong>四指完全伸直的张开手掌，掌心正对镜头。手指弯着、只伸一两根都不算。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>构筑：</strong>保持手势 2 秒，蓝色粒子球在掌心成形；成型后再满 2 秒播放苍的语音。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>释放：</strong>用力前推、握拳、快速甩出，或把手移出画面，粒子会在屏幕中央炸开。</span></div>
+                            </div>
+                            <div class="intro-tip">小提示：尽量单手使用，另一只手留空；弯着手指的手不会被当成张开手掌。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="intro-page" data-intro-page="red" hidden>
+                    <div class="intro-tutorial">
+                        <figure class="intro-figure">
+                            <img src="/assets/tutorial/red.jpg" alt="術式反転「赫」手势示范">
+                            <figcaption>術式反転「赫」 · 斥力 / Reversal: Red</figcaption>
+                        </figure>
+                        <div>
+                            <h2 class="intro-title intro-tech-title">術式反転「赫」</h2>
+                            <div class="intro-tech-en">Reversal: Red · 斥力</div>
+                            <div class="intro-steps">
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong>食指向上指、其余三指收拢；或食指+中指并拢、拇指外张的枪形。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>展开：</strong>红色斥力球悬在指尖前方，跟手移动；两种手势可以互换而不断档。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>语音：</strong>任一赫手势保持 1 秒，随机播放一段赫的语音（每次保持一次）。</span></div>
+                            </div>
+                            <div class="intro-tip">和无量空处的区别：赫的拇指是<strong>外张</strong>的；拇指内扣则是领域展开。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="intro-page" data-intro-page="purple" hidden>
+                    <div class="intro-tutorial">
+                        <figure class="intro-figure">
+                            <img src="/assets/tutorial/purple.jpg" alt="虚式「茈」手势示范">
+                            <figcaption>虚式「茈」 · 投射 / Imaginary: Purple</figcaption>
+                        </figure>
+                        <div>
+                            <h2 class="intro-title intro-tech-title">虚式「茈」</h2>
+                            <div class="intro-tech-en">Imaginary: Purple · 投射</div>
+                            <div class="intro-steps">
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>开启：</strong>点右上角「茈」进入枪指模式；此时苍和赫暂停，双手契印仍可直接发动。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>蓄势：</strong>枪形、捏合，或拇指内扣，掌心会聚起一颗紫色小球。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>发射：</strong>前推，或拇指内扣后快速向外弹开；小球射向屏幕正中心爆开，松手取消蓄势。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>双手契印：</strong>双手交叉扣住，<strong>一只手食指朝上</strong>，另一只手扣在它的手掌上，拇指内扣、双腕贴近，会自动播放约 23 秒的双球长动画，不需要按钮。無量空処只用单手，两者不会互相误开。</span></div>
+                            </div>
+                            <div class="intro-tip">释放后有 2 秒冷却；发射瞬间会播放 2026 短语音。</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="intro-page" data-intro-page="void" hidden>
+                    <div class="intro-tutorial">
+                        <figure class="intro-figure">
+                            <img src="/assets/tutorial/void.jpg" alt="領域展開「無量空処」手势示范">
+                            <figcaption>領域展開「無量空処」 · Domain Expansion</figcaption>
+                        </figure>
+                        <div>
+                            <h2 class="intro-title intro-tech-title">領域展開「無量空処」</h2>
+                            <div class="intro-tech-en">Domain Expansion · 领域</div>
+                            <div class="intro-steps">
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong><strong>单手</strong>食指+中指并拢或交叉，拇指内扣（不要外张）。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>展开：</strong>白环与蓝色星云场出现；保持手势维持领域，松手退场。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>语音与动画：</strong>保持 1 秒播放单人版语音；保持 3 秒自动进入开场动画。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>长版：</strong>左侧栏打开「长时间无量空处」后，保持 1 秒即展开并播放 31 秒长语音，原地再保持 8 秒才进入超长动画。</span></div>
+                            </div>
+                            <div class="intro-tip">教程结束后，请在左侧栏打开<strong>「启动按钮」</strong>；只有开启开关，摄像头才会启动。</div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+            <div class="intro-foot">
+                <div class="intro-foot-note" id="intro-foot-note">先看清说明，再开始</div>
+                <div class="intro-actions">
+                    <button class="intro-btn" type="button" id="intro-back" data-intro-action="back" hidden>上一步</button>
+                    <button class="intro-btn primary" type="button" id="intro-ack" data-intro-action="ack">我已知晓</button>
+                    <button class="intro-btn primary" type="button" id="intro-next" data-intro-action="next" hidden>明白了，下一个</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="void-egg" hidden role="dialog" aria-modal="true" aria-label="無量空処 · 亂入影院">
+        <div class="void-egg-bar">
+            <div><strong>無量空処 · 亂入影院</strong><span class="void-egg-hint">若未自动播放，请点一下播放器 ▶</span></div>
+            <button class="void-egg-close" type="button" id="void-egg-close">关闭 · Esc</button>
+        </div>
+        <iframe id="void-egg-frame" class="void-egg-frame" src="about:blank" title="哔哩哔哩彩蛋视频" scrolling="no" frameborder="no" allow="autoplay; fullscreen; encrypted-media" allowfullscreen="true" referrerpolicy="no-referrer"></iframe>
+    </div>
 
     <header id="ui">
         <div class="ui-group ui-left">
@@ -288,14 +545,17 @@
                     <div class="about-row"><span class="about-k">个人网站</span><a class="about-v" href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></div>
                     <div class="about-row"><span class="about-k">改版仓库</span><a class="about-v" href="https://github.com/shanyaojinjin/SAT0RU" target="_blank" rel="noopener">github.com/shanyaojinjin/SAT0RU</a></div>
                     <div class="about-row"><span class="about-k">原版项目</span><a class="about-v" href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></div>
+                    <div class="about-row"><span class="about-k">构建</span><span class="about-v" id="build-tag">-</span></div>
                 </div>
                 <div class="about-note">
-                    为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（零外网请求），
+                    为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（彩蛋关闭时不发外部请求），
                     并优化了手势识别（分数制 + EMA 平滑、连续保持判定、防误触冷却）。
+                    首次进入先看启动说明和四式教程；摄像头默认关闭，只有手动打开左侧「启动按钮」才会调用。
                 </div>
                 <div class="about-note">
                     保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，
                     以及無量空処开场动画、各术式语音、左侧音频库与长时间无量空处等本版新增演出。
+                    第一个设置页还有「彩蛋 · 乱入影院」：无量空处穿越时切到 B 站视频，可选版本 1 / 2。
                     原版音效与上面未提到的动作，我们之后再补。
                 </div>
                 <div class="about-sep">用到的开源项目</div>
@@ -304,7 +564,7 @@
                     <div class="about-row"><span class="about-k">three.js r160</span><span class="about-v">MIT · three.js authors</span></div>
                     <div class="about-row"><span class="about-k">SAT0RU</span><span class="about-v">原版项目 · 无 LICENSE</span></div>
                 </div>
-                <div class="about-note">单人拍摄 / 娱乐用途，不公开、不发布。上游无 LICENSE，本仓库仅做本地提交。</div>
+                <div class="about-note">单人拍摄 / 娱乐用途，个人非商业项目。所有用到的素材均取自于网络，如涉版权请联系删除。上游无 LICENSE，本仓库仅做本地提交。</div>
             </div>
         </section>
         <div class="rail-foot">左上角菜单按钮可收起本栏</div>
@@ -989,6 +1249,73 @@
     let lastFrameNowMs = 0;
     const voidCinemaEl = document.getElementById('void-cinema');
 
+    // --- 無量空処 easter egg「亂入影院」 ---------------------------------------
+    // With the switch on, the normal (short) domain cinematic plays only up to the transit
+    // at ringAtMs, then cuts to a full-screen Bilibili player instead of showing the ring.
+    // The long-void timeline is untouched: that one is a 34 s authored sequence.
+    const VOID_EGG_VIDEOS = {
+        1: { aid: '117035593895989', bvid: 'BV17XMf6nE1v', cid: '40580808762' },
+        2: { aid: '116981084717124', bvid: 'BV1QC3G6DEKX', cid: '40301496754' }
+    };
+    let voidEggEnabled = false;
+    let voidEggVersion = 1;
+    let voidEggOpen = false;
+    const voidEggEl = document.getElementById('void-egg');
+    const voidEggFrame = document.getElementById('void-egg-frame');
+    const voidEggCloseBtn = document.getElementById('void-egg-close');
+
+    function buildVoidEggUrl(version = voidEggVersion) {
+        const video = VOID_EGG_VIDEOS[version] || VOID_EGG_VIDEOS[1];
+        // The iframe player itself is cross-origin: `autoplay=1` is a request, not a promise.
+        // The page keeps a visible hint telling the user to press play if the browser blocks it.
+        return 'https://player.bilibili.com/player.html?isOutside=true'
+            + '&aid=' + video.aid + '&bvid=' + video.bvid + '&cid=' + video.cid
+            + '&p=1&autoplay=1&danmaku=0&high_quality=1';
+    }
+
+    function openVoidEgg() {
+        if (voidEggOpen || !voidEggEl || !voidEggFrame) return;
+        voidEggOpen = true;
+        voidEggFrame.src = buildVoidEggUrl();
+        voidEggEl.hidden = false;
+        document.body.classList.add('void-egg-open');
+        try {
+            // A camera gesture is not a DOM user activation, so this usually rejects; the
+            // fixed overlay already covers the viewport, which is the visual requirement.
+            const request = voidEggEl.requestFullscreen?.();
+            if (request && request.catch) request.catch(() => {});
+        } catch (e) { /* ignore */ }
+    }
+
+    function closeVoidEgg() {
+        if (!voidEggOpen) return;
+        voidEggOpen = false;
+        if (voidEggEl) voidEggEl.hidden = true;
+        if (voidEggFrame) voidEggFrame.src = 'about:blank';
+        document.body.classList.remove('void-egg-open');
+        if (document.fullscreenElement) {
+            try {
+                const exit = document.exitFullscreen?.();
+                if (exit && exit.catch) exit.catch(() => {});
+            } catch (e) { /* ignore */ }
+        }
+    }
+
+    function setVoidEggEnabled(enabled) {
+        voidEggEnabled = !!enabled;
+        if (!voidEggEnabled) closeVoidEgg();
+        updateKeybindMenu();
+    }
+
+    function setVoidEggVersion(version) {
+        const next = Number(version) === 2 ? 2 : 1;
+        if (next === voidEggVersion) return;
+        voidEggVersion = next;
+        updateKeybindMenu();
+    }
+
+    if (voidEggCloseBtn) voidEggCloseBtn.addEventListener('click', closeVoidEgg);
+
     function setVoidStreakFormationTargets() {
         for (let i = 0; i < VOID_STREAK_COUNT; i++) {
             const m = voidStreakMeta[i];
@@ -1084,7 +1411,8 @@
             ringShown: false,
             hideField: false,
             formTargetsSet: false,
-            dissolveSet: false
+            dissolveSet: false,
+            eggFired: false
         };
         for (let i = 0; i < voidStreakPositions.length; i++) {
             voidStreakPositions[i] = 0;
@@ -1137,6 +1465,14 @@
         const C = cine.timeline;
         if (age >= C.endMs) {
             finishVoidCinematic();
+            return;
+        }
+        // Easter egg「亂入影院」: cut right at the transit/ring hand-off. The white ring is
+        // never shown; the Bilibili overlay takes the whole screen instead.
+        if (voidEggEnabled && !cine.long && !cine.eggFired && age >= C.ringAtMs) {
+            cine.eggFired = true;
+            finishVoidCinematic();
+            openVoidEgg();
             return;
         }
         const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - cine.lastMs) / 1000));
@@ -1755,9 +2091,11 @@
         minFrames: 4, // consecutive two-hand clasp frames...
         holdMs: 120, // ...that must also span this long
         gapMs: 400, // a longer detection gap restarts the run
-        wristGapMax: 2.2, // wrist distance / palm length
-        tipGapMax: 1.3, // index fingertip distance / palm length
-        nearWristGapMax: 2.9, // two hands this close share a clasp context even before the pose
+        wristGapMax: 2.2, // cast pose: wrists this close (real photos measure 0.66–0.68)
+        minWristGap: 0.30, // below this it is one hand reported twice, not two hands
+        nearWristGapMax: 2.9, // loose context only: hands clearly meeting but not interlocked yet
+        tipGapMax: 0.50, // index fingertips pressed together (real photos: 0.05–0.06)
+        middleGapMin: 0.55, // ...while the middle fingertips stay apart (real photos: 0.73–1.03)
         suspectMs: 600, // a dropped hand keeps that context alive this long
         voiceDelayMs: 500,
         audioMs: 21891, // audio/purple-clasp.mp3 (documentation / regression only)
@@ -1802,7 +2140,9 @@
     let claspPoseReleaseRequired = false;
     let claspSuppressUntilMs = 0;
     let claspNearMs = -Infinity; // last frame two hands were close enough to be clasping
+    let claspDebug = null; // last frame's clasp signals, shown in the D panel
     let claspSawRealPose = false; // the current run included at least one true two-hand pose
+    let claspRealPoseFrames = 0; // ...and how many; one ghost frame must not arm the cast
     const videoElement = document.querySelector('.input_video');
     const canvasElement = document.getElementById('output_canvas');
     const canvasCtx = canvasElement.getContext('2d');
@@ -1860,6 +2200,107 @@
     let recognition = null;
     let lastVoiceTriggerMs = -Infinity;
     const VOICE_TRIGGER_COOLDOWN_MS = 5000;
+
+    // --- First-run gate -----------------------------------------------------
+    // The camera, MediaPipe graph and render loop all stay idle until the intro dialog is
+    // finished. The camera itself stays off until the user flips the「启动按钮」switch.
+    const INTRO_PAGES = ['welcome', 'blue', 'red', 'purple', 'void'];
+    const INTRO_TECH_LABELS = { blue: '蒼', red: '赫', purple: '茈', void: '無量空処' };
+    let introPage = 0;
+    let introDone = false;
+    let cameraEnabled = false;
+    let cameraStarted = false;
+    let cameraStarting = false;
+    let cameraStatus = 'off';
+    // Shown in the About panel so a stale cached page is instantly recognisable.
+    const BUILD_TAG = '2026-11-27 · 契印单手守卫 3';
+    const buildTagEl = document.getElementById('build-tag');
+    if (buildTagEl) buildTagEl.textContent = BUILD_TAG;
+
+    const introModal = document.getElementById('intro-modal');
+    const introBody = document.getElementById('intro-body');
+    const introTabs = document.getElementById('intro-tabs');
+    const introStepEl = document.getElementById('intro-step');
+    const introFootNote = document.getElementById('intro-foot-note');
+    const introAckBtn = document.getElementById('intro-ack');
+    const introNextBtn = document.getElementById('intro-next');
+    const introBackBtn = document.getElementById('intro-back');
+
+    function showIntroPage(index) {
+        if (!introModal) return;
+        introPage = Math.max(0, Math.min(INTRO_PAGES.length - 1, index));
+        const name = INTRO_PAGES[introPage];
+        introModal.querySelectorAll('[data-intro-page]').forEach((page) => {
+            page.hidden = page.dataset.introPage !== name;
+        });
+        if (introTabs) {
+            introTabs.hidden = introPage === 0;
+            introTabs.querySelectorAll('[data-intro-tech]').forEach((btn, i) => {
+                const on = introPage > 0 && i === introPage - 1;
+                btn.classList.toggle('active', on);
+                btn.setAttribute('aria-selected', on ? 'true' : 'false');
+            });
+        }
+        if (introStepEl) {
+            introStepEl.textContent = String(introPage + 1).padStart(2, '0')
+                + ' / ' + String(INTRO_PAGES.length).padStart(2, '0');
+        }
+        if (introAckBtn) introAckBtn.hidden = introPage !== 0;
+        if (introNextBtn) {
+            introNextBtn.hidden = introPage === 0;
+            introNextBtn.textContent = introPage === INTRO_PAGES.length - 1 ? '明白了，开始' : '明白了，下一个';
+        }
+        if (introBackBtn) introBackBtn.hidden = introPage === 0;
+        if (introFootNote) {
+            introFootNote.textContent = introPage === 0
+                ? '先看清说明，再开始'
+                : introPage === INTRO_PAGES.length - 1
+                    ? '教程结束 · 之后在左侧栏打开「启动按钮」才会调用摄像头'
+                    : '第 ' + introPage + ' / 4 式 · ' + INTRO_TECH_LABELS[name];
+        }
+        if (introBody) introBody.scrollTop = 0;
+    }
+
+    function finishIntro() {
+        if (introDone) return;
+        introDone = true;
+        if (introModal) introModal.hidden = true;
+        document.body.classList.remove('intro-open');
+        // Land the user on the start switch instead of leaving them hunting for it.
+        setRailTab('main');
+        setRailOpen(true);
+    }
+
+    function initIntro() {
+        if (!introModal) {
+            introDone = true; // no gate in the markup: fail open, not closed
+            return;
+        }
+        document.body.classList.add('intro-open');
+        showIntroPage(0);
+    }
+
+    if (introAckBtn) {
+        introAckBtn.addEventListener('click', () => showIntroPage(1));
+    }
+    if (introNextBtn) {
+        introNextBtn.addEventListener('click', () => {
+            if (introPage >= INTRO_PAGES.length - 1) finishIntro();
+            else showIntroPage(introPage + 1);
+        });
+    }
+    if (introBackBtn) {
+        introBackBtn.addEventListener('click', () => showIntroPage(introPage - 1));
+    }
+    if (introTabs) {
+        introTabs.addEventListener('click', (event) => {
+            const tab = event.target.closest('[data-intro-tech]');
+            if (!tab) return;
+            const index = INTRO_PAGES.indexOf(tab.dataset.introTech);
+            if (index > 0) showIntroPage(index);
+        });
+    }
+    initIntro();
 
     function clamp01(v) {
         return Math.min(1, Math.max(0, v));
@@ -2411,9 +2852,12 @@
     }
 
     // --- 虚式「茈」 clasp cast (two hands, no top button) ---
-    // The reference pose interlocks the fingers; MediaPipe often merges the hands into one
-    // detection or keeps them a few frames apart, so the pose test is deliberately loose:
-    // both indexes up, at least one middle up, both thumbs tucked, wrists and index tips near.
+    // 無量空処 is a ONE-hand sign: index straight with the middle finger laid on it,
+// thumb tucked. The clasp is the app's only two-hand technique: the hands cross and
+// interlock, both indexes read as raised, at least one middle is extended, both thumbs
+// tuck in, and — measured on the user's own photos — the wrists overlap (0.66–0.68 palm)
+// with the index fingertips pressed together (0.05–0.06 palm) while the middle
+// fingertips stay far apart (0.73–1.03 palm, the second hand's middle is wrapped away).
     // Palm-relative distances between two hands; null when there is no usable pair.
     function claspGaps(landmarks) {
         if (!landmarks || landmarks.length !== 2) return null;
@@ -2421,31 +2865,57 @@
         const palm = (Math.hypot(a[0].x - a[9].x, a[0].y - a[9].y)
             + Math.hypot(b[0].x - b[9].x, b[0].y - b[9].y)) / 2;
         if (palm < 0.001) return null;
+        const rel = (p, q) => Math.hypot(p.x - q.x, p.y - q.y) / palm;
         return {
-            wristGap: Math.hypot(a[0].x - b[0].x, a[0].y - b[0].y) / palm,
-            tipGap: Math.hypot(a[8].x - b[8].x, a[8].y - b[8].y) / palm
+            wristGap: rel(a[0], b[0]),
+            tipGap: rel(a[8], b[8]),
+            middleGap: rel(a[12], b[12])
         };
     }
 
-    function claspPoseInfo(landmarks, shapes) {
+    // MediaPipe labels two real hands Left/Right. One physical hand reported twice
+    // carries the same label, so it must never be treated as a pair.
+    function handsAreDistinct(labels) {
+        return !labels || labels.length < 2 || labels[0] !== labels[1];
+    }
+
+    // The exact 無量空処 sign on a hand. Used only to keep the single-hand domain sign
+    // apart from the two-hand clasp: a pair of domain hands is NOT the clasp.
+    function voidSignShape(shape) {
+        return !!shape && shape.indexUp === 1 && shape.middleUp === 1
+            && shape.ringUp === 0 && shape.pinkyUp === 0
+            && shape.fingerGap < 0.075 && shape.thumbGapRatio < 0.75;
+    }
+
+    // Clasp geometry: wrists overlapping, the two index fingertips pressed together and
+    // the middle fingertips apart. A rigid duplicate of one hand has tipGap == middleGap,
+    // so it can never satisfy `tipGap < tipGapMax` and `middleGap > middleGapMin` at once.
+    function claspPoseInfo(landmarks, shapes, labels) {
         if (!shapes || shapes.length !== 2) return false;
+        if (!handsAreDistinct(labels)) return false;
+        if (voidSignShape(shapes[0]) && voidSignShape(shapes[1])) return false;
         const gaps = claspGaps(landmarks);
         if (!gaps) return false;
         return shapes[0].indexUp === 1 && shapes[1].indexUp === 1
             && (shapes[0].middleUp === 1 || shapes[1].middleUp === 1)
             && shapes[0].thumbGapRatio < 0.75 && shapes[1].thumbGapRatio < 0.75
+            && gaps.wristGap >= CLASP_CAST.minWristGap
             && gaps.wristGap < CLASP_CAST.wristGapMax
-            && gaps.tipGap < CLASP_CAST.tipGapMax;
+            && gaps.tipGap < CLASP_CAST.tipGapMax
+            && gaps.middleGap > CLASP_CAST.middleGapMin;
     }
 
     // Two hands physically close in a clasp-family shape (index up, thumb tucked): the
-    // clasp context, even if the full pose test is not met yet. Gating on shape keeps plain
-    // open palms and fists from arming the dropped-hand suspect window.
-    function claspHandsNear(landmarks, shapes) {
+    // clasp context, even if the full pose test is not met yet. Gating on shape keeps
+    // plain open palms and fists from arming the dropped-hand suspect window.
+    function claspHandsNear(landmarks, shapes, labels) {
         if (!shapes || shapes.length !== 2) return false;
+        if (!handsAreDistinct(labels)) return false;
+        if (voidSignShape(shapes[0]) && voidSignShape(shapes[1])) return false;
         if (!shapes.every((s) => s.indexUp === 1 && s.thumbGapRatio < 0.75)) return false;
         const gaps = claspGaps(landmarks);
-        return !!gaps && gaps.wristGap < CLASP_CAST.nearWristGapMax;
+        return !!gaps && gaps.wristGap >= CLASP_CAST.minWristGap
+            && gaps.wristGap < CLASP_CAST.nearWristGapMax;
     }
 
     function startClaspCast(nowMs) {
@@ -2485,16 +2955,20 @@
             claspRunFrames = 1;
             claspRunStartMs = nowMs;
             claspSawRealPose = false;
+            claspRealPoseFrames = 0;
         } else {
             claspRunFrames += 1;
         }
-        if (pose) claspSawRealPose = true;
+        if (pose) {
+            claspSawRealPose = true;
+            claspRealPoseFrames += 1;
+        }
         claspLastSeenMs = nowMs;
-        // A run built only from one-hand suspect frames never casts: the real two-hand pose
-        // must have been seen at least once, so a lone hand waving near another cannot fire.
+        // A run built from suspect frames never casts: the real two-hand pose must have
+        // been seen in at least two frames, so a lone hand near a one-frame ghost cannot fire.
         if (claspRunFrames >= CLASP_CAST.minFrames
             && (nowMs - claspRunStartMs) >= CLASP_CAST.holdMs
-            && claspSawRealPose) {
+            && claspSawRealPose && claspRealPoseFrames >= 2) {
             startClaspCast(nowMs);
         }
     }
@@ -2876,13 +3350,26 @@
 
         // Two-hand clasp: accumulate a short run of frames instead of demanding a continuous
         // two-hand read (MediaPipe drops one hand for stretches of the interlocked pose).
-        const claspPose = MODE === 'gojo' && claspPoseInfo(results.multiHandLandmarks, handShapes);
-        if (MODE === 'gojo' && claspHandsNear(results.multiHandLandmarks, handShapes)) claspNearMs = nowMs;
-        // When one hand vanishes mid-clasp the remaining index-up hand looks exactly like 赫.
-        // Two hands were just close together, so treat it as a clasp suspect instead.
+        const claspPose = MODE === 'gojo' && claspPoseInfo(results.multiHandLandmarks, handShapes, handKeys);
+        if (MODE === 'gojo' && claspHandsNear(results.multiHandLandmarks, handShapes, handKeys)) claspNearMs = nowMs;
+        // When one hand vanishes mid-clasp the remaining pointing hand can look exactly
+        // like 赫. Two hands were just entwined, so treat it as a clasp suspect instead.
+        // A hand making the 無量空処 sign is NEVER a suspect: the domain is a one-hand
+        // technique, and this is the path that used to let a lone domain hand cast 茈.
         const claspSuspect = MODE === 'gojo' && !claspPose && handShapes.length === 1
             && (nowMs - claspNearMs) <= CLASP_CAST.suspectMs
-            && handShapes[0].indexUp === 1;
+            && handShapes[0].indexUp === 1
+            && !voidSignShape(handShapes[0]);
+        // D panel telemetry: what the clasp test actually sees, so tuning needs no guessing.
+        const claspDbgGaps = claspGaps(results.multiHandLandmarks);
+        claspDebug = {
+            pose: claspPose,
+            suspect: claspSuspect,
+            wrist: claspDbgGaps ? claspDbgGaps.wristGap : -1,
+            tip: claspDbgGaps ? claspDbgGaps.tipGap : -1,
+            middle: claspDbgGaps ? claspDbgGaps.middleGap : -1,
+            labels: handKeys.join('/')
+        };
         if (MODE === 'gojo') updateClaspDetection(nowMs, claspPose, claspSuspect);
         if (claspCast) {
             if (blueCharge) cancelBlueCharge();
@@ -2980,20 +3467,66 @@
     }
 
     function updateKeybindMenu() {
+        const cameraNote = cameraStatus === 'starting' ? '启动中…'
+            : cameraStatus === 'on' ? '运行中'
+                : cameraStatus === 'error' ? '启动失败'
+                    : '点击开始';
         const settings = [
+            { action: 'start', key: '▶', label: '启动按钮 · Start', on: cameraEnabled, note: cameraNote, primary: true },
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
             { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
             { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode },
-            { action: 'sfx', key: 'SFX', label: '音效 · Release SFX', on: sfxEnabled }
+            { action: 'sfx', key: 'SFX', label: '音效 · Release SFX', on: sfxEnabled },
+            { action: 'egg', key: '★', label: '彩蛋 · 乱入影院', on: voidEggEnabled, note: voidEggEnabled ? '版本 ' + voidEggVersion : 'B 站视频' }
         ];
         if (settingsList) {
-            settingsList.innerHTML = settings.map(({ action, key, label, on, note }) => `
-                <button class="set-row" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" data-action="${action}">
+            const rows = settings.map(({ action, key, label, on, note, primary }) => `
+                <button class="set-row${primary ? ' primary' : ''}" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" data-action="${action}">
                     <span class="kb-key">${key}</span>
                     <span class="set-label">${label}</span>
                     ${note ? `<span class="kb-value">${note}</span>` : ''}
                     <span class="set-track" aria-hidden="true"></span>
                 </button>`).join('');
+            const versions = voidEggEnabled ? `
+                <div class="egg-versions" role="group" aria-label="彩蛋视频版本">
+                    <span class="egg-versions-label">视频版本</span>
+                    <button class="egg-version-btn" type="button" data-egg-version="1" aria-pressed="${voidEggVersion === 1}">1</button>
+                    <button class="egg-version-btn" type="button" data-egg-version="2" aria-pressed="${voidEggVersion === 2}">2</button>
+                </div>` : '';
+            settingsList.innerHTML = rows + versions;
+        }
+    }
+
+    // The only path to the camera/model. Turning this on creates the MediaPipe graph and
+    // starts the camera; turning it off stops every track immediately. Before the first
+    // opt-in nothing is created at all, so the page performs no inference.
+    function setCameraEnabled(enabled) {
+        const next = !!enabled;
+        if (next === cameraEnabled) return;
+        cameraEnabled = next;
+        if (cameraEnabled) {
+            cameraStatus = 'starting';
+            updateKeybindMenu();
+            let startPromise;
+            try {
+                startPromise = Promise.resolve(cameraPipeline.start());
+            } catch (err) {
+                startPromise = Promise.reject(err);
+            }
+            startPromise.then(() => {
+                if (!cameraEnabled) return;
+                cameraStatus = 'on';
+                updateKeybindMenu();
+            }).catch((err) => {
+                console.warn('SAT0RU camera start failed:', err);
+                cameraEnabled = false;
+                cameraStatus = 'error';
+                updateKeybindMenu();
+            });
+        } else {
+            cameraStatus = 'off';
+            try { cameraPipeline.stop(); } catch (err) { console.warn('SAT0RU camera stop failed:', err); }
+            updateKeybindMenu();
         }
     }
 
@@ -3030,13 +3563,20 @@
     }
     if (settingsList) {
         settingsList.addEventListener('click', (event) => {
+            const versionBtn = event.target.closest('[data-egg-version]');
+            if (versionBtn) {
+                setVoidEggVersion(Number(versionBtn.dataset.eggVersion));
+                return;
+            }
             const row = event.target.closest('.set-row');
             if (!row) return;
             switch (row.dataset.action) {
+                case 'start': setCameraEnabled(!cameraEnabled); break;
                 case 'debug': toggleDebug(); break;
                 case 'voice': setVoiceEnabled(!voiceEnabled); break;
                 case 'voidlong': setVoidLongMode(!voidLongMode); break;
                 case 'sfx': setSfxEnabled(!sfxEnabled); break;
+                case 'egg': setVoidEggEnabled(!voidEggEnabled); break;
             }
         });
     }
@@ -3066,10 +3606,10 @@
         { gesture: '前推，或拇指内扣后快速向外弹开', tech: '发射' },
         { foot: '小球射向屏幕正中心并爆开；发射瞬间播放 2026 短语音；松手取消蓄势；释放后 2 秒冷却' },
         { sep: '虚式「茈」 · 双手契印' },
-        { gesture: '双手合拢、十指交叉扣住、食指朝上、拇指内扣', tech: '自动发动' },
+        { gesture: '一只手只竖食指（中指不竖）、另一只手扣在它的手掌上、双腕贴近', tech: '自动发动' },
         { foot: '右侧蓝色蒼球先从中球膨胀成半个屏幕大的巨球；1.5 秒后左侧红色赫球用 2.5 秒长大，两球对称' },
         { foot: '触发 0.5 秒后播契印语音；随后两球用 3 秒慢慢靠拢，紫色星系漩涡自旋、反复碰撞出冲击波，20 秒时大爆炸，23 秒收尾' },
-        { foot: '不需要点右上角「茈」；单手同形仍是無量空処' },
+        { foot: '契印只在两只手扣合时成立，单手不触发；不需要点右上角「茈」' },
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）；任何术式触发后 2 秒冷却' }
     ];
 
@@ -3204,6 +3744,13 @@
             `charge: ${blueCharge ? `ON gro:${(blueCharge.lastGrowth || 0).toFixed(2)}/s streak:${blueCharge.growSamples}/${CHARGE.pushMinSamples} +${((blueCharge.size / Math.max(blueCharge.growStartSize, 0.001) - 1) * 100).toFixed(0)}%` : 'off'}`,
             `hands: ${lastHandShapes.map((s) => (s.isOpen ? 'open' : s.isFist ? 'fist' : '?')).join(' ') || '-'}`,
             `clasp: ${claspCast ? claspCast.phase : '-'} run:${claspRunFrames} cd:${Math.max(0, claspCooldownUntilMs - nowMs).toFixed(0)}ms`,
+            `claspSig: ${claspDebug
+                ? `pose:${claspDebug.pose ? 1 : 0} sus:${claspDebug.suspect ? 1 : 0}`
+                    + ` wrist:${claspDebug.wrist.toFixed(2)}/${CLASP_CAST.wristGapMax}`
+                    + ` tip:${claspDebug.tip.toFixed(2)}<${CLASP_CAST.tipGapMax}`
+                    + ` mid:${claspDebug.middle.toFixed(2)}>${CLASP_CAST.middleGapMin}`
+                    + ` [${claspDebug.labels}]`
+                : '-'}`,
             `purpleFlickEligible: ${purpleFlickEligibleLeftMs.toFixed(0)}ms`,
             `purpleExplosion: ${explosionLeftMs.toFixed(0)}ms`,
             '',
@@ -3333,6 +3880,15 @@
     updateKeybindMenu();
     window.addEventListener('keydown', (event) => {
         if (event.repeat) return;
+        if (voidEggOpen) {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeVoidEgg();
+            }
+            return;
+        }
+        // The intro gate owns the screen until acknowledged; then the cinematic does.
+        if (!introDone) return;
         // The 無量空処 cinematic owns the screen: no hotkey may swap the field mid-play.
         if (voidCinematic) return;
         const key = event.key.toLowerCase();
@@ -3361,16 +3917,24 @@
         }
     });
 
-    const hands = new Hands({locateFile: (file) => `/vendor/mediapipe/hands/${file}`});
-    hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7 });
+    // The MediaPipe graph is created lazily by startCameraPipeline(), *only* after the user
+// turns on the start switch. Until then `hands` and `cameraUtils` stay null and no model
+// is loaded, no frame is inferred, and no camera permission is requested.
+    let hands = null;
+    let cameraUtils = null;
+    const cameraPipeline = {
+        start: () => startCameraPipeline(),
+        stop: () => stopCameraPipeline()
+    };
 
-    hands.onResults((results) => {
+    function handleHandResults(results) {
         canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
         const nowMs = performance.now();
 
         // During the 無量空処 cinematic the gesture pipeline is frozen: the animation must
-        // play out untouched, and the held domain must not re-arm itself.
-        if (voidCinematic) return;
+        // play out untouched, and the held domain must not re-arm itself. The easter-egg
+        // player also owns the screen; no gesture should change state behind it.
+        if (!introDone || voidCinematic || voidEggOpen) return;
 
         const frameScores = computeFrameScores(results, nowMs);
         const purpleArmedNow = currentTech === 'purple' && (nowMs - purpleEnteredAtMs) >= FLICK.purpleArmMs;
@@ -3399,7 +3963,54 @@
         maybeTriggerVoidCinematic(nowMs);
         updateTechniqueVoices(nowMs);
         updateDebugPanel(nextGesture);
-    });
+    }
+
+    async function startCameraPipeline() {
+        if (cameraStarted || cameraStarting) return;
+        cameraStarting = true;
+        try {
+            if (!hands) {
+                hands = new Hands({locateFile: (file) => `/vendor/mediapipe/hands/${file}`});
+                hands.setOptions({ maxNumHands: 2, modelComplexity: 1, minDetectionConfidence: 0.7 });
+                hands.onResults(handleHandResults);
+            }
+            if (!cameraUtils) {
+                cameraUtils = new Camera(videoElement, {
+                    onFrame: async () => {
+                        canvasElement.width = videoElement.videoWidth;
+                        canvasElement.height = videoElement.videoHeight;
+                        await hands.send({image: videoElement});
+                    }, width: 640, height: 480
+                });
+            }
+            await cameraUtils.start();
+            // The switch may have been turned off while getUserMedia was pending.
+            if (!cameraEnabled) {
+                try { cameraUtils.stop(); } catch (e) { /* ignore */ }
+                releaseCameraTracks();
+                return;
+            }
+            cameraStarted = true;
+        } finally {
+            cameraStarting = false;
+        }
+    }
+
+    function releaseCameraTracks() {
+        if (!videoElement) return;
+        const stream = videoElement.srcObject;
+        if (stream && stream.getTracks) stream.getTracks().forEach((track) => track.stop());
+        videoElement.srcObject = null;
+    }
+
+    function stopCameraPipeline() {
+        if (cameraUtils) {
+            try { cameraUtils.stop(); } catch (e) { /* already stopped */ }
+        }
+        cameraStarted = false;
+        releaseCameraTracks();
+        canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+    }
 
     function updateState(tech, force = false) {
         if (claspCast) {
@@ -3504,18 +4115,12 @@
         setRailTab('main');
     }
 
-    const cameraUtils = new Camera(videoElement, {
-        onFrame: async () => {
-            canvasElement.width = videoElement.videoWidth;
-            canvasElement.height = videoElement.videoHeight;
-            await hands.send({image: videoElement});
-        }, width: 640, height: 480
-    });
-    cameraUtils.start();
-
     // Animation
     function animate() {
         requestAnimationFrame(animate);
+        // The intro dialog is the gate: no scene work (and definitely no camera work)
+        // happens until the user has clicked through it.
+        if (!introDone) return;
         idleTime += 0.01;
         const zoomTarget = performance.now() < zoomUntilMs ? 120 : INITIAL_CAMERA_Z;
         camera.position.z += (zoomTarget - camera.position.z) * 0.05;
