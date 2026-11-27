@@ -188,6 +188,13 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - **素材与鸣谢**：感谢《咒术回战》原作者**芥见下下**与集英社；本作是非官方、非商业的个人粉丝作品。两条内置彩蛋视频来自 B 站 UP 主 **牢厄Neikos496x**（BV17XMf6nE1v）与 **望穿秋水145**（BV1QC3G6DEKX），感谢分享。所有素材均来源于网络，仅作个人非商业展示；如有侵权，请邮件告知 [shanyaojinjin@gmail.com](mailto:shanyaojinjin@gmail.com)，会尽快删除。启动弹窗里的四式教程图已压缩为 `assets/tutorial/` 下的本地副本。
 - **音频**：9 条语音都是本地文件，仅在本地播放。
 
+## 贡献者
+
+- **闪耀金金 / ShanyJin** — 项目所有者：需求、手势与视觉设计、拍摄与验收、发布维护
+- **Claude（Anthropic，Fable 5.2）** — 实现与维护：功能、无摄像头回归、文档、加载/缓存优化与发布流程
+
+完整名单、上游作者与说明见 [CONTRIBUTORS.md](CONTRIBUTORS.md)。
+
 ## 致谢
 
 - 原项目：[reinesana/SAT0RU](https://github.com/reinesana/SAT0RU)

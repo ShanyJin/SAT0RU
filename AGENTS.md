@@ -104,6 +104,7 @@ git push --force-with-lease mine final:main   # main 跟 final 对齐
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
 | `docs/CHANGELOG.md` | 改造史（含每轮为什么改） |
+| `CONTRIBUTORS.md` | 本项目与上游贡献者名单（GitHub 自动列表不认无账号的 Claude，以此为准） |
 
 ## 去哪改（grep 锚点）
 
