@@ -1988,9 +1988,262 @@
     let purpleFlickEligibleUntilMs = 0;
     let shakeIntensity = 0;
     // Red (赫): the field hovers just above the pointing fingertip, damped follow like the orb.
-    const redAnchor = { x: 0, y: 0, valid: false };
+    // aimX/aimY keep the wrist→fingertip direction so the cast can fire along the finger.
+    const redAnchor = { x: 0, y: 0, aimX: 0, aimY: 1, valid: false };
     const redFollow = { x: 0, y: 0, t: 0, init: false };
     let lastRedSeenMs = 0;
+
+    // --- 赫 cast (術式反転「赫」): activation is a forward shot, expiry is a burn-out ----
+    // 赫 itself is a sustained repel field, but its two transitions must never look alike:
+    //  * activation: a hot muzzle on the fingertip, a narrow red lance flying out along the
+    //    aim, a forward shock cone, the field snapping up from a compressed scale, and a
+    //    recoil kick opposite the shot. Strictly directional — never a radial burst
+    //    ("不是炸开").
+    //  * release: the field stops where it was, implodes, and sheds falling ash.
+    // Both timelines are pure functions of age so the regression can pin the geometry.
+    const RED_CAST = {
+        lanceMs: 420,      // the shot's lifetime: tip travel = lanceSpeed * age
+        coneMs: 380,       // forward shock-cone lifetime
+        flashMs: 210,      // muzzle flash
+        fadeMs: 420,       // field pop / recoil settle
+        lanceSpeed: 170,   // world units per second: the tip clears the 42-radius field
+        coneLength: 18,    // how far the shock cone reaches at full age
+        coneSpread: 4.2,   // lateral half-width there (<< length: directional, not a blast)
+        flashRadius: 1.6,  // muzzle spark-ball radius
+        popFrom: 0.6,      // field scale at the instant of the shot
+        joltDist: 3.4,     // recoil kick opposite the aim
+        bloomKick: 1.5,    // extra bloom on the muzzle flash
+        burnMs: 620,       // release burn-out window
+        burnGravity: 24    // ash fall acceleration (world units / s²)
+    };
+    let redCast = null;
+    let redBurn = null;
+
+    function redCastLayout(ageMs, origin) {
+        const age = Math.max(0, ageMs);
+        const lanceT = Math.min(1, age / RED_CAST.lanceMs);
+        const coneT = Math.min(1, age / RED_CAST.coneMs);
+        const flashT = Math.min(1, age / RED_CAST.flashMs);
+        const joltT = Math.min(1, age / RED_CAST.fadeMs);
+        const reach = RED_CAST.lanceSpeed * (age / 1000);
+        return {
+            active: age < Math.max(RED_CAST.lanceMs, RED_CAST.coneMs, RED_CAST.fadeMs),
+            x: origin ? origin.x : 0,
+            y: origin ? origin.y : 0,
+            dirX: origin ? origin.dirX : 0,
+            dirY: origin ? origin.dirY : 1,
+            reach,
+            width: 0.6 + reach * 0.05,
+            coneLength: 3 + (RED_CAST.coneLength - 3) * coneT,
+            spread: 0.4 + (RED_CAST.coneSpread - 0.4) * coneT,
+            back: RED_CAST.flashRadius,
+            flashSpread: RED_CAST.flashRadius * (1 + 0.9 * flashT),
+            flash: Math.pow(1 - flashT, 1.6),
+            lance: Math.pow(1 - lanceT, 1.1),
+            cone: Math.pow(1 - coneT, 1.5),
+            // The field snaps up past full size and settles; the recoil is negative along aim.
+            pop: 1 + (RED_CAST.popFrom - 1) * Math.exp(-age / 110) * Math.cos(age / 90),
+            jolt: -RED_CAST.joltDist * Math.sin(Math.PI * joltT) * (1 - joltT)
+        };
+    }
+
+    function redBurnLayout(ageMs, origin) {
+        const age = Math.max(0, ageMs);
+        const t = Math.min(1, age / RED_CAST.burnMs);
+        return {
+            active: age < RED_CAST.burnMs,
+            x: origin ? origin.x : 0,
+            y: origin ? origin.y : 0,
+            alpha: Math.pow(1 - t, 1.35),
+            spread: 1 + 0.3 * t,
+            fall: RED_CAST.burnGravity * Math.pow(age / 1000, 2)
+        };
+    }
+
+    function fillRedLancePositions(lance, L) {
+        const perpX = -L.dirY;
+        const perpY = L.dirX;
+        for (let i = 0; i < lance.seeds.length; i++) {
+            const s = lance.seeds[i];
+            const along = L.reach * (0.05 + 0.95 * s.u) * s.spd;
+            const side = s.lat * (0.18 + L.width * (0.3 + 0.7 * s.u));
+            lance.positions[i * 3] = L.x + L.dirX * along + perpX * side;
+            lance.positions[i * 3 + 1] = L.y + L.dirY * along + perpY * side;
+            lance.positions[i * 3 + 2] = s.z;
+        }
+    }
+
+    function fillRedFlashPositions(flash, L) {
+        const perpX = -L.dirY;
+        const perpY = L.dirX;
+        for (let i = 0; i < flash.seeds.length; i++) {
+            const s = flash.seeds[i];
+            const along = L.reach * 0.1 * s.spd + L.flashSpread * 0.3 * s.fwd;
+            const side = s.lat * L.flashSpread;
+            flash.positions[i * 3] = L.x + L.dirX * along + perpX * side;
+            flash.positions[i * 3 + 1] = L.y + L.dirY * along + perpY * side;
+            flash.positions[i * 3 + 2] = s.z;
+        }
+    }
+
+    function fillRedConePositions(cone, L) {
+        const perpX = -L.dirY;
+        const perpY = L.dirX;
+        for (let i = 0; i < cone.seeds.length; i++) {
+            const s = cone.seeds[i];
+            const rr = L.spread * s.a * s.rj;
+            const side = Math.cos(s.theta) * rr;
+            // Surface of a cone whose apex sits on the muzzle and opens along the aim:
+            // every point is in front of the hand, the rim stays narrow.
+            cone.positions[i * 3] = L.x + L.dirX * L.coneLength * s.a + perpX * side;
+            cone.positions[i * 3 + 1] = L.y + L.dirY * L.coneLength * s.a + perpY * side;
+            cone.positions[i * 3 + 2] = Math.sin(s.theta) * rr * 0.35 + s.z;
+        }
+    }
+
+    function fillRedBurnPositions(ember, L) {
+        for (let i = 0; i < ember.seeds.length; i++) {
+            const s = ember.seeds[i];
+            const rr = s.r * L.spread;
+            ember.positions[i * 3] = L.x + Math.cos(s.a) * rr;
+            ember.positions[i * 3 + 1] = L.y + Math.sin(s.a) * rr * 0.8 - L.fall * s.g;
+            ember.positions[i * 3 + 2] = s.z;
+        }
+    }
+
+    // Effect meshes (created once; dark unless a cast or burn-out is running).
+    const RED_LANCE_COUNT = 700;
+    const RED_FLASH_COUNT = 520;
+    const RED_CONE_COUNT = 380;
+    const RED_EMBER_COUNT = 260;
+
+    function buildRedFxPoints(count, size, tint) {
+        const pts = createClaspPoints(count, size);
+        for (let i = 0; i < count; i++) {
+            const vary = 0.65 + 0.35 * Math.random();
+            pts.colorArr[i * 3] = tint[0] * vary;
+            pts.colorArr[i * 3 + 1] = tint[1] * vary;
+            pts.colorArr[i * 3 + 2] = tint[2] * vary;
+        }
+        pts.geometry.attributes.color.needsUpdate = true;
+        return pts;
+    }
+    const redLance = buildRedFxPoints(RED_LANCE_COUNT, 0.5, [1.0, 0.12, 0.04]);
+    for (let i = 0; i < RED_LANCE_COUNT; i++) {
+        // 20% of the points bunch at the far end: a hot bolt head leads the shot,
+        // the rest trail behind it as the red wake.
+        const head = i % 5 === 0;
+        const u = head ? 0.93 + Math.random() * 0.07 : Math.random() * 0.92;
+        redLance.seeds.push({
+            u,
+            lat: (Math.random() - 0.5) * 2,
+            spd: 0.75 + Math.random() * 0.5,
+            z: (Math.random() - 0.5) * 1.4
+        });
+        const hot = head ? 1 : u * u;
+        const vary = 0.7 + 0.3 * Math.random();
+        redLance.colorArr[i * 3] = 1.0 * vary;
+        redLance.colorArr[i * 3 + 1] = (0.06 + 0.34 * hot) * vary;
+        redLance.colorArr[i * 3 + 2] = (0.02 + 0.10 * hot) * vary;
+    }
+    redLance.geometry.attributes.color.needsUpdate = true;
+    const redFlash = buildRedFxPoints(RED_FLASH_COUNT, 0.42, [1.0, 0.42, 0.14]);
+    for (let i = 0; i < RED_FLASH_COUNT; i++) {
+        redFlash.seeds.push({
+            lat: (Math.random() - 0.5) * 2,
+            fwd: Math.random(),
+            spd: 0.6 + Math.random() * 0.8,
+            z: (Math.random() - 0.5) * 1.6
+        });
+    }
+    const redCone = buildRedFxPoints(RED_CONE_COUNT, 0.4, [0.85, 0.10, 0.05]);
+    for (let i = 0; i < RED_CONE_COUNT; i++) {
+        redCone.seeds.push({
+            a: Math.pow(Math.random(), 1.6),
+            theta: Math.random() * Math.PI * 2,
+            rj: 0.75 + Math.random() * 0.35,
+            z: (Math.random() - 0.5) * 0.6
+        });
+    }
+    const redEmber = buildRedFxPoints(RED_EMBER_COUNT, 0.46, [1.0, 0.30, 0.08]);
+    for (let i = 0; i < RED_EMBER_COUNT; i++) {
+        // Ash starts at the field rim (radius ~42) and just outside it, so it is visible
+        // falling clear of the red disc instead of being buried inside it.
+        redEmber.seeds.push({
+            a: Math.random() * Math.PI * 2,
+            r: 18 + Math.random() * 30,
+            g: 0.5 + Math.random() * 0.9,
+            z: (Math.random() - 0.5) * 3
+        });
+    }
+
+    function startRedCast(nowMs) {
+        redBurn = null; // a fresh activation supersedes any lingering burn-out
+        const len = Math.hypot(redAnchor.aimX, redAnchor.aimY) || 1;
+        redCast = {
+            startMs: nowMs,
+            x: redAnchor.valid ? redAnchor.x : 0,
+            y: redAnchor.valid ? redAnchor.y : 0,
+            dirX: redAnchor.aimX / len,
+            dirY: redAnchor.aimY / len
+        };
+    }
+
+    function startRedBurn(nowMs) {
+        // The burst anchors where the field actually was, so expiry collapses in place
+        // instead of sliding back to the screen centre.
+        redBurn = {
+            startMs: nowMs,
+            x: redFollow.init ? redFollow.x : (redAnchor.valid ? redAnchor.x : 0),
+            y: redFollow.init ? redFollow.y : (redAnchor.valid ? redAnchor.y : 0)
+        };
+    }
+
+    function updateRedCastFx(nowMs) {
+        let bloom = 0;
+        let field = null;
+        if (redCast) {
+            const L = redCastLayout(nowMs - redCast.startMs, redCast);
+            if (!L.active) {
+                redCast = null;
+            } else {
+                fillRedLancePositions(redLance, L);
+                fillRedFlashPositions(redFlash, L);
+                fillRedConePositions(redCone, L);
+                redLance.material.opacity = 0.95 * L.lance;
+                redFlash.material.opacity = 0.95 * L.flash;
+                redCone.material.opacity = 0.5 * L.cone;
+                redLance.points.visible = L.lance > 0.01;
+                redFlash.points.visible = L.flash > 0.01;
+                redCone.points.visible = L.cone > 0.01;
+                redLance.geometry.attributes.position.needsUpdate = true;
+                redFlash.geometry.attributes.position.needsUpdate = true;
+                redCone.geometry.attributes.position.needsUpdate = true;
+                bloom = RED_CAST.bloomKick * L.flash;
+                field = { joltX: L.dirX * L.jolt, joltY: L.dirY * L.jolt, pop: L.pop };
+            }
+        }
+        if (!redCast) {
+            redLance.points.visible = false;
+            redFlash.points.visible = false;
+            redCone.points.visible = false;
+        }
+        if (redBurn) {
+            const L = redBurnLayout(nowMs - redBurn.startMs, redBurn);
+            if (!L.active) {
+                redBurn = null;
+                redEmber.points.visible = false;
+            } else {
+                fillRedBurnPositions(redEmber, L);
+                redEmber.material.opacity = 0.9 * L.alpha;
+                redEmber.points.visible = true;
+                redEmber.geometry.attributes.position.needsUpdate = true;
+            }
+        } else {
+            redEmber.points.visible = false;
+        }
+        return { bloom, field };
+    }
     // --- Local voice clips ---------------------------------------------------------------
     // All clips live in audio/ and play from plain <audio> elements: zero network requests.
     // Gesture voices fire after a 1 s hold (once per continuous hold); the left-rail Audio
@@ -2475,7 +2728,7 @@
     let cameraStartedAtMs = 0;
     const TRACK_STALL_MS = 20000;
     // Shown in the About panel so a stale cached page is instantly recognisable.
-    const BUILD_TAG = '11-27 · 顶部启动 + 自定义无量空处';
+    const BUILD_TAG = '11-27 · 赫激发射出 + 原地燃尽';
     const buildTagEl = document.getElementById('build-tag');
     if (buildTagEl) buildTagEl.textContent = BUILD_TAG;
 
@@ -3534,6 +3787,13 @@
                         const gap = Math.min(9, Math.max(3, len * 0.9)); // finger length ≈ 7cm
                         redAnchor.x = tip.x + (dx / len) * gap;
                         redAnchor.y = tip.y + (dy / len) * gap;
+                        if (len > 1.5) {
+                            // Aim for 赫's cast = wrist→fingertip. A hand pointed almost
+                            // straight into the camera foreshortens to noise, so keep the
+                            // last stable aim instead of firing sideways.
+                            redAnchor.aimX = dx / len;
+                            redAnchor.aimY = dy / len;
+                        }
                         redAnchor.valid = true;
                     }
                 }
@@ -3922,6 +4182,7 @@
         { gesture: '食指+中指并拢、拇指外张（枪形）', tech: '赫' },
         { foot: '斥力：红球出现时，周围的待机粒子被排开，绕出一圈净空' },
         { foot: '红点悬在手指所指方向外约 5~10cm，跟手移动；两种手势可互换不断档' },
+        { foot: '进入瞬间是「激发」：枪口闪光 + 沿手指方向射出红色枪矛（向前打出去、不炸开），红场回弹后坐；收手原地燃尽、余烬下落' },
         { foot: '任一赫手势保持 1 秒，会随机播放一段赫的语音（每次保持播一次）' },
         { sep: '虚式「茈」 · Imaginary: Purple' },
         { gesture: '点右上「茈」→ 枪形 / 捏合 / 拇指内扣蓄势', tech: '构筑' },
@@ -4435,11 +4696,15 @@
             voidVoicePlayed = false;
         }
         // Red hold timer for the 赫 voice clip (both Red forms share the technique entry).
+        // Entry also fires the cast (a forward shot); release to neutral starts the
+        // burn-out, while switching to another technique just morphs the field away.
         if (currentTech === 'red' && prevTech !== 'red') {
             redEnteredAtMs = lastFrameNowMs || nowMs;
             redVoicePlayed = false;
+            startRedCast(redEnteredAtMs);
         } else if (prevTech === 'red' && currentTech !== 'red') {
             redVoicePlayed = false;
+            if (tech === 'neutral') startRedBurn(lastFrameNowMs || nowMs);
         }
         shakeIntensity = tech !== 'neutral' ? 0.4 : 0;
 
@@ -4721,6 +4986,9 @@
             dustMaterial.opacity = blasting ? 0.9 : (attract ? 0.85 : 0.65);
             dustGeometry.attributes.position.needsUpdate = true;
         }
+        // 赫's two transitions: the cast meshes (muzzle/lance/cone) and the release ash.
+        // Runs even while the big field is dark so the burn-out can finish during neutral.
+        const redFx = updateRedCastFx(nowMs);
         const explosionTimeLeftMs = fieldIdle ? 0 : purpleExplosionUntilMs - nowMs;
         if (explosionTimeLeftMs > 0) {
             const life = explosionTimeLeftMs / TUNING.purpleExplosionDurationMs;
@@ -4763,7 +5031,7 @@
             const effectiveShake = Math.max(shakeIntensity, 0.95 * life);
             renderer.domElement.style.transform = `translate(${(Math.random()-0.5)*effectiveShake*40}px, ${(Math.random()-0.5)*effectiveShake*40}px)`;
         } else {
-            bloomPass.strength = baseBloomStrength;
+            bloomPass.strength = baseBloomStrength + redFx.bloom;
             if (currentTech === 'idlegamble') {
                 bloomPass.strength = 3.0 + Math.sin(idleTime * 2.2) * 1.2;
             } else if (currentTech === 'love') {
@@ -4811,18 +5079,35 @@
             }
             redFollow.t = nowMs;
         } else if (redFollow.init) {
-            const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - redFollow.t) / 1000));
-            const k = 1 - Math.exp(-dtSec / 0.11);
-            redFollow.x -= redFollow.x * k;
-            redFollow.y -= redFollow.y * k;
-            redFollow.t = nowMs;
-            if (Math.hypot(redFollow.x, redFollow.y) < 0.05) {
-                redFollow.x = 0;
-                redFollow.y = 0;
-                redFollow.init = false;
+            // Release burn-out: hold the field where the hand left it so it implodes and
+            // sheds ash in place. Only after that does it drift back to the centre.
+            const burning = !!redBurn && (nowMs - redBurn.startMs) < RED_CAST.burnMs;
+            if (!burning) {
+                const dtSec = Math.min(0.1, Math.max(0.001, (nowMs - redFollow.t) / 1000));
+                const k = 1 - Math.exp(-dtSec / 0.11);
+                redFollow.x -= redFollow.x * k;
+                redFollow.y -= redFollow.y * k;
+                redFollow.t = nowMs;
+                if (Math.hypot(redFollow.x, redFollow.y) < 0.05) {
+                    redFollow.x = 0;
+                    redFollow.y = 0;
+                    redFollow.init = false;
+                }
             }
         }
-        particles.position.set(redFollow.x, redFollow.y, 0);
+        // The activation kick: the whole field snaps up from a compressed scale and
+        // recoils opposite the shot, then settles. Purely a field transform — no
+        // particle rewrites.
+        let fieldX = redFollow.x;
+        let fieldY = redFollow.y;
+        let fieldScale = 1;
+        if (redFx.field && currentTech === 'red') {
+            fieldX += redFx.field.joltX;
+            fieldY += redFx.field.joltY;
+            fieldScale = redFx.field.pop;
+        }
+        particles.position.set(fieldX, fieldY, 0);
+        particles.scale.setScalar(fieldScale);
 
         updatePurpleButton(nowMs);
         composer.render();

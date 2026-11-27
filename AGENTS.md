@@ -10,6 +10,8 @@
   用力前推 / **握拳（2 帧）** / **快速甩出** / 合掌释放（慢移、横挥只跟手；弯着手指的手不算张开）；
   构筑成型再满 2 秒才播苍语音（`audio/blue.mp3`，每次构筑一次；提前释放/取消不播）
 - **術式反転「赫」**（排斥）：食指向上指，或枪形（食指+中指并拢、拇指外张）→ 红色场；
+  **进入瞬间是「激发」**：指尖枪口闪光 + 沿手指方向（手腕→指尖）射出细长红色枪矛 + 前向冲击锥，
+  红场压缩回弹并后坐——向前打出去、不是炸开；**收手是原地「燃尽」**：红场停在原位、余烬下落消散；
   任一赫手势保持 1 秒随机播放一段赫语音（`audio/he-1|2.mp3`，每次保持一次）
 - **領域展開「無量空処」**（领域）：**只用单手**，食指+中指并拢/交叉、拇指**内扣** → 白环 + 蓝色星云场；
   保持手势维持，松手退场（主要靠拇指内扣与赫枪形区分）；比出满 1 秒播单人版语音；
@@ -64,7 +66,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 220 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 231 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -91,8 +93,11 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 - 苍的形态 → `ORB_RINGS`、`fillOrbPositions()`、`animate()` 的 charge 块；持掌时长 → `BLUE_SEQ.holdMs`（2 秒）、
   构筑后语音延迟 → `BLUE_SEQ.voiceDelayMs`（2 秒）；释放分支 → `CHARGE.fistFrames`（握拳）、
   `CHARGE.flingMinSpeed/flingMinDisplacement/flingRunFrames/flingMaxSampleGapMs`（甩出）、`updateBlueCharge` 的 fling 块
-- 赫的手势/锚点 → `gunForm`、`redAnchor`、`redFollow`；语音 → `VOICE_HOLD_MS`、`updateTechniqueVoices`、
+- 赫的手势/锚点 → `gunForm`、`redAnchor`（含 `aimX/aimY` 手腕→指尖方向）、`redFollow`；语音 → `VOICE_HOLD_MS`、`updateTechniqueVoices`、
   `redEnteredAtMs`（`updateState` 写入）、`audio/he-1|2.mp3`
+- 赫的激发/燃尽 → `RED_CAST`、`redCast`、`redBurn`、`redCastLayout`、`redBurnLayout`、`startRedCast`、`startRedBurn`、
+  `updateRedCastFx`、`fillRedLancePositions`、`fillRedFlashPositions`、`fillRedConePositions`、`fillRedBurnPositions`、
+  `redLance/redFlash/redCone/redEmber`（复用 `createClaspPoints`）；演示态 `&end=redcast|redburn&age=<ms>`
 - 音频库/语音 → `AUDIO_TRACKS`、`playAudioClip`、`toggleAudioClip`、`stopAudioClip`、`primeAudio`、
   `updateTechniqueVoices`、`blueCharge.startedMs`（苍语音计时）、`audioPlayCounts`、`buildAudioLibrary`、
   `#rail-panel-main` 的 `#audio-list`/`.audio-row`、`updateAudioRowState`；触发阈值 `VOICE_HOLD_MS`
@@ -138,5 +143,5 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 
 ## 交付习惯
 
-- 改完：重建回归 → 220/220 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 231/231 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

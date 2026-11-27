@@ -30,7 +30,7 @@
 | 无 | `MODE` 固定 `'gojo'`：只保留本作的苍 / 赫 / 無量空処（+ 茈按钮模式与双手契印、flick 尾巴） |
 | `?tech=<id>` | 锁定单技法演出、跳过识别（录制素材用）。可用 id：`neutral void purple red blue flick` |
 | `?logictest=1` | 加载无摄像头回归驱动（仅 `logic-test.html` 有） |
-| `?logictest=1&end=charge\|blue\|red\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|voidlong\|claspblue\|claspred\|claspconverge\|claspvortex\|claspclash\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 长版换环中 / 契印蓝球 / 蓝红对称 / 靠拢 / 星系漩涡 / 碰撞 / 爆发（`&noui=1` 隐藏侧栏） |
+| `?logictest=1&end=charge\|blue\|red\|redcast\|redburn\|purplecharge\|purpleburst\|void\|voidform\|voidring\|voidclear\|voidlong\|claspblue\|claspred\|claspconverge\|claspvortex\|claspclash\|claspburst` | 视觉演示：构筑态 / 释放蓝场 / 赫红场 / 赫激发射出（可加 `&age=<ms>` 冻结相位，默认 170）/ 赫原地燃尽（同 `&age=`，默认 200）/ 茈蓄势 / 茈爆炸 / 無量空処 / 开场成型中 / 换环中 / 黑幕淡出后（只剩环）/ 长版换环中 / 契印蓝球 / 蓝红对称 / 靠拢 / 星系漩涡 / 碰撞 / 爆发（`&noui=1` 隐藏侧栏） |
 
 按键：`D` 调试面板、`H` 指南分区、`V` 语音、`L` 长时间无量空处、`N` 回识别模式（音乐 / 按键表 / 纯净模式 / 技法轮换 / 独立开场页已删）。
 `N` 手动预览不触发冷却；冷却只在真实手势触发的 `commitTransition()` 里起算。
@@ -278,14 +278,37 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 
 外推距离 `min(9, max(3, 指节长*0.9))` 世界单位 ≈ **5~10cm**（即红点悬在指尖外一点）。
 两形态切换或短暂丢手（<350ms）由 `lastRedSeenMs` 桥接，不断档。
+`redAnchor.aimX/aimY` 另存**手腕→指尖**的单位方向（`wrist→tip`，与锚点外推无关），
+作为激发的射出方向；手几乎直指镜头时该向量会缩成噪声（`len<=1.5`），此时保留上一次稳定 aim，
+不朝侧面乱射。
 
 ### 6.2 跟随与渲染
 
 - `redAnchor` → `redFollow`（阻尼 110ms）；每帧 `particles.position.set(redFollow.x, redFollow.y, 0)`，
   整个 20k 主粒子场（`getRed()` 目标形状）平移到手上。
 - 红场展开时 `particles.rotation.z -= 0.1`/帧（持续旋转感）。
-- 退场：无手后 `redFollow` 缓回屏幕中央淡出（`updateState` neutral 目标全零）。
+- 退场：无手后先原地燃尽（§6.3），`redFollow` 再缓回屏幕中央淡出（`updateState` neutral 目标全零）。
 - 苍构筑/释放期间赫分被清零（§3.3），两者不互相打断。
+
+### 6.3 激发（射出）与熄灭（燃尽）· 两段完全不同的动画
+
+问题背景：赫原本进入/退出共用同一个「目标形状 lerp 0.1/帧」，进入像慢慢浮出、退出像慢慢褪色，
+看起来像「激发失败」。现在两条转场拆开，各有一套只依赖 age 的纯函数（回归可直接断言几何）：
+
+- **进入 = 向前射出，不是炸开**（`startRedCast` → `redCastLayout` / `updateRedCastFx`）：
+  - **枪口闪光** `redFlash`（520 点）：指尖锚点上 210ms 的白热小球，bloom 临时 +1.5；
+  - **红色细长枪矛** `redLance`（700 点）：沿 aim 以 `lanceSpeed=170` 世界单位/秒**单向**飞出
+    （420ms 内冲出 42 半径的红场），横向宽度只有 `0.6 + reach*0.05`（远窄于长度），前 20% 点聚成
+    **高亮弹头**（u≥0.93、颜色更热），其余是拖尾；
+  - **前向冲击锥** `redCone`（380 点）：锥尖在枪口、只朝 aim 张开的锥面，远端半宽 4.2 ≪ 长 18，
+    强调方向性；
+  - **场反应**：红场瞬间压到 0.6 倍再弹过 1（阻尼弹簧 `exp(-age/110)*cos(age/90)`），
+    同时沿 aim **反方向**后退 3.4（后坐力，`jolt` 为负）——枪响的后坐，不是径向爆开；
+  - 所有特效严格限制在 aim 前方（锥/矛的最小前向分量 ≥0），没有任何 360° 径向爆发。
+- **退出 = 原地熄灭**（`startRedBurn` → `redBurnLayout`，仅当退出到 neutral）：
+  红场停在原位塌缩，260 颗余烬以 24 单位/s² 下落、620ms 内淡出（`redEmber`）；
+  切到别的技法（茈/领域等）不播燃尽，直接交给新目标形状。
+- 时间常数全在 `RED_CAST`；演示态 `&end=redcast&age=<ms>` / `&end=redburn&age=<ms>` 冻结相位截图。
 
 ## 7. 領域展開「無量空処」 · 虚空
 
@@ -543,8 +566,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `TUNING.purpleExplosionDurationMs` | 紫爆时长 | 1600ms | 茈命中/紫场共用 |
 | `TUNING.postExplosionNeutralMs` | 爆后 neutral 锁 | 400ms | 1600+400=2s |
 | 枪形阈值（赫） | `fingerGap<0.065` `thumbGapRatio>0.75` | `computeFrameScores` 内 | |
-| 無量空処阈值 | `fingerGap<0.075` `thumbGapRatio<0.75` | `computeHandScores` 内 | 与枪形靠拇指内/外张互斥 |
 | 红点外推 | `min(9, max(3, 指节长*0.9))` | | ≈5~10cm |
+| `RED_CAST` | 赫激发/燃尽 | 见 §6.3 | 矛 420ms / 锥 380ms / 闪光 210ms / 场回落 420ms / 矛速 170 / 锥长 18×半宽 4.2 / 枪口 1.6 / 场压 0.6→1 回弹 / 后坐 3.4 / bloom +1.5 / 燃尽 620ms / 余烬重力 24 |
+| `RED_LANCE_COUNT` / `RED_FLASH_COUNT` / `RED_CONE_COUNT` / `RED_EMBER_COUNT` | 赫特效粒子数 | 700 / 520 / 380 / 260 | 各自独立 Points，平时隐藏 |
 | 斥力泡半径 | `30 ± 2.5` | dust 块内 | |
 | 尘埃轨道半径 | `orbitR 9~17` × shrink 0.75~1 | 种子生成处 | |
 | 尘埃阻尼 | `tau 0.18~0.48s` | 种子生成处 | |
@@ -573,8 +597,8 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   剩下的近似是「其他成对手型恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/tipGapMax/middleGapMin`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **220 项断言**
-  （含苍/赫/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **231 项断言**
+  （含苍/赫/赫激发与燃尽/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
   释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
 ## 14. 关键函数索引（`index.html`）
@@ -593,6 +617,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `commitTransition` | 切换时起算 2s 冷却 |
 | `updateState` | 技法 → 顶部状态名/配色/bloom/目标状态；neutral 700ms 后触发 fieldIdle |
 | `updateBlueSequences` / `armBlueCharge` / `releaseBlueCharge` | 苍：持掌 2s → 构筑 → 释放 |
+| `startRedCast` / `redCastLayout` / `updateRedCastFx` | 赫激发：沿手腕→指尖方向射出细长枪矛 + 枪口闪光 + 前向冲击锥 + 场回弹/后坐（纯布局函数，回归断言） |
+| `startRedBurn` / `redBurnLayout` | 赫原地燃尽：余烬下落淡出（只在中性退出时播） |
+| `fillRedLancePositions` / `fillRedFlashPositions` / `fillRedConePositions` / `fillRedBurnPositions` | 四组特效 Points 的每帧填充 |
 | `maybeTriggerVoidCinematic` / `startVoidCinematic` / `updateVoidCinematic` / `finishVoidCinematic` | 無量空処开场动画（正常 3s 触发；长版 1s 展开领域并起长语音，8s 等待后启动画面） |
 | `setVoidLongMode` | 「长时间无量空处」开关（L 键/侧栏），切换 `VOID_CINEMA_LONG` 时间轴 |
 | `buildAudioLibrary` / `toggleAudioClip` / `stopAudioClip` / `updateAudioRowState` | 左侧栏音频库：9 条本地语音的按钮、高亮与停止 |

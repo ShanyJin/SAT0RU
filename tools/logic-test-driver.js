@@ -146,6 +146,32 @@
         };
 
         let t = 1000;
+        // Visual-check hook: the module scope is closed, so expose the 赫 cast/burn state
+        // for screenshot tooling (test artifact only, never the app).
+        window.__redFxState = () => ({
+            cast: !!redCast,
+            castAge: redCast ? performance.now() - redCast.startMs : null,
+            castStart: redCast ? redCast.startMs : null,
+            burn: !!redBurn,
+            burnAge: redBurn ? performance.now() - redBurn.startMs : null,
+            now: performance.now(),
+            tech: currentTech,
+            neutralSettledAtMs,
+            materialOpacity: particleMaterial.opacity,
+            visible: {
+                lance: redLance.points.visible,
+                flash: redFlash.points.visible,
+                cone: redCone.points.visible,
+                ember: redEmber.points.visible
+            },
+            field: {
+                x: particles.position.x,
+                y: particles.position.y,
+                scale: particles.scale.x,
+                visible: particles.visible,
+                rotZ: particles.rotation.z
+            }
+        });
         // Visual-check hook: the module scope is closed, so expose the 茈 state for
         // screenshot tooling to assert where the ball is and whether it is visible.
         window.__chargeState = () => {
@@ -292,6 +318,12 @@
             claspSuppressUntilMs = 0;
             claspSawRealPose = false;
             claspRealPoseFrames = 0;
+            redCast = null;
+            redBurn = null;
+            redLance.points.visible = false;
+            redFlash.points.visible = false;
+            redCone.points.visible = false;
+            redEmber.points.visible = false;
             voidLongMode = false;
             voidCinematic = null;
             voidHoldAwarded = false;
@@ -327,7 +359,78 @@
 
             // --- 赫 form 2: gun (index+middle together, thumb flared) ---
             step(gun1(0.5), 25); mark('red gun form shows', 'red');
+            // 赫 activation is a shot, not a fade-in: entering arms a forward cast aimed
+            // along the raised finger, and the pure layout must read as a narrow lance.
+            markState('red cast starts with the field', 'cast',
+                (typeof redCast !== 'undefined' && redCast) ? 'cast' : 'none');
+            markState('red cast aims along the raised finger', 'up', (() => {
+                if (typeof redCast === 'undefined' || !redCast) return 'none';
+                const straight = Math.abs(redCast.dirX) < 0.2 && redCast.dirY > 0.9;
+                return straight ? 'up' : `(${redCast.dirX.toFixed(2)},${redCast.dirY.toFixed(2)})`;
+            })());
+            markState('red cast starts as a muzzle flash', 'yes', (() => {
+                if (typeof redCastLayout !== 'function') return 'missing';
+                const L = redCastLayout(0);
+                return (L.active && L.flash > 0.99 && L.reach < 1) ? 'yes' : 'no';
+            })());
+            markState('red cast travels forward with age', 'further', (() => {
+                if (typeof redCastLayout !== 'function') return 'missing';
+                const a = redCastLayout(200);
+                const b = redCastLayout(400);
+                return (a.active && b.active && a.reach > 8 && b.reach > a.reach + 8) ? 'further' : 'stuck';
+            })());
+            markState('red cast stays narrow (not an explosion)', 'narrow', (() => {
+                if (typeof redCastLayout !== 'function') return 'missing';
+                const L = redCastLayout(300);
+                return (L.spread < L.reach * 0.25 && L.back < L.reach * 0.1) ? 'narrow' : 'radial';
+            })());
+            markState('red cast ends after the shot', 'over', (() => {
+                if (typeof redCastLayout !== 'function') return 'missing';
+                return redCastLayout(RED_CAST.lanceMs + 1).active ? 'active' : 'over';
+            })());
+            markState('red field snaps up and recoils', 'snap', (() => {
+                if (typeof redCastLayout !== 'function') return 'missing';
+                const a = redCastLayout(0);
+                const b = redCastLayout(120);
+                const d = redCastLayout(200);
+                const c = redCastLayout(RED_CAST.fadeMs);
+                return (a.pop < 0.9 && b.jolt < -1 && d.pop > 1.01
+                    && Math.abs(c.jolt) < 0.05 && c.pop > 0.98) ? 'snap' : 'flat';
+            })());
+            markState('red lance geometry moves forward only', 'forward', (() => {
+                if (typeof redCastLayout !== 'function' || typeof fillRedLancePositions !== 'function'
+                    || typeof redLance === 'undefined') return 'missing';
+                const L = redCastLayout(300, { x: 0, y: 0, dirX: 0, dirY: 1 });
+                fillRedLancePositions(redLance, L);
+                let minF = Infinity;
+                let maxF = -Infinity;
+                let maxSide = 0;
+                for (let i = 0; i < redLance.seeds.length; i++) {
+                    const px = redLance.positions[i * 3];
+                    const py = redLance.positions[i * 3 + 1]; // aim is +y, origin 0
+                    minF = Math.min(minF, py);
+                    maxF = Math.max(maxF, py);
+                    maxSide = Math.max(maxSide, Math.abs(px));
+                }
+                const ok = minF > -0.5 && maxF > L.reach * 0.8 && maxSide < L.reach * 0.2;
+                return ok ? 'forward'
+                    : `min=${minF.toFixed(1)} max=${maxF.toFixed(1)} side=${maxSide.toFixed(1)}`;
+            })());
             step([], 24); mark('red gun releases on drop', 'neutral');
+            // Release is its own animation: the field stops where it was and sheds falling
+            // ash. No forward motion, so expiry can never read as a failed activation.
+            markState('red release starts a burn-out', 'burn',
+                (typeof redBurn !== 'undefined' && redBurn) ? 'burn' : 'none');
+            markState('red burn-out falls instead of shooting', 'ash', (() => {
+                if (typeof redBurnLayout !== 'function') return 'missing';
+                const a = redBurnLayout(0);
+                const b = redBurnLayout(300);
+                return (a.active && a.alpha > 0.99 && b.fall > 1 && b.alpha < 0.7) ? 'ash' : 'shot';
+            })());
+            markState('red burn-out ends', 'over', (() => {
+                if (typeof redBurnLayout !== 'function') return 'missing';
+                return redBurnLayout(RED_CAST.burnMs + 1).active ? 'active' : 'over';
+            })());
             step([], 210); // drain the cooldown
 
             // --- 赫 form 1: index finger pointing up ---
@@ -1186,15 +1289,16 @@
 
             step([], 10); mark('end', null);
 
-            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|purplecharge|purpleburst|void|voidform|voidring
+            // Optional visual demos for screenshots: ?logictest=1&end=charge|blue|red|redcast|redburn|purplecharge|purpleburst|void|voidform|voidring
             const endMode = new URLSearchParams(location.search).get('end');
+            const isRedFxDemo = endMode === 'redcast' || endMode === 'redburn';
             const isPurpleDemo = endMode === 'purplecharge' || endMode === 'purpleburst';
             const isClaspDemo = endMode === 'claspblue' || endMode === 'claspred'
                 || endMode === 'claspconverge' || endMode === 'claspvortex'
                 || endMode === 'claspclash' || endMode === 'claspburst';
             const isVoidCinemaDemo = endMode === 'voidform' || endMode === 'voidring' || endMode === 'voidclear' || endMode === 'voidlong';
             const isEggDemo = endMode === 'voidegg';
-            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isEggDemo) {
+            if (endMode === 'charge' || endMode === 'blue' || endMode === 'red' || isRedFxDemo || endMode === 'void' || isPurpleDemo || isClaspDemo || isVoidCinemaDemo || isEggDemo) {
                 step([], 200);
                 resetRealClockFx();
                 // Screenshot helper for the test artifact only (never the app): hide the rails.
@@ -1292,6 +1396,64 @@
                     // ambient dust gets pushed into a ring around it (repulsion demo).
                     step(gun1(0.5), 30);
                     document.title = 'RED DEMO';
+                } else if (endMode === 'redcast') {
+                    // Freeze the activation at `age` ms (default 170: flash + lance + cone
+                    // mid-flight). The phase is re-pinned right before every animate() frame,
+                    // so a screenshot lands on the same moment even at 1-3 fps software WebGL.
+                    const castAge = Math.max(0, Math.min(RED_CAST.lanceMs - 1,
+                        Number(new URLSearchParams(location.search).get('age')) || 170));
+                    step(gun1(0.5), 30);
+                    // The 20k field normally eases 0.1/frame toward its target; a headless
+                    // capture may only get one frame, so snap it to the red target now.
+                    for (let i = 0; i < COUNT * 3; i++) {
+                        particles.geometry.attributes.position.array[i] = targetPositions[i];
+                        particles.geometry.attributes.color.array[i] = targetColors[i];
+                    }
+                    for (let i = 0; i < COUNT; i++) {
+                        particles.geometry.attributes.size.array[i] = targetSizes[i];
+                    }
+                    particles.geometry.attributes.position.needsUpdate = true;
+                    particles.geometry.attributes.color.needsUpdate = true;
+                    particles.geometry.attributes.size.needsUpdate = true;
+                    const rafCast = window.requestAnimationFrame.bind(window);
+                    window.requestAnimationFrame = (cb) => rafCast((ts) => {
+                        // Re-arm if a stray frame let the cast expire: the demo must always
+                        // render the requested phase, not an empty field.
+                        if (!redCast) startRedCast(performance.now() - castAge);
+                        else redCast.startMs = performance.now() - castAge;
+                        cb(ts);
+                    });
+                    document.title = 'RED CAST DEMO';
+                } else if (endMode === 'redburn') {
+                    // Freeze the release burn-out at `age` ms (default 200): the field stays
+                    // where the hand was while ash falls. Kept in Red on purpose so the field
+                    // itself does not finish its neutral fade before the screenshot lands.
+                    const burnAge = Math.max(0, Math.min(RED_CAST.burnMs - 1,
+                        Number(new URLSearchParams(location.search).get('age')) || 200));
+                    step(gun1(0.5), 30);
+                    // Snap the field to its red target (see the cast demo) so one forced
+                    // frame is enough to show it behind the falling ash.
+                    for (let i = 0; i < COUNT * 3; i++) {
+                        particles.geometry.attributes.position.array[i] = targetPositions[i];
+                        particles.geometry.attributes.color.array[i] = targetColors[i];
+                    }
+                    for (let i = 0; i < COUNT; i++) {
+                        particles.geometry.attributes.size.array[i] = targetSizes[i];
+                    }
+                    particles.geometry.attributes.position.needsUpdate = true;
+                    particles.geometry.attributes.color.needsUpdate = true;
+                    particles.geometry.attributes.size.needsUpdate = true;
+                    // The synthetic-clock entry cast would otherwise sit frozen at age 0
+                    // (its startMs is far in the future in real time); show the release only.
+                    redCast = null;
+                    startRedBurn(performance.now() - burnAge);
+                    const rafBurn = window.requestAnimationFrame.bind(window);
+                    window.requestAnimationFrame = (cb) => rafBurn((ts) => {
+                        if (!redBurn) startRedBurn(performance.now() - burnAge);
+                        else redBurn.startMs = performance.now() - burnAge;
+                        cb(ts);
+                    });
+                    document.title = 'RED BURN DEMO';
                 } else if (isPurpleDemo) {
                     // 茈 mode: gun pose arms the violet ball. Visual timers use performance.now()
                     // because the synthetic test clock and the animate loop's clock differ.
