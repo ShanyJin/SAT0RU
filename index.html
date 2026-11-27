@@ -537,54 +537,54 @@
         <div class="intro-dialog">
             <div class="intro-head">
                 <div class="intro-brand"><span data-i18n="welcome.brand">五条悟术式模拟</span> <span data-i18n="welcome.brandSub">启动说明</span></div>
-                <div class="intro-lang" id="intro-lang" role="group" aria-label="语言 / Language">
+                <div class="intro-lang" id="intro-lang" role="group" aria-label="语言 / Language" data-i18n-attr="aria-label:lang.group">
                     <button class="intro-lang-btn active" type="button" data-lang="zh" aria-pressed="true">中文</button>
                     <button class="intro-lang-btn" type="button" data-lang="en" aria-pressed="false">English</button>
                 </div>
                 <div class="intro-step" id="intro-step">01 / 05</div>
             </div>
             <div class="intro-body" id="intro-body">
-                <div class="intro-tabs" id="intro-tabs" role="tablist" aria-label="术式教程" hidden>
-                    <button class="intro-tab" type="button" role="tab" data-intro-tech="blue" aria-selected="false">蒼 · 引力</button>
-                    <button class="intro-tab" type="button" role="tab" data-intro-tech="red" aria-selected="false">赫 · 斥力</button>
-                    <button class="intro-tab" type="button" role="tab" data-intro-tech="purple" aria-selected="false">茈 · 投射</button>
-                    <button class="intro-tab" type="button" role="tab" data-intro-tech="void" aria-selected="false">無量空処 · 领域</button>
+                <div class="intro-tabs" id="intro-tabs" role="tablist" aria-label="术式教程" data-i18n-attr="aria-label:intro.tabsAria" hidden>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="blue" aria-selected="false" data-i18n="intro.tab.blue">蒼 · 引力</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="red" aria-selected="false" data-i18n="intro.tab.red">赫 · 斥力</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="purple" aria-selected="false" data-i18n="intro.tab.purple">茈 · 投射</button>
+                    <button class="intro-tab" type="button" role="tab" data-intro-tech="void" aria-selected="false" data-i18n="intro.tab.void">無量空処 · 领域</button>
                 </div>
 
                 <section class="intro-page" data-intro-page="welcome">
                     <h2 class="intro-title" id="intro-welcome-title" data-i18n="welcome.title">欢迎来到 五条悟术式模拟</h2>
                     <p class="intro-sub" data-i18n="welcome.tagline">咒术回战手势触发模拟</p>
-                    <div class="intro-play-tip"><strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。</div>
+                    <div class="intro-play-tip" data-i18n-html="welcome.playTip"><strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。</div>
                     <div class="intro-grid">
                         <div class="intro-facts">
-                            <div class="intro-fact"><span class="intro-fact-k">原作作者</span><span class="intro-fact-v">芥见下下 / Gege Akutami</span></div>
-                            <div class="intro-fact"><span class="intro-fact-k">原版项目</span><span class="intro-fact-v"><a href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></span></div>
-                            <div class="intro-fact"><span class="intro-fact-k">改版作者</span><span class="intro-fact-v">闪耀金金 / ShanyJin</span></div>
-                            <div class="intro-fact"><span class="intro-fact-k">个人网站</span><span class="intro-fact-v"><a href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></span></div>
+                            <div class="intro-fact"><span class="intro-fact-k" data-i18n="fact.author">原作作者</span><span class="intro-fact-v">芥见下下 / Gege Akutami</span></div>
+                            <div class="intro-fact"><span class="intro-fact-k" data-i18n="fact.project">原版项目</span><span class="intro-fact-v"><a href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></span></div>
+                            <div class="intro-fact"><span class="intro-fact-k" data-i18n="fact.fork">改版作者</span><span class="intro-fact-v">闪耀金金 / ShanyJin</span></div>
+                            <div class="intro-fact"><span class="intro-fact-k" data-i18n="fact.site">个人网站</span><span class="intro-fact-v"><a href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></span></div>
                         </div>
-                        <div class="intro-notice">
+                        <div class="intro-notice" data-i18n-html="welcome.notice">
                             <p><strong>本项目不会上传任何内容。</strong>手部识别使用本地 <strong>MediaPipe Hands</strong>，粒子使用 three.js，全部推理都在浏览器内完成，不保存任何画面或识别数据。</p>
                             <p>默认不调用摄像头，点顶部栏<strong>「启动」</strong>才请求权限；关闭「自定义无量空处」时不会发起任何外部请求。</p>
                         </div>
                     </div>
-                    <div class="intro-asset-note">感谢《咒术回战》作者芥见下下；所有用到的素材均来源于网络，仅作个人非商业展示，如有侵权请邮件联系 shanyaojinjin@gmail.com。</div>
+                    <div class="intro-asset-note" data-i18n="welcome.asset">感谢《咒术回战》作者芥见下下；所有用到的素材均来源于网络，仅作个人非商业展示，如有侵权请邮件联系 shanyaojinjin@gmail.com。</div>
                 </section>
 
                 <section class="intro-page" data-intro-page="blue" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img src="/assets/tutorial/blue.jpg" alt="術式順転「蒼」手势示范">
-                            <figcaption>術式順転「蒼」 · 引力 / Lapse: Blue</figcaption>
+                            <img src="/assets/tutorial/blue.jpg" alt="術式順転「蒼」手势示范" data-i18n-attr="alt:tut.blue.alt">
+                            <figcaption data-i18n="tut.blue.caption">術式順転「蒼」 · 引力 / Lapse: Blue</figcaption>
                         </figure>
                         <div>
                             <h2 class="intro-title intro-tech-title">術式順転「蒼」</h2>
-                            <div class="intro-tech-en">Lapse: Blue · 引力</div>
+                            <div class="intro-tech-en" data-i18n="tut.blue.en">Lapse: Blue · 引力</div>
                             <div class="intro-steps">
-                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong>四指完全伸直的张开手掌，掌心正对镜头。手指弯着、只伸一两根都不算。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>构筑：</strong>保持手势 2 秒，蓝色粒子球在掌心成形；成型后再满 2 秒播放苍的语音。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>释放：</strong>用力前推、握拳、快速甩出，或把手移出画面，粒子会在屏幕中央炸开。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text" data-i18n-html="tut.blue.step1"><strong>结印：</strong>四指完全伸直的张开手掌，掌心正对镜头。手指弯着、只伸一两根都不算。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text" data-i18n-html="tut.blue.step2"><strong>构筑：</strong>保持手势 2 秒，蓝色粒子球在掌心成形；成型后再满 2 秒播放苍的语音。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text" data-i18n-html="tut.blue.step3"><strong>释放：</strong>用力前推、握拳、快速甩出，或把手移出画面，粒子会在屏幕中央炸开。</span></div>
                             </div>
-                            <div class="intro-tip">小提示：尽量单手使用，另一只手留空；弯着手指的手不会被当成张开手掌。</div>
+                            <div class="intro-tip" data-i18n-html="tut.blue.tip">小提示：尽量单手使用，另一只手留空；弯着手指的手不会被当成张开手掌。</div>
                         </div>
                     </div>
                 </section>
@@ -592,18 +592,18 @@
                 <section class="intro-page" data-intro-page="red" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img src="/assets/tutorial/red.jpg" alt="術式反転「赫」手势示范">
-                            <figcaption>術式反転「赫」 · 斥力 / Reversal: Red</figcaption>
+                            <img src="/assets/tutorial/red.jpg" alt="術式反転「赫」手势示范" data-i18n-attr="alt:tut.red.alt">
+                            <figcaption data-i18n="tut.red.caption">術式反転「赫」 · 斥力 / Reversal: Red</figcaption>
                         </figure>
                         <div>
                             <h2 class="intro-title intro-tech-title">術式反転「赫」</h2>
-                            <div class="intro-tech-en">Reversal: Red · 斥力</div>
+                            <div class="intro-tech-en" data-i18n="tut.red.en">Reversal: Red · 斥力</div>
                             <div class="intro-steps">
-                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong>食指向上指、其余三指收拢；或食指+中指并拢、拇指外张的枪形。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>展开：</strong>红色斥力球悬在指尖前方，跟手移动；两种手势可以互换而不断档。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>语音：</strong>任一赫手势保持 1 秒，随机播放一段赫的语音（每次保持一次）。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text" data-i18n-html="tut.red.step1"><strong>结印：</strong>食指向上指、其余三指收拢；或食指+中指并拢、拇指外张的枪形。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text" data-i18n-html="tut.red.step2"><strong>展开：</strong>红色斥力球悬在指尖前方，跟手移动；两种手势可以互换而不断档。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text" data-i18n-html="tut.red.step3"><strong>语音：</strong>任一赫手势保持 1 秒，随机播放一段赫的语音（每次保持一次）。</span></div>
                             </div>
-                            <div class="intro-tip">和无量空处的区别：赫的拇指是<strong>外张</strong>的；拇指内扣则是领域展开。</div>
+                            <div class="intro-tip" data-i18n-html="tut.red.tip">和无量空处的区别：赫的拇指是<strong>外张</strong>的；拇指内扣则是领域展开。</div>
                         </div>
                     </div>
                 </section>
@@ -611,19 +611,19 @@
                 <section class="intro-page" data-intro-page="purple" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img src="/assets/tutorial/purple.jpg" alt="虚式「茈」手势示范">
-                            <figcaption>虚式「茈」 · 投射 / Imaginary: Purple</figcaption>
+                            <img src="/assets/tutorial/purple.jpg" alt="虚式「茈」手势示范" data-i18n-attr="alt:tut.purple.alt">
+                            <figcaption data-i18n="tut.purple.caption">虚式「茈」 · 投射 / Imaginary: Purple</figcaption>
                         </figure>
                         <div>
                             <h2 class="intro-title intro-tech-title">虚式「茈」</h2>
-                            <div class="intro-tech-en">Imaginary: Purple · 投射</div>
+                            <div class="intro-tech-en" data-i18n="tut.purple.en">Imaginary: Purple · 投射</div>
                             <div class="intro-steps">
-                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>开启：</strong>点右上角「茈」进入枪指模式；此时苍和赫暂停，双手契印仍可直接发动。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>蓄势：</strong>枪形、捏合，或拇指内扣，掌心会聚起一颗紫色小球。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>发射：</strong>前推，或拇指内扣后快速向外弹开；小球射向屏幕正中心爆开，松手取消蓄势。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>双手契印：</strong>双手交叉扣住，<strong>一只手食指朝上</strong>，另一只手扣在它的手掌上，拇指内扣、双腕贴近，会自动播放约 23 秒的双球长动画，不需要按钮。無量空処只用单手，两者不会互相误开。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text" data-i18n-html="tut.purple.step1"><strong>开启：</strong>点右上角「茈」进入枪指模式；此时苍和赫暂停，双手契印仍可直接发动。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text" data-i18n-html="tut.purple.step2"><strong>蓄势：</strong>枪形、捏合，或拇指内扣，掌心会聚起一颗紫色小球。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text" data-i18n-html="tut.purple.step3"><strong>发射：</strong>前推，或拇指内扣后快速向外弹开；小球射向屏幕正中心爆开，松手取消蓄势。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text" data-i18n-html="tut.purple.step4"><strong>双手契印：</strong>双手交叉扣住，<strong>一只手食指朝上</strong>，另一只手扣在它的手掌上，拇指内扣、双腕贴近，会自动播放约 23 秒的双球长动画，不需要按钮。無量空処只用单手，两者不会互相误开。</span></div>
                             </div>
-                            <div class="intro-tip">释放后有 2 秒冷却；发射瞬间会播放茈的短语音。</div>
+                            <div class="intro-tip" data-i18n-html="tut.purple.tip">释放后有 2 秒冷却；发射瞬间会播放茈的短语音。</div>
                         </div>
                     </div>
                 </section>
@@ -631,40 +631,40 @@
                 <section class="intro-page" data-intro-page="void" hidden>
                     <div class="intro-tutorial">
                         <figure class="intro-figure">
-                            <img src="/assets/tutorial/void.jpg" alt="領域展開「無量空処」手势示范">
-                            <figcaption>領域展開「無量空処」 · Domain Expansion</figcaption>
+                            <img src="/assets/tutorial/void.jpg" alt="領域展開「無量空処」手势示范" data-i18n-attr="alt:tut.void.alt">
+                            <figcaption data-i18n="tut.void.caption">領域展開「無量空処」 · Domain Expansion</figcaption>
                         </figure>
                         <div>
                             <h2 class="intro-title intro-tech-title">領域展開「無量空処」</h2>
-                            <div class="intro-tech-en">Domain Expansion · 领域</div>
+                            <div class="intro-tech-en" data-i18n="tut.void.en">Domain Expansion · 领域</div>
                             <div class="intro-steps">
-                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text"><strong>结印：</strong><strong>单手</strong>食指+中指并拢或交叉，拇指内扣（不要外张）。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text"><strong>展开：</strong>白环与蓝色星云场出现；保持手势维持领域，松手退场。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>语音与动画：</strong>保持 1 秒播放单人版语音；保持 3 秒自动进入开场动画。</span></div>
-                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>长版：</strong>左侧栏打开「长时间无量空处」后，保持 1 秒即展开并播放 31 秒长语音，原地再保持 8 秒才进入超长动画。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">01</span><span class="intro-step-text" data-i18n-html="tut.void.step1"><strong>结印：</strong><strong>单手</strong>食指+中指并拢或交叉，拇指内扣（不要外张）。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">02</span><span class="intro-step-text" data-i18n-html="tut.void.step2"><strong>展开：</strong>白环与蓝色星云场出现；保持手势维持领域，松手退场。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text" data-i18n-html="tut.void.step3"><strong>语音与动画：</strong>保持 1 秒播放单人版语音；保持 3 秒自动进入开场动画。</span></div>
+                                <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text" data-i18n-html="tut.void.step4"><strong>长版：</strong>左侧栏打开「长时间无量空处」后，保持 1 秒即展开并播放 31 秒长语音，原地再保持 8 秒才进入超长动画。</span></div>
                             </div>
-                            <div class="intro-tip">教程结束后，请在顶部栏点<strong>「启动」</strong>；只有开启按钮，摄像头才会启动。</div>
+                            <div class="intro-tip" data-i18n-html="tut.void.tip">教程结束后，请在顶部栏点<strong>「启动」</strong>；只有开启按钮，摄像头才会启动。</div>
                         </div>
                     </div>
                 </section>
             </div>
             <div class="intro-foot">
-                <div class="intro-foot-note" id="intro-foot-note">先看清说明，再开始</div>
+                <div class="intro-foot-note" id="intro-foot-note" data-i18n="intro.foot.first">先看清说明，再开始</div>
                 <div class="intro-actions">
-                    <button class="intro-btn" type="button" id="intro-back" data-intro-action="back" hidden>上一步</button>
-                    <button class="intro-btn primary" type="button" id="intro-ack" data-intro-action="ack">我已知晓</button>
+                    <button class="intro-btn" type="button" id="intro-back" data-intro-action="back" data-i18n="intro.back" hidden>上一步</button>
+                    <button class="intro-btn primary" type="button" id="intro-ack" data-intro-action="ack" data-i18n="intro.ack">我已知晓</button>
                     <button class="intro-btn primary" type="button" id="intro-next" data-intro-action="next" hidden>明白了，下一个</button>
                 </div>
             </div>
         </div>
     </div>
 
-    <div id="void-egg" hidden role="dialog" aria-modal="true" aria-label="自定义无量空处">
+    <div id="void-egg" hidden role="dialog" aria-modal="true" aria-label="自定义无量空处" data-i18n-attr="aria-label:egg.title">
         <div class="void-egg-bar">
-            <div><strong>自定义无量空处</strong><span class="void-egg-hint">若未自动播放，请点一下播放器 ▶</span></div>
-            <button class="void-egg-close" type="button" id="void-egg-close">关闭 · Esc</button>
+            <div><strong data-i18n="egg.title">自定义无量空处</strong><span class="void-egg-hint" data-i18n="egg.hint">若未自动播放，请点一下播放器 ▶</span></div>
+            <button class="void-egg-close" type="button" id="void-egg-close" data-i18n="egg.close">关闭 · Esc</button>
         </div>
-        <iframe id="void-egg-frame" class="void-egg-frame" src="about:blank" title="哔哩哔哩自定义视频" scrolling="no" frameborder="no" allow="autoplay; fullscreen; encrypted-media" allowfullscreen="true" referrerpolicy="no-referrer"></iframe>
+        <iframe id="void-egg-frame" class="void-egg-frame" src="about:blank" title="哔哩哔哩自定义视频" data-i18n-attr="title:egg.frameTitle" scrolling="no" frameborder="no" allow="autoplay; fullscreen; encrypted-media" allowfullscreen="true" referrerpolicy="no-referrer"></iframe>
     </div>
 
     <header id="ui">
@@ -685,112 +685,112 @@
         </div>
         <div id="technique-name" class="empty" aria-live="polite"></div>
         <div class="ui-group ui-right">
-            <span id="purple-hint">点击开启虚式「茈」枪指模式</span>
+            <span id="purple-hint" data-i18n="purple.hintOff">点击开启虚式「茈」枪指模式</span>
             <button id="purple-mode-btn" type="button" aria-pressed="false" title="虚式「茈」">茈</button>
         </div>
     </header>
 
-    <aside id="left-rail" aria-label="控制栏">
+    <aside id="left-rail" aria-label="控制栏" data-i18n-attr="aria-label:rail.aria">
         <div class="rail-head">
             <div>
-                <div class="rail-title">控制台</div>
+                <div class="rail-title" data-i18n="rail.head">控制台</div>
                 <div class="rail-sub" id="rail-mode" data-i18n="rail.sub">五条悟术式模拟 · GOJO MODE</div>
             </div>
         </div>
-        <div class="rail-tabs" role="tablist" aria-label="控制栏菜单">
+        <div class="rail-tabs" role="tablist" aria-label="控制栏菜单" data-i18n-attr="aria-label:rail.tabsAria">
             <button class="rail-tab active" type="button" role="tab" data-tab="main" aria-selected="true" data-i18n="rail.tab.main">模式与音频</button>
             <button class="rail-tab" type="button" role="tab" data-tab="guide" aria-selected="false" data-i18n="rail.tab.guide">指南</button>
             <button class="rail-tab" type="button" role="tab" data-tab="about" aria-selected="false" data-i18n="rail.tab.about">关于</button>
         </div>
         <section class="rail-panel" id="rail-panel-main" data-panel="main" role="tabpanel">
-            <div class="panel-title">设置 · Settings</div>
+            <div class="panel-title" data-i18n="panel.settings">设置 · Settings</div>
             <div id="settings-list"></div>
             <div class="set-row lang-row" id="lang-row">
                 <span class="kb-key" aria-hidden="true">文</span>
                 <span class="set-label" data-i18n="lang.row">语言 · Language</span>
-                <span class="lang-picks" role="group" aria-label="语言 / Language">
+                <span class="lang-picks" role="group" aria-label="语言 / Language" data-i18n-attr="aria-label:lang.group">
                     <button class="lang-pick active" type="button" data-lang="zh" aria-pressed="true">中</button>
                     <button class="lang-pick" type="button" data-lang="en" aria-pressed="false">EN</button>
                 </span>
             </div>
             <div id="egg-panel" class="egg-panel" hidden>
-                <div class="egg-versions" role="group" aria-label="自定义无量空处视频版本">
-                    <span class="egg-versions-label">视频版本</span>
+                <div class="egg-versions" role="group" aria-label="自定义无量空处视频版本" data-i18n-attr="aria-label:egg.title">
+                    <span class="egg-versions-label" data-i18n="egg.versionsLabel">视频版本</span>
                     <button class="egg-version-btn" type="button" data-egg-version="1" aria-pressed="true">1</button>
                     <button class="egg-version-btn" type="button" data-egg-version="2" aria-pressed="false">2</button>
-                    <button class="egg-version-btn" type="button" data-egg-version="3" aria-pressed="false" title="使用你粘贴的链接">3</button>
-                    <button class="egg-info-toggle" type="button" id="egg-info-toggle" aria-expanded="false" aria-controls="egg-info">说明</button>
+                    <button class="egg-version-btn" type="button" data-egg-version="3" aria-pressed="false" title="使用你粘贴的链接" data-i18n-attr="title:egg.versionTitle">3</button>
+                    <button class="egg-info-toggle" type="button" id="egg-info-toggle" aria-expanded="false" aria-controls="egg-info" data-i18n="egg.infoToggle">说明</button>
                 </div>
-                <div class="egg-info" id="egg-info" hidden>
+                <div class="egg-info" id="egg-info" data-i18n-html="egg.info" hidden>
                     <b>是什么：</b>短版無量空処动画播到「穿梭」、白环出现前切断，全屏播放 B 站视频；Esc 或「关闭」退出。长版动画不触发。<br>
                     <b>版本 3：</b>在下面粘贴 B 站视频完整链接（含 BV 号，可带 <code>?p=</code> 集数）后保存，仍然由 B 站官方播放器播放。<b>b23.tv 短链</b>请先在浏览器打开，再复制地址栏里 <code>bilibili.com/video/BV...</code> 的完整链接。
                 </div>
                 <div class="egg-custom" id="egg-custom" hidden>
                     <input class="egg-custom-input" id="egg-custom-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://www.bilibili.com/video/BV...">
-                    <button class="egg-custom-save" id="egg-custom-save" type="button">保存链接</button>
+                    <button class="egg-custom-save" id="egg-custom-save" type="button" data-i18n="egg.save">保存链接</button>
                     <div class="egg-custom-note" id="egg-custom-note"></div>
                 </div>
             </div>
-            <div class="panel-title panel-title-gap">音频 · Audio</div>
+            <div class="panel-title panel-title-gap" data-i18n="panel.audio">音频 · Audio</div>
             <div id="audio-list"></div>
         </section>
         <section class="rail-panel" id="rail-panel-guide" data-panel="guide" role="tabpanel" hidden>
-            <div class="panel-title">手势指南 · Gesture Guide</div>
+            <div class="panel-title" data-i18n="panel.guide">手势指南 · Gesture Guide</div>
             <div id="gesture-guide"></div>
         </section>
         <section class="rail-panel" id="rail-panel-about" data-panel="about" role="tabpanel" hidden>
-            <div class="panel-title">关于 · About</div>
+            <div class="panel-title" data-i18n="panel.about">关于 · About</div>
             <div id="about-body">
                 <div class="about-block">
-                    <div class="about-row"><span class="about-k">原作作者</span><span class="about-v">芥见下下 / Gege Akutami</span></div>
-                    <div class="about-row"><span class="about-k">改版作者</span><span class="about-v">闪耀金金 / ShanyJin</span></div>
-                    <div class="about-row"><span class="about-k">个人网站</span><a class="about-v" href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></div>
-                    <div class="about-row"><span class="about-k">改版仓库</span><a class="about-v" href="https://github.com/shanyaojinjin/SAT0RU" target="_blank" rel="noopener">github.com/shanyaojinjin/SAT0RU</a></div>
-                    <div class="about-row"><span class="about-k">原版项目</span><a class="about-v" href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></div>
-                    <div class="about-row"><span class="about-k">构建</span><span class="about-v" id="build-tag">-</span></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.author">原作作者</span><span class="about-v">芥见下下 / Gege Akutami</span></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.fork">改版作者</span><span class="about-v">闪耀金金 / ShanyJin</span></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.site">个人网站</span><a class="about-v" href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.repo">改版仓库</span><a class="about-v" href="https://github.com/shanyaojinjin/SAT0RU" target="_blank" rel="noopener">shanyaojinjin/SAT0RU</a></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.project">原版项目</span><a class="about-v" href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></div>
+                    <div class="about-row"><span class="about-k" data-i18n="about.build">构建</span><span class="about-v" id="build-tag">-</span></div>
                 </div>
-                <div class="about-note">
+                <div class="about-note" data-i18n="about.local">
                     为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（自定义无量空处关闭时不发外部请求），
                     并优化了手势识别（分数制 + EMA 平滑、连续保持判定、防误触冷却）。
                     首次进入先看启动说明和四式教程；摄像头默认关闭，只有手动点顶部栏「启动」才会调用。
                 </div>
-                <div class="about-note">
+                <div class="about-note" data-i18n="about.added">
                     保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，
                     以及無量空処开场动画、各术式语音、左侧音频库与长时间无量空处等本版新增演出。
                     第一个设置页还有「自定义无量空处」：无量空处穿越时切到 B 站视频，可选版本 1 / 2 / 3；
                     版本 3 使用你自己粘贴的 B 站链接，仍然由 B 站官方播放器播放。
                     原版音效与上面未提到的动作，我们之后再补。
                 </div>
-                <div class="about-sep">制作 · Build</div>
-                <div class="about-note">
+                <div class="about-sep" data-i18n="about.sep.build">制作 · Build</div>
+                <div class="about-note" data-i18n="about.made">
                     本应用由 DeepSeek-V4.1 flash 跟 Gemini 4 Neon 共同完成。
                 </div>
-                <div class="about-sep">素材与鸣谢</div>
-                <div class="about-note">
+                <div class="about-sep" data-i18n="about.sep.assets">素材与鸣谢</div>
+                <div class="about-note" data-i18n-html="about.thanks">
                     感谢《咒术回战》原作者<strong>芥见下下</strong>与集英社创作了这部作品；本作是非官方、非商业的个人粉丝作品，与版权方无隶属关系。
                 </div>
                 <div class="about-video">
-                    彩蛋视频 1 · <a href="https://www.bilibili.com/video/BV17XMf6nE1v" target="_blank" rel="noopener">《现代最强vs史上最强 完整版新宿决战》</a>
-                    <span>UP 主：牢厄Neikos496x · 感谢分享</span>
+                    <span data-i18n="about.video1">彩蛋视频 1 ·</span> <a href="https://www.bilibili.com/video/BV17XMf6nE1v" target="_blank" rel="noopener">《现代最强vs史上最强 完整版新宿决战》</a>
+                    <span data-i18n="about.video1.up">UP 主：牢厄Neikos496x · 感谢分享</span>
                 </div>
                 <div class="about-video">
-                    彩蛋视频 2 · <a href="https://www.bilibili.com/video/BV1QC3G6DEKX" target="_blank" rel="noopener">《「新宿决战」雨爱版》</a>
-                    <span>UP 主：望穿秋水145 · 感谢分享</span>
+                    <span data-i18n="about.video2">彩蛋视频 2 ·</span> <a href="https://www.bilibili.com/video/BV1QC3G6DEKX" target="_blank" rel="noopener">《「新宿决战」雨爱版》</a>
+                    <span data-i18n="about.video2.up">UP 主：望穿秋水145 · 感谢分享</span>
                 </div>
-                <div class="about-note">
+                <div class="about-note" data-i18n-html="about.takedown">
                     所有素材均来源于网络，仅作个人非商业展示。如有侵权，请邮件告知
                     <a href="mailto:shanyaojinjin@gmail.com">shanyaojinjin@gmail.com</a>，我会尽快删除。
                 </div>
-                <div class="about-sep">用到的开源项目</div>
+                <div class="about-sep" data-i18n="about.sep.oss">用到的开源项目</div>
                 <div class="about-block">
                     <div class="about-row"><span class="about-k">MediaPipe Hands</span><span class="about-v">Apache-2.0 · Google</span></div>
                     <div class="about-row"><span class="about-k">three.js r160</span><span class="about-v">MIT · three.js authors</span></div>
-                    <div class="about-row"><span class="about-k">SAT0RU</span><span class="about-v">原版项目 · 无 LICENSE</span></div>
+                    <div class="about-row"><span class="about-k">SAT0RU</span><span class="about-v" data-i18n="about.sat0ru">原版项目 · 无 LICENSE</span></div>
                 </div>
-                <div class="about-note">单人拍摄 / 娱乐用途，个人非商业项目。上游无 LICENSE，本仓库仅做本地提交。</div>
+                <div class="about-note" data-i18n="about.final">单人拍摄 / 娱乐用途，个人非商业项目。上游无 LICENSE，本仓库仅做本地提交。</div>
             </div>
         </section>
-        <div class="rail-foot">左上角菜单按钮可收起本栏</div>
+        <div class="rail-foot" data-i18n="rail.foot">左上角菜单按钮可收起本栏</div>
     </aside>
     <div id="debug-panel"></div>
 
@@ -821,7 +821,120 @@
                 'menu.expand': '打开控制栏',
                 'menu.collapse': '收起控制栏',
                 'menu.title': '{label}（菜单）',
-                'lang.row': '语言 · Language'
+                'lang.row': '语言 · Language',
+                'lang.group': '语言 / Language',
+                'rail.head': '控制台',
+                'rail.aria': '控制栏',
+                'rail.tabsAria': '控制栏菜单',
+                'rail.foot': '左上角菜单按钮可收起本栏',
+                'panel.settings': '设置 · Settings',
+                'panel.audio': '音频 · Audio',
+                'panel.guide': '手势指南 · Gesture Guide',
+                'panel.about': '关于 · About',
+                'purple.hintOn': '虚式「茈」已开启 · 枪指 / 双手契印 · 点击关闭',
+                'purple.hintOff': '点击开启虚式「茈」· 枪指 / 双手契印',
+                'settings.debug': '调试面板 · Debug',
+                'settings.voice': '术式语音 · Voices',
+                'settings.voidlong': '长时间无量空处 · Long Void',
+                'settings.egg': '自定义无量空处',
+                'settings.eggVersion': '版本 {version}',
+                'settings.eggNoLink': '版本 3 · 未设链接',
+                'settings.eggVideo': 'B 站视频',
+                'audio.play': '播放 {label}',
+                'audio.blue': '術式順転「蒼」',
+                'audio.he1': '術式反転「赫」· 一',
+                'audio.he2': '術式反転「赫」· 二',
+                'audio.void': '領域展開「無量空処」· 単人',
+                'audio.voidLong': '領域展開「無量空処」· 長時間',
+                'audio.purple': '虚式「茈」· 短',
+                'audio.purpleClasp': '虚式「茈」· 双手契印',
+                'audio.fail': '失败 · 人声',
+                'audio.creed': '校训 · 人声',
+                'welcome.playTip': '<strong>游玩提示：</strong>请在光线充足、背景清晰的环境中游玩，手部识别会更稳定。',
+                'welcome.notice': '<p><strong>本项目不会上传任何内容。</strong>手部识别使用本地 <strong>MediaPipe Hands</strong>，粒子使用 three.js，全部推理都在浏览器内完成，不保存任何画面或识别数据。</p><p>默认不调用摄像头，点顶部栏<strong>「启动」</strong>才请求权限；关闭「自定义无量空处」时不会发起任何外部请求。</p>',
+                'welcome.asset': '感谢《咒术回战》作者芥见下下；所有用到的素材均来源于网络，仅作个人非商业展示，如有侵权请邮件联系 shanyaojinjin@gmail.com。',
+                'fact.author': '原作作者',
+                'fact.project': '原版项目',
+                'fact.fork': '改版作者',
+                'fact.site': '个人网站',
+                'intro.tabsAria': '术式教程',
+                'intro.tab.blue': '蒼 · 引力',
+                'intro.tab.red': '赫 · 斥力',
+                'intro.tab.purple': '茈 · 投射',
+                'intro.tab.void': '無量空処 · 领域',
+                'intro.ack': '我已知晓',
+                'intro.back': '上一步',
+                'intro.next': '明白了，下一个',
+                'intro.start': '明白了，开始',
+                'intro.foot.first': '先看清说明，再开始',
+                'intro.foot.mid': '第 {page} / 4 式 · {tech}',
+                'intro.foot.last': '教程结束 · 之后点顶部栏「启动」才会调用摄像头',
+                'tut.blue.alt': '術式順転「蒼」手势示范',
+                'tut.blue.caption': '術式順転「蒼」 · 引力 / Lapse: Blue',
+                'tut.blue.en': 'Lapse: Blue · 引力',
+                'tut.blue.step1': '<strong>结印：</strong>四指完全伸直的张开手掌，掌心正对镜头。手指弯着、只伸一两根都不算。',
+                'tut.blue.step2': '<strong>构筑：</strong>保持手势 2 秒，蓝色粒子球在掌心成形；成型后再满 2 秒播放苍的语音。',
+                'tut.blue.step3': '<strong>释放：</strong>用力前推、握拳、快速甩出，或把手移出画面，粒子会在屏幕中央炸开。',
+                'tut.blue.tip': '小提示：尽量单手使用，另一只手留空；弯着手指的手不会被当成张开手掌。',
+                'tut.red.alt': '術式反転「赫」手势示范',
+                'tut.red.caption': '術式反転「赫」 · 斥力 / Reversal: Red',
+                'tut.red.en': 'Reversal: Red · 斥力',
+                'tut.red.step1': '<strong>结印：</strong>食指向上指、其余三指收拢；或食指+中指并拢、拇指外张的枪形。',
+                'tut.red.step2': '<strong>展开：</strong>红色斥力球悬在指尖前方，跟手移动；两种手势可以互换而不断档。',
+                'tut.red.step3': '<strong>语音：</strong>任一赫手势保持 1 秒，随机播放一段赫的语音（每次保持一次）。',
+                'tut.red.tip': '和无量空处的区别：赫的拇指是<strong>外张</strong>的；拇指内扣则是领域展开。',
+                'tut.purple.alt': '虚式「茈」手势示范',
+                'tut.purple.caption': '虚式「茈」 · 投射 / Imaginary: Purple',
+                'tut.purple.en': 'Imaginary: Purple · 投射',
+                'tut.purple.step1': '<strong>开启：</strong>点右上角「茈」进入枪指模式；此时苍和赫暂停，双手契印仍可直接发动。',
+                'tut.purple.step2': '<strong>蓄势：</strong>枪形、捏合，或拇指内扣，掌心会聚起一颗紫色小球。',
+                'tut.purple.step3': '<strong>发射：</strong>前推，或拇指内扣后快速向外弹开；小球射向屏幕正中心爆开，松手取消蓄势。',
+                'tut.purple.step4': '<strong>双手契印：</strong>双手交叉扣住，<strong>一只手食指朝上</strong>，另一只手扣在它的手掌上，拇指内扣、双腕贴近，会自动播放约 23 秒的双球长动画，不需要按钮。無量空処只用单手，两者不会互相误开。',
+                'tut.purple.tip': '释放后有 2 秒冷却；发射瞬间会播放茈的短语音。',
+                'tut.void.alt': '領域展開「無量空処」手势示范',
+                'tut.void.caption': '領域展開「無量空処」 · Domain Expansion',
+                'tut.void.en': 'Domain Expansion · 领域',
+                'tut.void.step1': '<strong>结印：</strong><strong>单手</strong>食指+中指并拢或交叉，拇指内扣（不要外张）。',
+                'tut.void.step2': '<strong>展开：</strong>白环与蓝色星云场出现；保持手势维持领域，松手退场。',
+                'tut.void.step3': '<strong>语音与动画：</strong>保持 1 秒播放单人版语音；保持 3 秒自动进入开场动画。',
+                'tut.void.step4': '<strong>长版：</strong>左侧栏打开「长时间无量空处」后，保持 1 秒即展开并播放 31 秒长语音，原地再保持 8 秒才进入超长动画。',
+                'tut.void.tip': '教程结束后，请在顶部栏点<strong>「启动」</strong>；只有开启按钮，摄像头才会启动。',
+                'about.author': '原作作者',
+                'about.fork': '改版作者',
+                'about.site': '个人网站',
+                'about.repo': '改版仓库',
+                'about.project': '原版项目',
+                'about.build': '构建',
+                'about.local': '为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（自定义无量空处关闭时不发外部请求），并优化了手势识别（分数制 + EMA 平滑、连续保持判定、防误触冷却）。首次进入先看启动说明和四式教程；摄像头默认关闭，只有手动点顶部栏「启动」才会调用。',
+                'about.added': '保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，以及無量空処开场动画、各术式语音、左侧音频库与长时间无量空处等本版新增演出。第一个设置页还有「自定义无量空处」：无量空处穿越时切到 B 站视频，可选版本 1 / 2 / 3；版本 3 使用你自己粘贴的 B 站链接，仍然由 B 站官方播放器播放。原版音效与上面未提到的动作，我们之后再补。',
+                'about.sep.build': '制作 · Build',
+                'about.made': '本应用由 DeepSeek-V4.1 flash 跟 Gemini 4 Neon 共同完成。',
+                'about.sep.assets': '素材与鸣谢',
+                'about.thanks': '感谢《咒术回战》原作者<strong>芥见下下</strong>与集英社创作了这部作品；本作是非官方、非商业的个人粉丝作品，与版权方无隶属关系。',
+                'about.video1': '彩蛋视频 1 ·',
+                'about.video1.up': 'UP 主：牢厄Neikos496x · 感谢分享',
+                'about.video2': '彩蛋视频 2 ·',
+                'about.video2.up': 'UP 主：望穿秋水145 · 感谢分享',
+                'about.takedown': '所有素材均来源于网络，仅作个人非商业展示。如有侵权，请邮件告知 <a href="mailto:shanyaojinjin@gmail.com">shanyaojinjin@gmail.com</a>，我会尽快删除。',
+                'about.sep.oss': '用到的开源项目',
+                'about.sat0ru': '原版项目 · 无 LICENSE',
+                'about.final': '单人拍摄 / 娱乐用途，个人非商业项目。上游无 LICENSE，本仓库仅做本地提交。',
+                'egg.title': '自定义无量空处',
+                'egg.hint': '若未自动播放，请点一下播放器 ▶',
+                'egg.close': '关闭 · Esc',
+                'egg.frameTitle': '哔哩哔哩自定义视频',
+                'egg.versionsLabel': '视频版本',
+                'egg.versionTitle': '使用你粘贴的链接',
+                'egg.infoToggle': '说明',
+                'egg.info': '<b>是什么：</b>短版無量空処动画播到「穿梭」、白环出现前切断，全屏播放 B 站视频；Esc 或「关闭」退出。长版动画不触发。<br><b>版本 3：</b>在下面粘贴 B 站视频完整链接（含 BV 号，可带 <code>?p=</code> 集数）后保存，仍然由 B 站官方播放器播放。<b>b23.tv 短链</b>请先在浏览器打开，再复制地址栏里 <code>bilibili.com/video/BV...</code> 的完整链接。',
+                'egg.save': '保存链接',
+                'egg.note.saved': '已保存：{video}。重新粘贴可替换。',
+                'egg.note.empty': '还没有自定义视频：粘贴 B 站完整链接后点「保存链接」。',
+                'egg.savedToast': '已保存 {video}；版本 3 将使用这个视频。',
+                'egg.err.short': 'b23.tv 短链无法离线解析：请先在浏览器打开，再复制地址栏里含 BV 号的完整链接。',
+                'egg.err.empty': '请先粘贴 B 站视频链接。',
+                'egg.err.novideo': '没有找到 BV 号：请粘贴 bilibili.com/video/BV... 的完整链接。',
+                'egg.page': '（第 {page} 集）'
             },
             en: {
                 'site.title': 'Gojo Satoru Cursed Technique Simulator',
@@ -844,7 +957,120 @@
                 'menu.expand': 'Open control rail',
                 'menu.collapse': 'Collapse control rail',
                 'menu.title': '{label} (menu)',
-                'lang.row': 'Language · 语言'
+                'lang.row': 'Language · 语言',
+                'lang.group': 'Language / 语言',
+                'rail.head': 'Control rail',
+                'rail.aria': 'Control rail',
+                'rail.tabsAria': 'Control rail menu',
+                'rail.foot': 'Use the menu button at the top left to collapse this rail',
+                'panel.settings': 'Settings · 设置',
+                'panel.audio': 'Audio · 音频',
+                'panel.guide': 'Gesture Guide',
+                'panel.about': 'About',
+                'purple.hintOn': 'Imaginary Technique: Purple on · gun / two-hand clasp · click to turn off',
+                'purple.hintOff': 'Click to enable Imaginary Technique: Purple · gun / two-hand clasp',
+                'settings.debug': 'Debug panel · 调试',
+                'settings.voice': 'Technique Voices · 术式语音',
+                'settings.voidlong': 'Long Infinite Void · 长时间无量空处',
+                'settings.egg': 'Custom Infinite Void',
+                'settings.eggVersion': 'Version {version}',
+                'settings.eggNoLink': 'v3 · No link',
+                'settings.eggVideo': 'Bilibili video',
+                'audio.play': 'Play {label}',
+                'audio.blue': '術式順転「蒼」',
+                'audio.he1': '術式反転「赫」 · I',
+                'audio.he2': '術式反転「赫」 · II',
+                'audio.void': '領域展開「無量空処」 · Solo',
+                'audio.voidLong': '領域展開「無量空処」 · Long',
+                'audio.purple': '虚式「茈」 · Short',
+                'audio.purpleClasp': '虚式「茈」 · Two-Hand Clasp',
+                'audio.fail': 'Fail · Voice',
+                'audio.creed': 'Creed · Voice',
+                'welcome.playTip': '<strong>Play tip:</strong> Play in a well-lit room with a clear background — hand tracking stays steadier.',
+                'welcome.notice': '<p><strong>This project never uploads anything.</strong> Hand tracking runs locally with <strong>MediaPipe Hands</strong> and particles use three.js; all inference happens in your browser, and no video or tracking data is stored.</p><p>The camera is off by default — permission is only requested when you tap <strong>Start</strong> in the top bar. With “Custom Infinite Void” off, the page makes no external requests.</p>',
+                'welcome.asset': 'Thanks to Gege Akutami, author of Jujutsu Kaisen. All assets come from the internet and are used for a personal, non-commercial showcase only; for takedown requests, email shanyaojinjin@gmail.com.',
+                'fact.author': 'Original author',
+                'fact.project': 'Original project',
+                'fact.fork': 'Fork author',
+                'fact.site': 'Personal site',
+                'intro.tabsAria': 'Technique tutorials',
+                'intro.tab.blue': '蒼 · Attraction',
+                'intro.tab.red': '赫 · Repulsion',
+                'intro.tab.purple': '茈 · Projection',
+                'intro.tab.void': '無量空処 · Domain',
+                'intro.ack': 'I understand',
+                'intro.back': 'Back',
+                'intro.next': 'Got it, next',
+                'intro.start': 'Got it, start',
+                'intro.foot.first': 'Read the setup first, then start',
+                'intro.foot.mid': 'Form {page} / 4 · {tech}',
+                'intro.foot.last': 'Tutorial complete · tap “Start” in the top bar to enable the camera',
+                'tut.blue.alt': 'Lapse: Blue hand gesture demo',
+                'tut.blue.caption': '術式順転「蒼」 · Attraction / Lapse: Blue',
+                'tut.blue.en': 'Lapse: Blue · Attraction',
+                'tut.blue.step1': '<strong>Sign:</strong> Four fingers fully extended, palm facing the camera. Bent fingers, or only one or two extended, do not count.',
+                'tut.blue.step2': '<strong>Construct:</strong> Hold the gesture for 2 seconds and a blue particle orb forms in your palm; 2 seconds after it completes, the Blue voice plays.',
+                'tut.blue.step3': '<strong>Release:</strong> Push forward hard, make a fist, fling your hand, or move it out of frame — the particles burst at the center of the screen.',
+                'tut.blue.tip': 'Tip: use one hand and keep the other empty; a hand with bent fingers is never read as an open palm.',
+                'tut.red.alt': 'Reversal: Red hand gesture demo',
+                'tut.red.caption': '術式反転「赫」 · Repulsion / Reversal: Red',
+                'tut.red.en': 'Reversal: Red · Repulsion',
+                'tut.red.step1': '<strong>Sign:</strong> Point your index finger up with the other three folded; or make a gun shape with index + middle together and the thumb stretched out.',
+                'tut.red.step2': '<strong>Deploy:</strong> A red repulsion orb hovers ahead of your fingertip and follows your hand; the two gestures can swap without breaking the field.',
+                'tut.red.step3': '<strong>Voice:</strong> Hold either Red gesture for 1 second to play a random Red voice clip (once per hold).',
+                'tut.red.tip': 'Difference from Infinite Void: Red’s thumb is <strong>stretched out</strong>; a thumb tucked in means Domain Expansion.',
+                'tut.purple.alt': 'Imaginary: Purple hand gesture demo',
+                'tut.purple.caption': '虚式「茈」 · Projection / Imaginary: Purple',
+                'tut.purple.en': 'Imaginary: Purple · Projection',
+                'tut.purple.step1': '<strong>Enable:</strong> Tap 茈 at the top right to enter gun mode; Blue and Red pause, while the two-hand clasp still works.',
+                'tut.purple.step2': '<strong>Charge:</strong> A gun shape, a pinch, or a tucked thumb gathers a small purple orb in your palm.',
+                'tut.purple.step3': '<strong>Launch:</strong> Push forward, or tuck your thumb and snap it outward; the orb flies to the center of the screen and bursts. Release to cancel the charge.',
+                'tut.purple.step4': '<strong>Two-hand clasp:</strong> Lock both hands together with <strong>one index finger pointing up</strong> and the other hand cupped over its palm, thumbs tucked and wrists close; a ~23-second two-orb cinematic plays automatically, no button needed. Infinite Void is single-handed only, so the two never trigger each other.',
+                'tut.purple.tip': '2-second cooldown after launch; the Purple short voice plays at the moment of firing.',
+                'tut.void.alt': 'Domain Expansion: Infinite Void hand gesture demo',
+                'tut.void.caption': '領域展開「無量空処」 · Domain Expansion',
+                'tut.void.en': 'Domain Expansion · Domain',
+                'tut.void.step1': '<strong>Sign:</strong> <strong>One hand only</strong>: index + middle together or crossed, thumb tucked in (not stretched out).',
+                'tut.void.step2': '<strong>Deploy:</strong> A white ring and blue nebula field appear; keep the gesture to hold the domain, release to leave.',
+                'tut.void.step3': '<strong>Voice &amp; cinematic:</strong> Hold 1 second for the solo voice; hold 3 seconds to enter the opening cinematic automatically.',
+                'tut.void.step4': '<strong>Long version:</strong> With “Long Infinite Void” enabled in the left rail, a 1-second hold expands the domain and plays the 31-second voice; staying in place 8 more seconds enters the extended cinematic.',
+                'tut.void.tip': 'After the tutorial, tap <strong>Start</strong> in the top bar — the camera only starts from that switch.',
+                'about.author': 'Original author',
+                'about.fork': 'Fork author',
+                'about.site': 'Personal site',
+                'about.repo': 'Fork repository',
+                'about.project': 'Original project',
+                'about.build': 'Build',
+                'about.local': 'Localized for Chinese-speaking users: the UI and technique descriptions are in Chinese, and every dependency is bundled locally (no external requests while “Custom Infinite Void” is off). Hand tracking is tuned with a score-based model + EMA smoothing, continuous-hold detection, and anti-misfire cooldowns. Read the setup notes and four tutorials first; the camera is off by default and only starts from the Start switch in the top bar.',
+                'about.added': 'Keeps the original voice support and layers on particle effects, the added Blue gesture, the Infinite Void opening cinematic, per-technique voices, the left-rail audio library, and the long Infinite Void mode. The first settings page also holds “Custom Infinite Void”: when the void sequence reaches the crossing, playback can switch to a Bilibili video (versions 1 / 2 / 3); version 3 uses a link you paste and still plays in Bilibili’s official player. The original sound effects and any techniques not mentioned above will come later.',
+                'about.sep.build': 'Made · Build',
+                'about.made': 'Built jointly by DeepSeek-V4.1 flash and Gemini 4 Neon.',
+                'about.sep.assets': 'Assets & thanks',
+                'about.thanks': 'Thanks to <strong>Gege Akutami</strong> and Shueisha for creating Jujutsu Kaisen. This is an unofficial, non-commercial fan project with no affiliation to the rights holders.',
+                'about.video1': 'Bonus video 1 ·',
+                'about.video1.up': 'Uploader: 牢厄Neikos496x · Thanks for sharing',
+                'about.video2': 'Bonus video 2 ·',
+                'about.video2.up': 'Uploader: 望穿秋水145 · Thanks for sharing',
+                'about.takedown': 'All assets come from the internet and are used for a personal, non-commercial showcase only. For takedown requests, email <a href="mailto:shanyaojinjin@gmail.com">shanyaojinjin@gmail.com</a> and I will remove them promptly.',
+                'about.sep.oss': 'Open-source projects used',
+                'about.sat0ru': 'Original project · No LICENSE',
+                'about.final': 'For single-person filming and entertainment; a personal non-commercial project. The upstream repository has no LICENSE, so this fork only commits locally.',
+                'egg.title': 'Custom Infinite Void',
+                'egg.hint': 'If it does not autoplay, press ▶ in the player',
+                'egg.close': 'Close · Esc',
+                'egg.frameTitle': 'Custom Bilibili video',
+                'egg.versionsLabel': 'Custom Infinite Void · Version',
+                'egg.versionTitle': 'Use the link you pasted',
+                'egg.infoToggle': 'Info',
+                'egg.info': '<b>What it is:</b> when the short Infinite Void sequence reaches the crossing, playback cuts before the white ring appears and a Bilibili video plays fullscreen; Esc or “Close” exits. The long cinematic does not trigger it.<br><b>Version 3:</b> paste a full Bilibili link below (with the BV id, optionally including a <code>?p=</code> part number) and save it; Bilibili’s official player still handles playback. For <b>b23.tv short links</b>, open them in a browser first and copy the full <code>bilibili.com/video/BV...</code> address from the address bar.',
+                'egg.save': 'Save link',
+                'egg.note.saved': 'Saved: {video}. Paste again to replace.',
+                'egg.note.empty': 'No custom video yet: paste a full Bilibili link, then tap “Save link”.',
+                'egg.savedToast': 'Saved {video}; version 3 will use this video.',
+                'egg.err.short': 'b23.tv short links cannot be resolved offline: open one in a browser first, then copy the full address containing the BV id.',
+                'egg.err.empty': 'Paste a Bilibili video link first.',
+                'egg.err.novideo': 'No BV id found: paste the full bilibili.com/video/BV... link.',
+                'egg.page': ' (part {page})'
             }
         };
 
@@ -1643,7 +1869,7 @@
 
     function describeVoidEggCustom(video) {
         const id = video.bvid || ('av' + video.aid);
-        return id + (video.page > 1 ? '（第 ' + video.page + ' 集）' : '');
+        return id + (video.page > 1 ? t('egg.page', { page: video.page }) : '');
     }
 
     function buildVoidEggUrl(version = voidEggVersion) {
@@ -1712,10 +1938,10 @@
         const parsed = parseBilibiliShareUrl(rawText);
         if (!parsed.ok) {
             setEggCustomNote(parsed.reason === 'short'
-                ? 'b23.tv 短链无法离线解析：请先在浏览器打开，再复制地址栏里含 BV 号的完整链接。'
+                ? t('egg.err.short')
                 : parsed.reason === 'empty'
-                    ? '请先粘贴 B 站视频链接。'
-                    : '没有找到 BV 号：请粘贴 bilibili.com/video/BV... 的完整链接。', true);
+                    ? t('egg.err.empty')
+                    : t('egg.err.novideo'), true);
             return false;
         }
         voidEggCustom = parsed.video;
@@ -1725,7 +1951,7 @@
             localStorage.setItem(VOID_EGG_CUSTOM_KEY, JSON.stringify(parsed.video));
         } catch (e) { /* private mode / blocked storage: keep it for this session */ }
         updateKeybindMenu();
-        setEggCustomNote('已保存 ' + describeVoidEggCustom(parsed.video) + '；版本 3 将使用这个视频。', false);
+        setEggCustomNote(t('egg.savedToast', { video: describeVoidEggCustom(parsed.video) }), false);
         return true;
     }
 
@@ -2750,17 +2976,20 @@
     // block can also play any clip by hand. One clip at a time, so nothing overlaps.
     const VOICE_HOLD_MS = 1000;
     const AUDIO_TRACKS = [
-        { key: 'blue', el: document.getElementById('blue-voice'), label: '術式順転「蒼」', dur: '0:04' },
-        { key: 'he-1', el: document.getElementById('he-voice-1'), label: '術式反転「赫」· 一', dur: '0:03' },
-        { key: 'he-2', el: document.getElementById('he-voice-2'), label: '術式反転「赫」· 二', dur: '0:04' },
-        { key: 'void', el: document.getElementById('void-voice'), label: '領域展開「無量空処」· 単人', dur: '0:05' },
-        { key: 'void-long', el: document.getElementById('void-long-voice'), label: '領域展開「無量空処」· 長時間', dur: '0:31' },
-        { key: 'purple', el: document.getElementById('purple-voice'), label: '虚式「茈」· 短', dur: '0:02' },
-        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), label: '虚式「茈」· 双手契印', dur: '0:22' },
+        { key: 'blue', el: document.getElementById('blue-voice'), labelKey: 'audio.blue', dur: '0:04' },
+        { key: 'he-1', el: document.getElementById('he-voice-1'), labelKey: 'audio.he1', dur: '0:03' },
+        { key: 'he-2', el: document.getElementById('he-voice-2'), labelKey: 'audio.he2', dur: '0:04' },
+        { key: 'void', el: document.getElementById('void-voice'), labelKey: 'audio.void', dur: '0:05' },
+        { key: 'void-long', el: document.getElementById('void-long-voice'), labelKey: 'audio.voidLong', dur: '0:31' },
+        { key: 'purple', el: document.getElementById('purple-voice'), labelKey: 'audio.purple', dur: '0:02' },
+        { key: 'purple-clasp', el: document.getElementById('purple-clasp-voice'), labelKey: 'audio.purpleClasp', dur: '0:22' },
         // Click-only clips: nothing in the gesture pipeline fires these two.
-        { key: 'fail', el: document.getElementById('fail-voice'), label: '失败 · 人声', dur: '0:01' },
-        { key: 'creed', el: document.getElementById('creed-voice'), label: '校训 · 人声', dur: '0:03' }
+        { key: 'fail', el: document.getElementById('fail-voice'), labelKey: 'audio.fail', dur: '0:01' },
+        { key: 'creed', el: document.getElementById('creed-voice'), labelKey: 'audio.creed', dur: '0:03' }
     ].filter((track) => !!track.el);
+    // Technique names stay in Traditional Chinese in both languages; only the
+    // descriptor after the separator is translated.
+    const audioLabel = (track) => t(track.labelKey);
     const audioTracksByKey = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, track]));
     const audioPlayCounts = Object.fromEntries(AUDIO_TRACKS.map((track) => [track.key, 0]));
     let lastAudioKey = '';
@@ -3310,15 +3539,15 @@
         if (introAckBtn) introAckBtn.hidden = introPage !== 0;
         if (introNextBtn) {
             introNextBtn.hidden = introPage === 0;
-            introNextBtn.textContent = introPage === INTRO_PAGES.length - 1 ? '明白了，开始' : '明白了，下一个';
+            introNextBtn.textContent = introPage === INTRO_PAGES.length - 1 ? t('intro.start') : t('intro.next');
         }
         if (introBackBtn) introBackBtn.hidden = introPage === 0;
         if (introFootNote) {
             introFootNote.textContent = introPage === 0
-                ? '先看清说明，再开始'
+                ? t('intro.foot.first')
                 : introPage === INTRO_PAGES.length - 1
-                    ? '教程结束 · 之后点顶部栏「启动」才会调用摄像头'
-                    : '第 ' + introPage + ' / 4 式 · ' + INTRO_TECH_LABELS[name];
+                    ? t('intro.foot.last')
+                    : t('intro.foot.mid', { page: introPage, tech: INTRO_TECH_LABELS[name] });
         }
         if (introBody) introBody.scrollTop = 0;
     }
@@ -3391,9 +3620,7 @@
 
     function updatePurpleHint() {
         if (!purpleHint) return;
-        purpleHint.innerText = purpleMode
-            ? '虚式「茈」已开启 · 枪指 / 双手契印 · 点击关闭'
-            : '点击开启虚式「茈」· 枪指 / 双手契印';
+        purpleHint.innerText = purpleMode ? t('purple.hintOn') : t('purple.hintOff');
     }
 
     function setPurpleMode(on) {
@@ -4610,8 +4837,8 @@
         }
         if (customMode) {
             setEggCustomNote(voidEggCustom
-                ? '已保存：' + describeVoidEggCustom(voidEggCustom) + '。重新粘贴可替换。'
-                : '还没有自定义视频：粘贴 B 站完整链接后点「保存链接」。', false);
+                ? t('egg.note.saved', { video: describeVoidEggCustom(voidEggCustom) })
+                : t('egg.note.empty'), false);
         } else {
             setEggCustomNote('', false);
         }
@@ -4620,14 +4847,16 @@
     function updateKeybindMenu() {
         updateStartButton();
         const settings = [
-            { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
-            { action: 'voice', key: KEYBINDS.voice, label: '术式语音 · Voices', on: voiceEnabled },
-            { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode },
+            { action: 'debug', key: KEYBINDS.debug, label: t('settings.debug'), on: debugEnabled },
+            { action: 'voice', key: KEYBINDS.voice, label: t('settings.voice'), on: voiceEnabled },
+            { action: 'voidlong', key: KEYBINDS.voidlong, label: t('settings.voidlong'), on: voidLongMode },
             {
-                action: 'egg', key: '★', label: '自定义无量空处', on: voidEggEnabled,
+                action: 'egg', key: '★', label: t('settings.egg'), on: voidEggEnabled,
                 note: voidEggEnabled
-                    ? (voidEggVersion === 3 && !voidEggCustom ? '版本 3 · 未设链接' : '版本 ' + voidEggVersion)
-                    : 'B 站视频'
+                    ? (voidEggVersion === 3 && !voidEggCustom
+                        ? t('settings.eggNoLink')
+                        : t('settings.eggVersion', { version: voidEggVersion }))
+                    : t('settings.eggVideo')
             }
         ];
         if (settingsList) {
@@ -4699,6 +4928,7 @@
         buildAudioLibrary();
         updateKeybindMenu();
         updateEggPanel();
+        updatePurpleHint();
         showIntroPage(introPage);
         updateStartButton();
         setRailOpen(railOpen);
@@ -4782,7 +5012,7 @@
         });
     }
 
-    const GUIDE_GOJO = [
+    const GUIDE_GOJO_ZH = [
         { sep: '術式順転「蒼」 · Lapse: Blue' },
         { gesture: '四指伸直的张开手掌对着镜头，保持 2 秒', tech: '构筑' },
         { foot: '引力：手心里聚起蓝球，四周待机粒子被吸过来、绕着球旋绕；蓝球呼吸浮动、随手旋转' },
@@ -4815,15 +5045,57 @@
         { foot: '待机时画面保留一层漂浮尘埃粒子（被苍吸 / 被赫斥的就是它们）；任何术式触发后 2 秒冷却' }
     ];
 
+    // English rows mirror the Chinese ones; the `sep` headings keep their original
+    // Traditional-Chinese technique names and English subtitles unchanged.
+    const GUIDE_GOJO_EN = [
+        { sep: '術式順転「蒼」 · Lapse: Blue' },
+        { gesture: 'Open palm with all four fingers fully extended toward the camera; hold 2 seconds', tech: 'Construct' },
+        { foot: 'Attraction: a blue orb gathers in your palm while idle dust is pulled in and swirls around it; the orb breathes and turns with your hand' },
+        { gesture: 'Push forward hard / make a fist / fling / hand leaves frame / tracking lost', tech: 'Release' },
+        { foot: 'Particles burst at the center of the screen; use one hand and keep the other empty so two simultaneous gestures are not misread' },
+        { foot: 'Holding for 2 seconds starts the construct; 2 seconds after it completes, the Blue voice plays (once per construct)' },
+        { sep: '領域展開「無量空処」 · Domain Expansion' },
+        { gesture: 'Index + middle together/crossed, thumb tucked in (do not stretch it out)', tech: 'Deploy' },
+        { foot: 'Blue-white void ring + nebula particles; keep the gesture to hold the domain, release to leave' },
+        { foot: 'A 1-second hold plays the solo voice; 3 seconds enters the opening cinematic (meteor universe → particle ring)' },
+        { foot: 'With “Long Infinite Void” enabled: a 1-second hold expands the domain, and staying in place for 8 more seconds enters the extended ~34-second cinematic with a 31-second voice that finishes first' },
+        { foot: 'Difference from Red: a gun shape with the thumb stretched out is Red' },
+        { sep: '術式反転「赫」 · Reversal: Red' },
+        { gesture: 'Point the index finger up, fold the other three', tech: 'Form' },
+        { gesture: 'Index + middle together, thumb stretched out (gun shape)', tech: 'Form' },
+        { foot: 'Repulsion: when the red orb appears, nearby idle dust is pushed away, clearing a ring around it' },
+        { foot: 'The red point hovers about 5–10 cm ahead of the pointing finger and follows the hand; the two gestures can swap without breaking' },
+        { foot: 'Entry is the “cast”: muzzle flash + a red lance fired along the finger (forward, not exploding), and the field recoils; releasing burns out in place with falling embers' },
+        { foot: 'Holding either Red gesture for 1 second plays a random Red voice clip (once per hold)' },
+        { sep: '虚式「茈」 · Imaginary: Purple' },
+        { gesture: 'Tap 茈 at the top right → gun shape / pinch / tucked thumb to charge', tech: 'Construct' },
+        { foot: 'Tap 茈 at the top right to enable gun mode: Blue/Red pause; a gun shape, pinch, or tucked thumb now builds a small purple orb' },
+        { gesture: 'Push forward, or tuck the thumb and snap it outward', tech: 'Launch' },
+        { foot: 'The orb flies to the center of the screen and bursts; the Purple short voice plays at launch; release cancels the charge; 2-second cooldown after firing' },
+        { sep: '虚式「茈」 · 双手契印' },
+        { gesture: 'One hand with only the index up (no middle), the other cupped over its palm, wrists close', tech: 'Auto' },
+        { foot: 'The blue orb on the right grows from the center orb to half the screen (1.5 s); 1.5 s later the red orb on the left grows symmetrically over 2.5 s' },
+        { foot: 'The clasp voice plays 0.5 s after activation; the orbs then converge over 3 s while a purple galaxy vortex spins and collides with repeated shockwaves — a big bang at 20 s and a finish at 23 s' },
+        { foot: 'The clasp only forms when both hands lock together; one hand alone does not trigger it, and the 茈 switch is not required' },
+        { foot: 'Idle scenes keep a layer of drifting dust (the particles Blue pulls in / Red pushes away); every technique has a 2-second cooldown' }
+    ];
+
+    function getGuide() {
+        return window.SAT0RU_LANG === 'en' ? GUIDE_GOJO_EN : GUIDE_GOJO_ZH;
+    }
+
     function buildAudioLibrary() {
         const list = document.getElementById('audio-list');
         if (!list) return;
-        list.innerHTML = AUDIO_TRACKS.map((track) => `
-            <button class="audio-row" type="button" data-audio="${track.key}" aria-pressed="false" title="播放 ${track.label}">
+        list.innerHTML = AUDIO_TRACKS.map((track) => {
+            const label = audioLabel(track);
+            return `
+            <button class="audio-row" type="button" data-audio="${track.key}" aria-pressed="false" title="${t('audio.play', { label })}">
                 <span class="audio-play" aria-hidden="true">▶</span>
-                <span class="audio-label">${track.label}</span>
+                <span class="audio-label">${label}</span>
                 <span class="audio-dur">${track.dur}</span>
-            </button>`).join('');
+            </button>`;
+        }).join('');
     }
 
     // Delegated once: rebuilding the rows for a language switch must not stack listeners.
@@ -4837,7 +5109,7 @@
     }
 
     function buildGuide() {
-        const items = GUIDE_GOJO;
+        const items = getGuide();
         const body = items.map((item) => {
             if (item.sep) return `<div class="guide-sep">${item.sep}</div>`;
             if (item.foot) return `<div class="guide-foot">${item.foot}</div>`;

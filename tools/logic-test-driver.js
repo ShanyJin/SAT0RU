@@ -1847,6 +1847,31 @@
                     document.getElementById('audio-list')?.textContent.includes('術式順転「蒼」')]
                     .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
             markState('language choice is persisted', 'en', localStorage.getItem('sat0ru.language') || 'missing');
+            markState('English localizes the welcome tutorial body', 'yes',
+                (document.querySelector('#intro-modal [data-intro-page="blue"]')?.textContent || '')
+                    .includes('Four fingers fully extended') ? 'yes' : 'no');
+            markState('English localizes the settings labels', 'yes',
+                (document.getElementById('settings-list')?.textContent || '')
+                    .includes('Technique Voices') ? 'yes' : 'no');
+            markState('English localizes the gesture guide', 'yes',
+                (document.getElementById('gesture-guide')?.textContent || '')
+                    .includes('Construct') ? 'yes' : 'no');
+            markState('English localizes the about page labels', 'yes',
+                (document.getElementById('about-body')?.textContent || '')
+                    .includes('Fork author') ? 'yes' : 'no');
+            markState('English localizes the custom void panel', 'yes',
+                (document.getElementById('egg-panel')?.textContent || '')
+                    .includes('Custom Infinite Void') ? 'yes' : 'no');
+            markState('English audio labels keep the Traditional Chinese technique name', 'yes',
+                (document.getElementById('audio-list')?.textContent || '')
+                    .includes('術式反転「赫」 · I') ? 'yes' : 'no');
+            if (typeof updateState === 'function') updateState('red', true);
+            markState('English keeps the top-bar technique name in Traditional Chinese', '術式反転「赫」',
+                document.getElementById('technique-name')?.textContent.trim() || 'missing');
+            if (langBtn('zh')) langBtn('zh').click(); // 在技法进行中切回中文
+            markState('a technique in progress survives a language switch', 'red',
+                (typeof currentTech !== 'undefined') ? currentTech : 'missing');
+            if (typeof updateState === 'function') updateState('neutral', true);
             if (langBtn('zh')) langBtn('zh').click();
             markState('switching back restores Chinese', 'zh-CN', document.documentElement.lang || 'missing');
             markState('switching back restores the Chinese title', '五条悟术式模拟', document.title || 'missing');
