@@ -944,9 +944,19 @@
             if (railTabs[2]) railTabs[2].click();
             markState('about tab switches the panel', 'about',
                 (aboutPanel && !aboutPanel.hidden && guidePanel && guidePanel.hidden) ? 'about' : 'other');
+            const aboutText = document.getElementById('about-body')?.textContent || '';
+            markState('about credits the manga author', 'yes',
+                (aboutText.includes('芥见下下') && aboutText.includes('Gege Akutami')) ? 'yes' : 'no');
+            markState('about lists both bilibili videos with thanks', '2/2',
+                ['BV17XMf6nE1v', 'BV1QC3G6DEKX']
+                    .filter((id) => document.querySelector('#about-body a[href*="' + id + '"]')).length + '/2');
+            markState('about gives an infringement contact email', 'yes',
+                document.querySelector('#about-body a[href="mailto:shanyaojinjin@gmail.com"]') ? 'yes' : 'no');
+            markState('about says all assets come from the internet', 'yes',
+                aboutText.includes('所有素材均来源于网络') ? 'yes' : 'no');
             if (railTabs[0]) railTabs[0].click();
             markState('main tab returns', 'main', (mainPanel && !mainPanel.hidden) ? 'main' : 'hidden');
-            markState('settings keep start/debug/voice/voidlong/sfx/egg', 'start,debug,voice,voidlong,sfx,egg',
+            markState('settings keep debug/voice/voidlong/sfx/egg', 'debug,voice,voidlong,sfx,egg',
                 Array.from(document.querySelectorAll('#settings-list [data-action]'))
                     .map((row) => row.dataset.action).join(','));
 
@@ -977,14 +987,16 @@
             const introPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-page]'));
             markState('intro has welcome plus four technique pages', '5', String(introPages.length));
             const welcomeText = document.querySelector('#intro-modal [data-intro-page="welcome"]')?.textContent || '';
-            markState('intro credits the original project, fork author and site',
-                'ok ok ok',
-                [welcomeText.includes('reinesana/SAT0RU'), welcomeText.includes('闪耀金金'), welcomeText.includes('shany.cc')]
+            markState('intro credits the manga author, original project, fork author and site',
+                'ok ok ok ok',
+                [welcomeText.includes('芥见下下'), welcomeText.includes('reinesana/SAT0RU'),
+                    welcomeText.includes('闪耀金金'), welcomeText.includes('shany.cc')]
                     .map((ok) => (ok ? 'ok' : 'missing')).join(' '));
             markState('intro promises local-only processing', 'yes',
                 (welcomeText.includes('不会上传任何内容') && welcomeText.includes('MediaPipe Hands')) ? 'yes' : 'no');
-            markState('intro carries the asset notice', 'yes',
-                welcomeText.includes('所有用到的素材均取自于网络') ? 'yes' : 'no');
+            markState('intro carries the asset notice and contact', 'yes',
+                (welcomeText.includes('所有用到的素材均来源于网络')
+                    && welcomeText.includes('shanyaojinjin@gmail.com')) ? 'yes' : 'no');
             const introTechPages = Array.from(document.querySelectorAll('#intro-modal [data-intro-tech]'));
             markState('tutorial technique order', 'blue,red,purple,void',
                 introTechPages.map((p) => p.dataset.introTech).join(','));
@@ -1024,52 +1036,73 @@
                     && typeof cameraStarted !== 'undefined' && !cameraStarted
                     && (typeof cameraUtils === 'undefined' || !cameraUtils)
                     && (typeof hands === 'undefined' || !hands)) ? 'off' : 'on');
-            const startRow = document.querySelector('#settings-list [data-action="start"]');
-            markState('settings include the start switch', 'yes', startRow ? 'yes' : 'no');
-            markState('start switch defaults off with a click-to-start hint', 'false|点击开始',
-                startRow ? (startRow.getAttribute('aria-checked') + '|'
-                    + ((startRow.querySelector('.kb-value') || {}).textContent || '')) : 'missing');
+            const startBtn = document.getElementById('start-btn');
+            markState('top bar holds the start button', 'yes', startBtn ? 'yes' : 'no');
+            markState('start button defaults off with a click-to-start label', 'false|启动',
+                startBtn ? (startBtn.getAttribute('aria-pressed') + '|'
+                    + ((startBtn.querySelector('#start-btn-label') || {}).textContent || '')) : 'missing');
             const camOrigStart = (typeof cameraPipeline !== 'undefined') ? cameraPipeline.start : null;
             const camOrigStop = (typeof cameraPipeline !== 'undefined') ? cameraPipeline.stop : null;
             let camStartCalls = 0;
             let camStopCalls = 0;
-            if (startRow && typeof cameraPipeline !== 'undefined' && cameraPipeline.start) {
+            if (startBtn && typeof cameraPipeline !== 'undefined' && cameraPipeline.start) {
                 cameraPipeline.start = () => { camStartCalls += 1; cameraStarted = true; return Promise.resolve(); };
                 cameraPipeline.stop = () => { camStopCalls += 1; cameraStarted = false; };
             }
-            if (startRow) startRow.click();
-            markState('start switch calls the camera once', '1', String(camStartCalls));
+            if (startBtn) startBtn.click();
+            markState('start button calls the camera once', '1', String(camStartCalls));
             await new Promise((resolve) => setTimeout(resolve, 0));
-            markState('start switch waits for tracking', '等待追踪…',
-                (document.querySelector('#settings-list [data-action="start"] .kb-value') || {}).textContent || 'missing');
-            markState('start switch shows running', 'true',
-                document.querySelector('#settings-list [data-action="start"]')?.getAttribute('aria-checked') || 'missing');
-            const startRowOn = document.querySelector('#settings-list [data-action="start"]');
-            if (startRowOn) startRowOn.click();
+            markState('start button waits for tracking', '等待追踪|waiting',
+                ((document.getElementById('start-btn-label') || {}).textContent || 'missing') + '|'
+                + (startBtn?.dataset.state || 'missing'));
+            markState('start button shows running', 'true',
+                startBtn?.getAttribute('aria-pressed') || 'missing');
+            if (startBtn) startBtn.click();
             markState('switching off stops the camera', '1', String(camStopCalls));
-            markState('start switch returns to off', 'false',
-                document.querySelector('#settings-list [data-action="start"]')?.getAttribute('aria-checked') || 'missing');
+            markState('start button returns to off', 'false',
+                startBtn?.getAttribute('aria-pressed') || 'missing');
+            markState('settings no longer hold the start row', 'none',
+                document.querySelector('#settings-list [data-action="start"]') ? 'found' : 'none');
             if (typeof cameraPipeline !== 'undefined' && camOrigStart) {
                 cameraPipeline.start = camOrigStart;
                 cameraPipeline.stop = camOrigStop;
             }
 
-            // --- 無量空処 easter egg: cut the transit into a full-screen Bilibili video ---
+            // --- 自定义无量空处: cut the transit into a full-screen Bilibili video ---
+            try { localStorage.removeItem('sat0ru.voidEggCustom'); } catch (e) { /* ignore */ }
+            if (typeof voidEggCustom !== 'undefined') voidEggCustom = null;
+            voidEggVersion = 1;
+            updateKeybindMenu();
             const eggRow = document.querySelector('#settings-list [data-action="egg"]');
-            markState('settings include the void easter egg', 'yes', eggRow ? 'yes' : 'no');
-            markState('void easter egg defaults off', 'off',
+            markState('settings include the custom void easter egg', 'yes', eggRow ? 'yes' : 'no');
+            markState('custom void defaults off', 'off',
                 (eggRow && eggRow.getAttribute('aria-checked') === 'false'
                     && typeof voidEggEnabled !== 'undefined' && !voidEggEnabled) ? 'off' : 'on');
             if (eggRow) eggRow.click();
-            markState('egg switch turns on', 'true',
+            markState('custom void switch turns on', 'true',
                 document.querySelector('#settings-list [data-action="egg"]')?.getAttribute('aria-checked') || 'missing');
-            const eggVersionBtns = Array.from(document.querySelectorAll('#settings-list [data-egg-version]'));
-            markState('egg offers two versions and starts at one', '2|1',
+            const eggPanelEl = document.getElementById('egg-panel');
+            markState('egg panel opens with the switch', 'open',
+                eggPanelEl && !eggPanelEl.hidden ? 'open' : 'closed');
+            markState('egg info starts collapsed', 'true',
+                document.getElementById('egg-info')?.hidden === true ? 'true' : 'false');
+            const eggInfoText = document.getElementById('egg-info')?.textContent || '';
+            markState('egg info explains the custom video', 'yes',
+                (eggInfoText.includes('版本 3') && eggInfoText.includes('BV')) ? 'yes' : 'no');
+            const eggInfoToggle = document.getElementById('egg-info-toggle');
+            if (eggInfoToggle) {
+                eggInfoToggle.click();
+            }
+            markState('egg info arrow expands the description', 'true|false',
+                (eggInfoToggle?.getAttribute('aria-expanded') || 'missing') + '|'
+                + (document.getElementById('egg-info')?.hidden ? 'true' : 'false'));
+            const eggVersionBtns = Array.from(document.querySelectorAll('#egg-panel [data-egg-version]'));
+            markState('egg offers three versions and starts at one', '3|1',
                 eggVersionBtns.length + '|' + (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?'));
             if (eggVersionBtns[1]) eggVersionBtns[1].click();
             markState('egg version two is selected', '2|true',
                 (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?') + '|'
-                + (document.querySelector('#settings-list [data-egg-version="2"]')?.getAttribute('aria-pressed') || 'missing'));
+                + (document.querySelector('#egg-panel [data-egg-version="2"]')?.getAttribute('aria-pressed') || 'missing'));
             const eggOverlay = document.getElementById('void-egg');
             markState('void egg overlay starts hidden', 'hidden',
                 eggOverlay && eggOverlay.hidden ? 'hidden' : 'visible');
@@ -1104,6 +1137,47 @@
                 (eggOverlay && eggOverlay.hidden ? 'hidden' : 'visible') + '|'
                 + (!eggFrame || !eggFrame.getAttribute('src') || eggFrame.getAttribute('src') === 'about:blank'
                     ? 'cleared' : 'loaded'));
+            // Version 3: the viewer pastes a Bilibili share link; the app builds its own player URL.
+            const shortParse = parseBilibiliShareUrl('https://b23.tv/abc123');
+            markState('custom egg rejects b23.tv short links', 'short',
+                shortParse.ok ? 'accepted' : shortParse.reason);
+            const parsedShare = parseBilibiliShareUrl(
+                'https://www.bilibili.com/video/BV1xx411c7mD/?p=2&share_source=copy_web');
+            markState('custom egg parser extracts the BV id and page', 'BV1xx411c7mD|2',
+                parsedShare.ok ? parsedShare.video.bvid + '|' + parsedShare.video.page : 'failed');
+            const plainParse = parseBilibiliShareUrl('https://example.com/hello');
+            markState('custom egg rejects text without a video id', 'novideo',
+                plainParse.ok ? 'accepted' : plainParse.reason);
+            if (eggVersionBtns[2]) eggVersionBtns[2].click();
+            markState('egg version three waits for a link', '3|false',
+                (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?') + '|'
+                + (hasVoidEggVideo(3) ? 'true' : 'false'));
+            markState('custom egg input appears for version three', 'shown',
+                document.getElementById('egg-custom') && !document.getElementById('egg-custom').hidden
+                    ? 'shown' : 'hidden');
+            const customInput = document.getElementById('egg-custom-url');
+            const customSave = document.getElementById('egg-custom-save');
+            if (customInput) {
+                customInput.value = 'https://www.bilibili.com/video/BV1xx411c7mD/?p=3';
+                customInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            if (customSave) customSave.click();
+            markState('custom egg saves the pasted link', '3|true',
+                (typeof voidEggVersion !== 'undefined' ? String(voidEggVersion) : '?') + '|'
+                + (hasVoidEggVideo(3) ? 'true' : 'false'));
+            const customUrl = buildVoidEggUrl(3);
+            markState('custom egg plays through the bilibili player', 'yes',
+                (customUrl.startsWith('https://player.bilibili.com/player.html')
+                    && customUrl.includes('bvid=BV1xx411c7mD') && customUrl.includes('page=3')
+                    && customUrl.includes('autoplay=1')) ? 'yes' : customUrl);
+            let savedCustom = null;
+            try { savedCustom = JSON.parse(localStorage.getItem('sat0ru.voidEggCustom') || 'null'); } catch (e) { savedCustom = null; }
+            markState('custom egg link persists locally', 'BV1xx411c7mD|3',
+                (savedCustom && savedCustom.bvid ? savedCustom.bvid : 'none') + '|'
+                + (savedCustom && savedCustom.page ? String(savedCustom.page) : '?'));
+            const customNote = document.getElementById('egg-custom-note')?.textContent || '';
+            markState('custom egg confirms the saved link', 'yes',
+                customNote.includes('BV1xx411c7mD') ? 'yes' : (customNote || 'missing'));
             const eggRowOff = document.querySelector('#settings-list [data-action="egg"]');
             if (eggRowOff) eggRowOff.click();
             markState('egg switch turns off again', 'off',

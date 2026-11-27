@@ -1,6 +1,6 @@
 # 测试与验收 · SAT0RU
 
-两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，202 项 PASS/FAIL），
+两条线：**逻辑靠无摄像头回归**（合成关键点喂真实管线，220 项 PASS/FAIL），
 **视觉靠 Xvfb + 有头 Firefox 截图**（软件渲染只能定性）。改任何识别/阈值/状态机前后都跑第一线；
 动了粒子/配色再跑第二线。
 
@@ -34,7 +34,7 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
   `step(hands, n)` 连续 n 帧（每帧 +33ms）；`drift(x0, dx, n)` 水平平移模拟拖动。
 - `mark(name, expect)` / `markState(...)` 记录 `当前技法 == 期望`。
 
-### 1.4 202 项断言（按顺序）
+### 1.4 220 项断言（按顺序）
 
 名字与回归横幅逐字一致（`LOGICTEST` 面板里能直接对照）；末项 `end` 只是收尾标记。
 
@@ -223,50 +223,67 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 157. guide tab switches the panel
 158. guide drops the old year
 159. about tab switches the panel
-160. main tab returns
-161. settings keep start/debug/voice/voidlong/sfx/egg
-162. settings include a sound-effects switch
-163. sound effects play when enabled
-164. sound-effects switch toggles off
-165. sound effects stay silent when switched off
-166. sound-effects switch toggles back on
-167. first visit shows the intro modal
-168. intro has welcome plus four technique pages
-169. intro credits the original project, fork author and site
-170. intro promises local-only processing
-171. intro carries the asset notice
-172. tutorial technique order
-173. tutorial images live under assets
-174. tutorial image files are served
-175. intro starts at step one
-176. intro acknowledgement button exists
-177. acknowledgement opens the blue tutorial
-178. tutorial walks through to the void page
-179. purple tutorial text drops the old year
-180. finishing the tutorial closes the modal
-181. intro gate reaches the app
-182. camera and model are idle before opt-in
-183. settings include the start switch
-184. start switch defaults off with a click-to-start hint
-185. start switch calls the camera once
-186. start switch waits for tracking
-187. start switch shows running
-188. switching off stops the camera
-189. start switch returns to off
-190. settings include the void easter egg
-191. void easter egg defaults off
-192. egg switch turns on
-193. egg offers two versions and starts at one
-194. egg version two is selected
-195. void egg overlay starts hidden
-196. void cinematic arms for the egg
-197. egg waits for the transit to finish
-198. egg cuts in when the transit ends
-199. egg plays the selected bilibili video
-200. egg can be closed and clears the iframe
-201. egg switch turns off again
-202. end（收尾标记）
-
+160. about credits the manga author
+161. about lists both bilibili videos with thanks
+162. about gives an infringement contact email
+163. about says all assets come from the internet
+164. main tab returns
+165. settings keep debug/voice/voidlong/sfx/egg
+166. settings include a sound-effects switch
+167. sound effects play when enabled
+168. sound-effects switch toggles off
+169. sound effects stay silent when switched off
+170. sound-effects switch toggles back on
+171. first visit shows the intro modal
+172. intro has welcome plus four technique pages
+173. intro credits the manga author, original project, fork author and site
+174. intro promises local-only processing
+175. intro carries the asset notice and contact
+176. tutorial technique order
+177. tutorial images live under assets
+178. tutorial image files are served
+179. intro starts at step one
+180. intro acknowledgement button exists
+181. acknowledgement opens the blue tutorial
+182. tutorial walks through to the void page
+183. purple tutorial text drops the old year
+184. finishing the tutorial closes the modal
+185. intro gate reaches the app
+186. camera and model are idle before opt-in
+187. top bar holds the start button
+188. start button defaults off with a click-to-start label
+189. start button calls the camera once
+190. start button waits for tracking
+191. start button shows running
+192. switching off stops the camera
+193. start button returns to off
+194. settings no longer hold the start row
+195. settings include the custom void easter egg
+196. custom void defaults off
+197. custom void switch turns on
+198. egg panel opens with the switch
+199. egg info starts collapsed
+200. egg info explains the custom video
+201. egg info arrow expands the description
+202. egg offers three versions and starts at one
+203. egg version two is selected
+204. void egg overlay starts hidden
+205. void cinematic arms for the egg
+206. egg waits for the transit to finish
+207. egg cuts in when the transit ends
+208. egg plays the selected bilibili video
+209. egg can be closed and clears the iframe
+210. custom egg rejects b23.tv short links
+211. custom egg parser extracts the BV id and page
+212. custom egg rejects text without a video id
+213. egg version three waits for a link
+214. custom egg input appears for version three
+215. custom egg saves the pasted link
+216. custom egg plays through the bilibili player
+217. custom egg link persists locally
+218. custom egg confirms the saved link
+219. egg switch turns off again
+220. end（收尾标记）
 ### 1.5 加用例的坑
 
 - **2 秒冷却**：赫/茈/無量空処触发后要空步 drain ~60~80 帧（×33ms ≈ 2~2.6s）；苍释放是 2.5s 演出 + 2s 锁，
@@ -515,14 +532,14 @@ CHROME=~/.cache/ms-playwright/chromium-1255/chrome-linux64/chrome
 
 验「摄像头能开但没追踪」不需要真机：加
 `--use-fake-device-for-media-stream --use-fake-ui-for-media-stream`，用 CDP（`websockets` +
-`--remote-debugging-port`）点完教程、点「启动按钮」；启动行应从「等待追踪…」变成「追踪中」，
+`--remote-debugging-port`）点完教程、点顶部栏「启动」按钮；按钮标签应从「等待追踪」变成「追踪中」，
 D 面板里 `camera: tracking frames:N last:...ms err:-` 持续增长。首次要下载/编译约 23MB 模型，
 **10s 左右才出第一帧是正常的**；20s 仍无结果看门狗才报「追踪无输出」。
 
 ## 3. 交付前验收清单
 
 - [ ] `node --check` 通过
-- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（202 项）
+- [ ] 重建 `logic-test.html`，截图确认 `LOGICTEST PASS`（220 项）
 - [ ] 动过视觉 → 截 `end=charge` / `end=red` / `end=purplecharge` / `end=purpleburst` / `end=void` / `end=voidform` / `end=voidring` / `end=voidclear` / `end=voidlong` / `end=claspblue` / `end=claspred` / `end=claspconverge` / `end=claspvortex` / `end=claspclash` / `end=claspburst`（或相应态）确认无穿帮
 - [ ] 动过顶栏/侧栏 → 确认：闲置时中央无字、技法名白色居中、菜单按钮开合侧栏、三个小菜单可切换、设置 5 个开关（D/H/V/L/SFX）可切换、音频库 9 行可播放/停止、右上提示随「茈」模式变化
 - [ ] 动过性能相关（fieldIdle、粒子数、DPR）→ D 面板看 fps，至少不劣化

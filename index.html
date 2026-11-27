@@ -170,6 +170,12 @@
         a.about-v { color: var(--accent); cursor: pointer; pointer-events: auto; }
         a.about-v:hover { color: var(--accent-hover); text-decoration: underline; }
         .about-note { margin-top: 9px; font-size: 11px; line-height: 1.6; color: var(--text-tertiary); }
+        .about-note a { color: var(--accent); text-decoration: none; word-break: break-all; }
+        .about-note a:hover { color: var(--accent-hover); text-decoration: underline; }
+        .about-video { margin-top: 8px; font-size: 11px; line-height: 1.6; color: var(--text-tertiary); }
+        .about-video a { color: var(--text-secondary); text-decoration: none; }
+        .about-video a:hover { color: var(--accent); text-decoration: underline; }
+        .about-video span { display: block; font-size: 10.5px; color: var(--text-tertiary); }
         .about-sep { margin-top: 12px; margin-bottom: 6px; font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--text-tertiary); }
 
         #idle-flash {
@@ -286,13 +292,28 @@
         .intro-btn.primary:hover { color: #1a1408; background: var(--accent-hover); border-color: var(--accent-hover); }
         .intro-btn[hidden] { display: none !important; }
 
-        /* Primary start row + egg version selector in the settings panel. */
-        .set-row.primary { margin: 2px 0 6px; padding: 11px 10px; border: 1px solid rgba(216,166,87,.30); border-radius: 8px; background: rgba(216,166,87,.08); }
-        .set-row.primary:hover { background: rgba(216,166,87,.13); }
-        .set-row.primary .set-label { color: var(--text-primary); font-size: 13px; font-weight: 600; }
-        .set-row.primary .kb-key { color: var(--accent); border-color: rgba(216,166,87,.35); background: rgba(216,166,87,.12); }
-        .set-row.primary .kb-value { color: var(--accent); }
-        .egg-versions { display: flex; align-items: center; gap: 6px; padding: 0 0 6px 46px; }
+        /* Camera start: top-bar button, the only way to create the camera/model. */
+        #start-btn {
+            display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px; flex: none;
+            font-family: inherit; font-size: 12px; font-weight: 600; letter-spacing: .02em; line-height: 1;
+            color: var(--text-secondary); cursor: pointer; pointer-events: auto;
+            background: rgba(20,20,22,.5); border: 1px solid var(--stroke);
+            border-radius: 10px; backdrop-filter: blur(12px) saturate(150%); -webkit-backdrop-filter: blur(12px) saturate(150%);
+            transition: color .18s, background .18s, border-color .18s, box-shadow .18s;
+        }
+        #start-btn:hover { color: var(--text-primary); background: var(--bg-surface-hover); border-color: var(--stroke-light); }
+        #start-btn svg { width: 14px; height: 14px; display: block; flex: none; }
+        #start-btn[aria-pressed="true"] { color: var(--text-primary); border-color: rgba(216,166,87,.55); background: rgba(216,166,87,.12); }
+        #start-btn[data-state="starting"], #start-btn[data-state="waiting"] { color: var(--accent); border-color: rgba(216,166,87,.55); background: rgba(216,166,87,.12); }
+        #start-btn[data-state="tracking"] { color: #b9f5cf; border-color: rgba(110,230,160,.55); background: rgba(60,160,100,.16); box-shadow: 0 0 14px rgba(80,220,140,.12); }
+        #start-btn[data-state="tracking"] svg { animation: startPulse 2s ease-in-out infinite; }
+        #start-btn[data-state="stalled"], #start-btn[data-state="error"] { color: #ffb4b4; border-color: rgba(255,110,110,.55); background: rgba(170,50,50,.18); }
+        @keyframes startPulse { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+        /* 自定义无量空处: version selector, expandable note, custom link box. */
+        .egg-panel { padding: 2px 0 4px 46px; }
+        .egg-panel[hidden] { display: none !important; }
+        .egg-versions { display: flex; align-items: center; gap: 6px; padding: 0 0 6px; }
         .egg-versions-label { font-size: 11px; color: var(--text-tertiary); }
         .egg-version-btn {
             min-width: 30px; padding: 4px 8px;
@@ -303,6 +324,39 @@
         }
         .egg-version-btn:hover { color: var(--text-primary); border-color: var(--stroke-light); }
         .egg-version-btn[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+        .egg-info-toggle {
+            margin-left: auto; padding: 4px 7px;
+            font-family: inherit; font-size: 10.5px; color: var(--text-tertiary);
+            background: none; border: 0; border-radius: 5px; cursor: pointer;
+            transition: color .15s, background .15s;
+        }
+        .egg-info-toggle:hover { color: var(--text-primary); background: var(--bg-surface-hover); }
+        .egg-info-toggle::after { content: ' ▾'; }
+        .egg-info-toggle[aria-expanded="true"]::after { content: ' ▴'; }
+        .egg-info {
+            margin: 0 0 8px; padding: 8px 10px;
+            font-size: 10.5px; line-height: 1.7; color: var(--text-tertiary);
+            background: var(--bg-surface); border: 1px solid var(--stroke); border-radius: 7px;
+        }
+        .egg-info[hidden] { display: none !important; }
+        .egg-info b { color: var(--text-secondary); font-weight: 600; }
+        .egg-custom { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-bottom: 6px; }
+        .egg-custom[hidden] { display: none !important; }
+        .egg-custom-input {
+            flex: 1 1 100%; min-width: 0; height: 30px; padding: 0 8px; box-sizing: border-box;
+            font-family: inherit; font-size: 11px; color: var(--text-primary);
+            background: rgba(0,0,0,.22); border: 1px solid var(--stroke); border-radius: 6px; outline: none;
+        }
+        .egg-custom-input:focus { border-color: var(--accent); }
+        .egg-custom-input::placeholder { color: var(--text-tertiary); }
+        .egg-custom-save {
+            height: 28px; padding: 0 10px;
+            font-family: inherit; font-size: 11px; font-weight: 600;
+            color: #1a1408; background: var(--accent); border: 1px solid var(--accent); border-radius: 6px; cursor: pointer;
+        }
+        .egg-custom-save:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .egg-custom-note { flex: 1 1 100%; font-size: 10.5px; line-height: 1.6; color: var(--text-tertiary); word-break: break-all; }
+        .egg-custom-note.error { color: #ff9a9a; }
 
         /* Void easter egg: a full-viewport Bilibili player after the transit cut. */
         #void-egg { position: fixed; inset: 0; z-index: 9500; display: flex; flex-direction: column; background: #000; }
@@ -349,8 +403,10 @@
             #menu-btn, #purple-mode-btn { width: 34px; height: 34px; }
             #menu-btn svg { width: 16px; height: 16px; }
             #purple-mode-btn { font-size: 16px; }
-            #ui h1 { font-size: 13px; }
-            #technique-name { font-size: 15px; max-width: 46vw; letter-spacing: .02em; }
+            #ui h1 { display: none; }
+            #start-btn { height: 34px; padding: 0 9px; gap: 5px; font-size: 11px; }
+            #start-btn svg { width: 13px; height: 13px; }
+            #technique-name { font-size: 15px; max-width: 42vw; letter-spacing: .02em; }
             #left-rail {
                 top: calc(58px + env(safe-area-inset-top)); left: 8px;
                 bottom: calc(8px + env(safe-area-inset-bottom));
@@ -359,6 +415,9 @@
             .rail-tab { padding: 9px 2px; font-size: 12px; }
             .set-row { padding: 9px 0; }
             .audio-row { padding: 8px 0; }
+            .egg-panel { padding-left: 0; }
+            .egg-custom-input { height: 34px; font-size: 12px; }
+            .egg-custom-save { height: 32px; font-size: 12px; }
             #debug-panel {
                 top: calc(58px + env(safe-area-inset-top)); right: 8px;
                 width: calc(100vw - 16px);
@@ -442,6 +501,7 @@
                     <p class="intro-sub">咒术回战手势粒子工具 · 单人拍摄 / 娱乐用途 · 五条悟模式</p>
                     <div class="intro-grid">
                         <div class="intro-facts">
+                            <div class="intro-fact"><span class="intro-fact-k">原作作者</span><span class="intro-fact-v">芥见下下 / Gege Akutami</span></div>
                             <div class="intro-fact"><span class="intro-fact-k">原版项目</span><span class="intro-fact-v"><a href="https://github.com/reinesana/SAT0RU" target="_blank" rel="noopener">reinesana/SAT0RU</a></span></div>
                             <div class="intro-fact"><span class="intro-fact-k">改版作者</span><span class="intro-fact-v">闪耀金金 / ShanyJin</span></div>
                             <div class="intro-fact"><span class="intro-fact-k">个人网站</span><span class="intro-fact-v"><a href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></span></div>
@@ -450,11 +510,11 @@
                         </div>
                         <div class="intro-notice">
                             <p><strong>本项目不会上传任何内容。</strong>摄像头调用是本地算力：手部识别使用 <strong>MediaPipe Hands</strong>（Google 开源，依赖与模型已放在本地 <code>vendor/</code>），粒子画面使用 <strong>three.js</strong>。全部推理都在你的浏览器里完成，不上传、不保存任何摄像头画面或识别数据。</p>
-                            <p>默认<strong>不调用摄像头</strong>。只有你在左侧栏打开「启动按钮」后，浏览器才会请求摄像头权限；随时关掉开关即可停止，页面不会保留画面。</p>
-                            <p>唯一的外部请求：如果你手动开启并触发「無量空処 · 亂入影院」彩蛋，才会加载哔哩哔哩播放器。默认关闭。</p>
+                            <p>默认<strong>不调用摄像头</strong>。只有你在顶部栏点「启动」后，浏览器才会请求摄像头权限；随时再点一下即可停止，页面不会保留画面。</p>
+                            <p>唯一的外部请求：如果你手动开启并触发「自定义无量空处」，才会加载哔哩哔哩播放器（版本 3 使用的是你自己粘贴的链接）。默认关闭。</p>
                         </div>
                     </div>
-                    <div class="intro-asset-note">所有用到的素材均取自于网络，无任何侵权行为。仅作个人非商业展示。</div>
+                    <div class="intro-asset-note">感谢《咒术回战》作者芥见下下。所有用到的素材均来源于网络，仅作个人非商业展示；如有侵权，请邮件联系 shanyaojinjin@gmail.com。</div>
                 </section>
 
                 <section class="intro-page" data-intro-page="blue" hidden>
@@ -530,7 +590,7 @@
                                 <div class="intro-step-item"><span class="intro-step-num">03</span><span class="intro-step-text"><strong>语音与动画：</strong>保持 1 秒播放单人版语音；保持 3 秒自动进入开场动画。</span></div>
                                 <div class="intro-step-item"><span class="intro-step-num">04</span><span class="intro-step-text"><strong>长版：</strong>左侧栏打开「长时间无量空处」后，保持 1 秒即展开并播放 31 秒长语音，原地再保持 8 秒才进入超长动画。</span></div>
                             </div>
-                            <div class="intro-tip">教程结束后，请在左侧栏打开<strong>「启动按钮」</strong>；只有开启开关，摄像头才会启动。</div>
+                            <div class="intro-tip">教程结束后，请在顶部栏点<strong>「启动」</strong>；只有开启按钮，摄像头才会启动。</div>
                         </div>
                     </div>
                 </section>
@@ -546,12 +606,12 @@
         </div>
     </div>
 
-    <div id="void-egg" hidden role="dialog" aria-modal="true" aria-label="無量空処 · 亂入影院">
+    <div id="void-egg" hidden role="dialog" aria-modal="true" aria-label="自定义无量空处">
         <div class="void-egg-bar">
-            <div><strong>無量空処 · 亂入影院</strong><span class="void-egg-hint">若未自动播放，请点一下播放器 ▶</span></div>
+            <div><strong>自定义无量空处</strong><span class="void-egg-hint">若未自动播放，请点一下播放器 ▶</span></div>
             <button class="void-egg-close" type="button" id="void-egg-close">关闭 · Esc</button>
         </div>
-        <iframe id="void-egg-frame" class="void-egg-frame" src="about:blank" title="哔哩哔哩彩蛋视频" scrolling="no" frameborder="no" allow="autoplay; fullscreen; encrypted-media" allowfullscreen="true" referrerpolicy="no-referrer"></iframe>
+        <iframe id="void-egg-frame" class="void-egg-frame" src="about:blank" title="哔哩哔哩自定义视频" scrolling="no" frameborder="no" allow="autoplay; fullscreen; encrypted-media" allowfullscreen="true" referrerpolicy="no-referrer"></iframe>
     </div>
 
     <header id="ui">
@@ -560,6 +620,13 @@
                 <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
                     <path d="M3 5.5h14M3 10h14M3 14.5h14"/>
                 </svg>
+            </button>
+            <button id="start-btn" type="button" aria-pressed="false" data-state="off" title="启动摄像头">
+                <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
+                    <path d="M10 2.5v7"/>
+                    <path d="M6.2 5.4a6 6 0 1 0 7.6 0"/>
+                </svg>
+                <span id="start-btn-label">启动</span>
             </button>
             <h1>呪術廻戦 <span class="sub">Domain Expansion</span></h1>
         </div>
@@ -586,6 +653,24 @@
         <section class="rail-panel" id="rail-panel-main" data-panel="main" role="tabpanel">
             <div class="panel-title">设置 · Settings</div>
             <div id="settings-list"></div>
+            <div id="egg-panel" class="egg-panel" hidden>
+                <div class="egg-versions" role="group" aria-label="自定义无量空处视频版本">
+                    <span class="egg-versions-label">视频版本</span>
+                    <button class="egg-version-btn" type="button" data-egg-version="1" aria-pressed="true">1</button>
+                    <button class="egg-version-btn" type="button" data-egg-version="2" aria-pressed="false">2</button>
+                    <button class="egg-version-btn" type="button" data-egg-version="3" aria-pressed="false" title="使用你粘贴的链接">3</button>
+                    <button class="egg-info-toggle" type="button" id="egg-info-toggle" aria-expanded="false" aria-controls="egg-info">说明</button>
+                </div>
+                <div class="egg-info" id="egg-info" hidden>
+                    <b>是什么：</b>短版無量空処动画播到「穿梭」、白环出现前切断，全屏播放 B 站视频；Esc 或「关闭」退出。长版动画不触发。<br>
+                    <b>版本 3：</b>在下面粘贴 B 站视频完整链接（含 BV 号，可带 <code>?p=</code> 集数）后保存，仍然由 B 站官方播放器播放。<b>b23.tv 短链</b>请先在浏览器打开，再复制地址栏里 <code>bilibili.com/video/BV...</code> 的完整链接。
+                </div>
+                <div class="egg-custom" id="egg-custom" hidden>
+                    <input class="egg-custom-input" id="egg-custom-url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://www.bilibili.com/video/BV...">
+                    <button class="egg-custom-save" id="egg-custom-save" type="button">保存链接</button>
+                    <div class="egg-custom-note" id="egg-custom-note"></div>
+                </div>
+            </div>
             <div class="panel-title panel-title-gap">音频 · Audio</div>
             <div id="audio-list"></div>
         </section>
@@ -597,6 +682,7 @@
             <div class="panel-title">关于 · About</div>
             <div id="about-body">
                 <div class="about-block">
+                    <div class="about-row"><span class="about-k">原作作者</span><span class="about-v">芥见下下 / Gege Akutami</span></div>
                     <div class="about-row"><span class="about-k">改版作者</span><span class="about-v">闪耀金金 / ShanyJin</span></div>
                     <div class="about-row"><span class="about-k">个人网站</span><a class="about-v" href="https://shany.cc" target="_blank" rel="noopener">shany.cc</a></div>
                     <div class="about-row"><span class="about-k">改版仓库</span><a class="about-v" href="https://github.com/shanyaojinjin/SAT0RU" target="_blank" rel="noopener">github.com/shanyaojinjin/SAT0RU</a></div>
@@ -604,15 +690,32 @@
                     <div class="about-row"><span class="about-k">构建</span><span class="about-v" id="build-tag">-</span></div>
                 </div>
                 <div class="about-note">
-                    为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（彩蛋关闭时不发外部请求），
+                    为中国和中文做了本地优化：界面与技法名中文化、依赖全部本地化（自定义无量空处关闭时不发外部请求），
                     并优化了手势识别（分数制 + EMA 平滑、连续保持判定、防误触冷却）。
-                    首次进入先看启动说明和四式教程；摄像头默认关闭，只有手动打开左侧「启动按钮」才会调用。
+                    首次进入先看启动说明和四式教程；摄像头默认关闭，只有手动点顶部栏「启动」才会调用。
                 </div>
                 <div class="about-note">
                     保留原版语音支持；在此之上做粒子效果叠加、增添「蒼」手势，
                     以及無量空処开场动画、各术式语音、左侧音频库与长时间无量空处等本版新增演出。
-                    第一个设置页还有「彩蛋 · 乱入影院」：无量空处穿越时切到 B 站视频，可选版本 1 / 2。
+                    第一个设置页还有「自定义无量空处」：无量空处穿越时切到 B 站视频，可选版本 1 / 2 / 3；
+                    版本 3 使用你自己粘贴的 B 站链接，仍然由 B 站官方播放器播放。
                     原版音效与上面未提到的动作，我们之后再补。
+                </div>
+                <div class="about-sep">素材与鸣谢</div>
+                <div class="about-note">
+                    感谢《咒术回战》原作者<strong>芥见下下</strong>与集英社创作了这部作品；本作是非官方、非商业的个人粉丝作品，与版权方无隶属关系。
+                </div>
+                <div class="about-video">
+                    彩蛋视频 1 · <a href="https://www.bilibili.com/video/BV17XMf6nE1v" target="_blank" rel="noopener">《现代最强vs史上最强 完整版新宿决战》</a>
+                    <span>UP 主：牢厄Neikos496x · 感谢分享</span>
+                </div>
+                <div class="about-video">
+                    彩蛋视频 2 · <a href="https://www.bilibili.com/video/BV1QC3G6DEKX" target="_blank" rel="noopener">《「新宿决战」雨爱版》</a>
+                    <span>UP 主：望穿秋水145 · 感谢分享</span>
+                </div>
+                <div class="about-note">
+                    所有素材均来源于网络，仅作个人非商业展示。如有侵权，请邮件告知
+                    <a href="mailto:shanyaojinjin@gmail.com">shanyaojinjin@gmail.com</a>，我会尽快删除。
                 </div>
                 <div class="about-sep">用到的开源项目</div>
                 <div class="about-block">
@@ -620,7 +723,7 @@
                     <div class="about-row"><span class="about-k">three.js r160</span><span class="about-v">MIT · three.js authors</span></div>
                     <div class="about-row"><span class="about-k">SAT0RU</span><span class="about-v">原版项目 · 无 LICENSE</span></div>
                 </div>
-                <div class="about-note">单人拍摄 / 娱乐用途，个人非商业项目。所有用到的素材均取自于网络，如涉版权请联系删除。上游无 LICENSE，本仓库仅做本地提交。</div>
+                <div class="about-note">单人拍摄 / 娱乐用途，个人非商业项目。上游无 LICENSE，本仓库仅做本地提交。</div>
             </div>
         </section>
         <div class="rail-foot">左上角菜单按钮可收起本栏</div>
@@ -1305,32 +1408,90 @@
     let lastFrameNowMs = 0;
     const voidCinemaEl = document.getElementById('void-cinema');
 
-    // --- 無量空処 easter egg「亂入影院」 ---------------------------------------
+    // --- 自定义无量空处 ---------------------------------------------------------
     // With the switch on, the normal (short) domain cinematic plays only up to the transit
     // at ringAtMs, then cuts to a full-screen Bilibili player instead of showing the ring.
+    // Versions 1/2 are built-in videos; version 3 is a user-pasted link stored locally.
     // The long-void timeline is untouched: that one is a 34 s authored sequence.
     const VOID_EGG_VIDEOS = {
         1: { aid: '117035593895989', bvid: 'BV17XMf6nE1v', cid: '40580808762' },
         2: { aid: '116981084717124', bvid: 'BV1QC3G6DEKX', cid: '40301496754' }
     };
+    const VOID_EGG_CUSTOM_KEY = 'sat0ru.voidEggCustom';
     let voidEggEnabled = false;
     let voidEggVersion = 1;
     let voidEggOpen = false;
+    let voidEggCustom = loadVoidEggCustom();
+    let eggCustomDraft = formatVoidEggLink(voidEggCustom);
     const voidEggEl = document.getElementById('void-egg');
     const voidEggFrame = document.getElementById('void-egg-frame');
     const voidEggCloseBtn = document.getElementById('void-egg-close');
 
+    function loadVoidEggCustom() {
+        try {
+            const raw = localStorage.getItem(VOID_EGG_CUSTOM_KEY);
+            if (!raw) return null;
+            const value = JSON.parse(raw);
+            if (!value) return null;
+            const bvid = typeof value.bvid === 'string' && /^BV[0-9A-Za-z]{10}$/.test(value.bvid) ? value.bvid : '';
+            const aid = typeof value.aid === 'string' && /^\d{1,12}$/.test(value.aid) ? value.aid : '';
+            const page = Math.max(1, Math.min(9999, Number(value.page) || 1));
+            return (bvid || aid) ? { bvid, aid, page } : null;
+        } catch (e) {
+            return null; // blocked storage / bad JSON: behave as "no custom link"
+        }
+    }
+
+    function formatVoidEggLink(video) {
+        if (!video) return '';
+        const id = video.bvid || ('av' + video.aid);
+        return 'https://www.bilibili.com/video/' + id + (video.page > 1 ? '/?p=' + video.page : '');
+    }
+
+    // Full bilibili.com/video/BV... share links (even inside share text) and avNNN ids.
+    // b23.tv is a redirect short link: resolving it needs the network, so ask the user
+    // to open it once and copy the expanded link instead.
+    function parseBilibiliShareUrl(input) {
+        const text = String(input || '').trim();
+        if (!text) return { ok: false, reason: 'empty' };
+        if (/b23\.tv/i.test(text)) return { ok: false, reason: 'short' };
+        const pageMatch = text.match(/[?&]p=(\d{1,4})/);
+        const page = pageMatch ? Math.max(1, Number(pageMatch[1])) : 1;
+        const bv = text.match(/BV[0-9A-Za-z]{10}/);
+        if (bv) return { ok: true, video: { bvid: bv[0], aid: '', page } };
+        const av = text.match(/(?:^|[^0-9A-Za-z])av(\d{1,12})(?![0-9A-Za-z])/i);
+        if (av) return { ok: true, video: { bvid: '', aid: av[1], page } };
+        return { ok: false, reason: 'novideo' };
+    }
+
+    function hasVoidEggVideo(version = voidEggVersion) {
+        return Number(version) === 3 ? !!voidEggCustom : !!VOID_EGG_VIDEOS[version];
+    }
+
+    function describeVoidEggCustom(video) {
+        const id = video.bvid || ('av' + video.aid);
+        return id + (video.page > 1 ? '（第 ' + video.page + ' 集）' : '');
+    }
+
     function buildVoidEggUrl(version = voidEggVersion) {
+        if (Number(version) === 3) {
+            if (!voidEggCustom) return 'about:blank';
+            const custom = voidEggCustom;
+            // Same official iframe player as versions 1/2; the bvid is enough, no cid needed.
+            return 'https://player.bilibili.com/player.html?isOutside=true'
+                + (custom.bvid ? '&bvid=' + encodeURIComponent(custom.bvid) : '&aid=' + encodeURIComponent(custom.aid))
+                + '&page=' + (custom.page || 1) + '&autoplay=1&danmaku=0&high_quality=1';
+        }
         const video = VOID_EGG_VIDEOS[version] || VOID_EGG_VIDEOS[1];
         // The iframe player itself is cross-origin: `autoplay=1` is a request, not a promise.
         // The page keeps a visible hint telling the user to press play if the browser blocks it.
         return 'https://player.bilibili.com/player.html?isOutside=true'
             + '&aid=' + video.aid + '&bvid=' + video.bvid + '&cid=' + video.cid
-            + '&p=1&autoplay=1&danmaku=0&high_quality=1';
+            + '&page=1&autoplay=1&danmaku=0&high_quality=1';
     }
 
     function openVoidEgg() {
-        if (voidEggOpen || !voidEggEl || !voidEggFrame) return;
+        if (voidEggOpen || !voidEggEl || !voidEggFrame || !hasVoidEggVideo()) return;
         voidEggOpen = true;
         voidEggFrame.src = buildVoidEggUrl();
         voidEggEl.hidden = false;
@@ -1364,10 +1525,35 @@
     }
 
     function setVoidEggVersion(version) {
-        const next = Number(version) === 2 ? 2 : 1;
-        if (next === voidEggVersion) return;
+        const next = [1, 2, 3].includes(Number(version)) ? Number(version) : 1;
+        if (next === voidEggVersion) {
+            updateEggPanel();
+            return;
+        }
         voidEggVersion = next;
         updateKeybindMenu();
+        if (next === 3 && eggCustomInput && window.innerWidth > 600) eggCustomInput.focus();
+    }
+
+    function saveVoidEggCustom(rawText) {
+        const parsed = parseBilibiliShareUrl(rawText);
+        if (!parsed.ok) {
+            setEggCustomNote(parsed.reason === 'short'
+                ? 'b23.tv 短链无法离线解析：请先在浏览器打开，再复制地址栏里含 BV 号的完整链接。'
+                : parsed.reason === 'empty'
+                    ? '请先粘贴 B 站视频链接。'
+                    : '没有找到 BV 号：请粘贴 bilibili.com/video/BV... 的完整链接。', true);
+            return false;
+        }
+        voidEggCustom = parsed.video;
+        voidEggVersion = 3;
+        eggCustomDraft = String(rawText || '').trim();
+        try {
+            localStorage.setItem(VOID_EGG_CUSTOM_KEY, JSON.stringify(parsed.video));
+        } catch (e) { /* private mode / blocked storage: keep it for this session */ }
+        updateKeybindMenu();
+        setEggCustomNote('已保存 ' + describeVoidEggCustom(parsed.video) + '；版本 3 将使用这个视频。', false);
+        return true;
     }
 
     if (voidEggCloseBtn) voidEggCloseBtn.addEventListener('click', closeVoidEgg);
@@ -1523,9 +1709,10 @@
             finishVoidCinematic();
             return;
         }
-        // Easter egg「亂入影院」: cut right at the transit/ring hand-off. The white ring is
-        // never shown; the Bilibili overlay takes the whole screen instead.
-        if (voidEggEnabled && !cine.long && !cine.eggFired && age >= C.ringAtMs) {
+        // 自定义无量空处: cut right at the transit/ring hand-off. The white ring is
+        // never shown; the Bilibili overlay takes the whole screen instead. Version 3
+        // without a saved link leaves the normal cinematic untouched.
+        if (voidEggEnabled && hasVoidEggVideo() && !cine.long && !cine.eggFired && age >= C.ringAtMs) {
             cine.eggFired = true;
             finishVoidCinematic();
             openVoidEgg();
@@ -2240,6 +2427,17 @@
     const purpleHint = document.getElementById('purple-hint');
     let purpleMode = false; // top-bar right 「茈」 switch: the button selects the technique, it does not cast
     const settingsList = document.getElementById('settings-list');
+    const startBtn = document.getElementById('start-btn');
+    const startBtnLabel = document.getElementById('start-btn-label');
+    const eggPanel = document.getElementById('egg-panel');
+    const eggVersionBtns = Array.from(document.querySelectorAll('#egg-panel [data-egg-version]'));
+    const eggInfoToggle = document.getElementById('egg-info-toggle');
+    const eggInfoEl = document.getElementById('egg-info');
+    const eggCustomEl = document.getElementById('egg-custom');
+    const eggCustomInput = document.getElementById('egg-custom-url');
+    const eggCustomSave = document.getElementById('egg-custom-save');
+    const eggCustomNote = document.getElementById('egg-custom-note');
+    let eggInfoOpen = false;
     const leftRail = document.getElementById('left-rail');
     const railTabButtons = Array.from(document.querySelectorAll('#left-rail .rail-tab'));
     const railPanels = Array.from(document.querySelectorAll('#left-rail .rail-panel'));
@@ -2259,7 +2457,7 @@
 
     // --- First-run gate -----------------------------------------------------
     // The camera, MediaPipe graph and render loop all stay idle until the intro dialog is
-    // finished. The camera itself stays off until the user flips the「启动按钮」switch.
+    // finished. The camera itself stays off until the user presses the top-bar「启动」button.
     const INTRO_PAGES = ['welcome', 'blue', 'red', 'purple', 'void'];
     const INTRO_TECH_LABELS = { blue: '蒼', red: '赫', purple: '茈', void: '無量空処' };
     let introPage = 0;
@@ -2277,7 +2475,7 @@
     let cameraStartedAtMs = 0;
     const TRACK_STALL_MS = 20000;
     // Shown in the About panel so a stale cached page is instantly recognisable.
-    const BUILD_TAG = '11-27 · 契印单手守卫 4 · 手机适配';
+    const BUILD_TAG = '11-27 · 顶部启动 + 自定义无量空处';
     const buildTagEl = document.getElementById('build-tag');
     if (buildTagEl) buildTagEl.textContent = BUILD_TAG;
 
@@ -2319,7 +2517,7 @@
             introFootNote.textContent = introPage === 0
                 ? '先看清说明，再开始'
                 : introPage === INTRO_PAGES.length - 1
-                    ? '教程结束 · 之后在左侧栏打开「启动按钮」才会调用摄像头'
+                    ? '教程结束 · 之后点顶部栏「启动」才会调用摄像头'
                     : '第 ' + introPage + ' / 4 式 · ' + INTRO_TECH_LABELS[name];
         }
         if (introBody) introBody.scrollTop = 0;
@@ -3530,37 +3728,74 @@
         debugPanel.style.display = debugEnabled ? 'block' : 'none';
     }
 
-    function updateKeybindMenu() {
-        const cameraNote = cameraStatus === 'starting' ? '启动中…'
+    function updateStartButton() {
+        if (!startBtn) return;
+        const label = cameraStatus === 'starting' ? '启动中'
             : cameraStatus === 'tracking' ? '追踪中'
-                : cameraStatus === 'on' ? '等待追踪…'
-                    : cameraStatus === 'stalled' ? (trackLastError ? '追踪失败' : '追踪无输出')
+                : cameraStatus === 'on' ? '等待追踪'
+                    : cameraStatus === 'stalled' ? '追踪异常'
                         : cameraStatus === 'error' ? '启动失败'
-                            : '点击开始';
+                            : '启动';
+        startBtn.dataset.state = cameraStatus === 'on' ? 'waiting' : cameraStatus;
+        startBtn.setAttribute('aria-pressed', cameraEnabled ? 'true' : 'false');
+        startBtn.title = cameraEnabled ? '关闭摄像头 · ' + label : '启动摄像头';
+        if (startBtnLabel) startBtnLabel.textContent = label;
+    }
+
+    function setEggCustomNote(text, isError) {
+        if (!eggCustomNote) return;
+        eggCustomNote.textContent = text || '';
+        eggCustomNote.classList.toggle('error', !!isError);
+    }
+
+    function updateEggPanel() {
+        if (!eggPanel) return;
+        eggPanel.hidden = !voidEggEnabled;
+        eggVersionBtns.forEach((btn) => {
+            btn.setAttribute('aria-pressed',
+                Number(btn.dataset.eggVersion) === voidEggVersion ? 'true' : 'false');
+        });
+        if (eggInfoToggle) eggInfoToggle.setAttribute('aria-expanded', eggInfoOpen ? 'true' : 'false');
+        if (eggInfoEl) eggInfoEl.hidden = !eggInfoOpen;
+        const customMode = voidEggVersion === 3;
+        if (eggCustomEl) eggCustomEl.hidden = !customMode;
+        if (eggCustomInput && document.activeElement !== eggCustomInput) {
+            eggCustomInput.value = eggCustomDraft;
+        }
+        if (customMode) {
+            setEggCustomNote(voidEggCustom
+                ? '已保存：' + describeVoidEggCustom(voidEggCustom) + '。重新粘贴可替换。'
+                : '还没有自定义视频：粘贴 B 站完整链接后点「保存链接」。', false);
+        } else {
+            setEggCustomNote('', false);
+        }
+    }
+
+    function updateKeybindMenu() {
+        updateStartButton();
         const settings = [
-            { action: 'start', key: '▶', label: '启动按钮 · Start', on: cameraEnabled, note: cameraNote, primary: true },
             { action: 'debug', key: KEYBINDS.debug, label: '调试面板 · Debug', on: debugEnabled },
             { action: 'voice', key: KEYBINDS.voice, label: '语音 · Voice', on: voiceEnabled, note: voiceStatus !== 'OFF' ? voiceStatus : '' },
             { action: 'voidlong', key: KEYBINDS.voidlong, label: '长时间无量空处 · Long Void', on: voidLongMode },
             { action: 'sfx', key: 'SFX', label: '音效 · Release SFX', on: sfxEnabled },
-            { action: 'egg', key: '★', label: '彩蛋 · 乱入影院', on: voidEggEnabled, note: voidEggEnabled ? '版本 ' + voidEggVersion : 'B 站视频' }
+            {
+                action: 'egg', key: '★', label: '自定义无量空处', on: voidEggEnabled,
+                note: voidEggEnabled
+                    ? (voidEggVersion === 3 && !voidEggCustom ? '版本 3 · 未设链接' : '版本 ' + voidEggVersion)
+                    : 'B 站视频'
+            }
         ];
         if (settingsList) {
-            const rows = settings.map(({ action, key, label, on, note, primary }) => `
-                <button class="set-row${primary ? ' primary' : ''}" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" data-action="${action}">
+            const rows = settings.map(({ action, key, label, on, note }) => `
+                <button class="set-row" type="button" role="switch" aria-checked="${on ? 'true' : 'false'}" data-action="${action}">
                     <span class="kb-key">${key}</span>
                     <span class="set-label">${label}</span>
                     ${note ? `<span class="kb-value">${note}</span>` : ''}
                     <span class="set-track" aria-hidden="true"></span>
                 </button>`).join('');
-            const versions = voidEggEnabled ? `
-                <div class="egg-versions" role="group" aria-label="彩蛋视频版本">
-                    <span class="egg-versions-label">视频版本</span>
-                    <button class="egg-version-btn" type="button" data-egg-version="1" aria-pressed="${voidEggVersion === 1}">1</button>
-                    <button class="egg-version-btn" type="button" data-egg-version="2" aria-pressed="${voidEggVersion === 2}">2</button>
-                </div>` : '';
-            settingsList.innerHTML = rows + versions;
+            settingsList.innerHTML = rows;
         }
+        updateEggPanel();
     }
 
     // The only path to the camera/model. Turning this on creates the MediaPipe graph and
@@ -3627,23 +3862,45 @@
             setRailOpen(!railOpen);
         });
     }
+    if (startBtn) {
+        startBtn.addEventListener('click', () => setCameraEnabled(!cameraEnabled));
+    }
     if (settingsList) {
         settingsList.addEventListener('click', (event) => {
-            const versionBtn = event.target.closest('[data-egg-version]');
-            if (versionBtn) {
-                setVoidEggVersion(Number(versionBtn.dataset.eggVersion));
-                return;
-            }
             const row = event.target.closest('.set-row');
             if (!row) return;
             switch (row.dataset.action) {
-                case 'start': setCameraEnabled(!cameraEnabled); break;
                 case 'debug': toggleDebug(); break;
                 case 'voice': setVoiceEnabled(!voiceEnabled); break;
                 case 'voidlong': setVoidLongMode(!voidLongMode); break;
                 case 'sfx': setSfxEnabled(!sfxEnabled); break;
                 case 'egg': setVoidEggEnabled(!voidEggEnabled); break;
             }
+        });
+    }
+    if (eggPanel) {
+        eggPanel.addEventListener('click', (event) => {
+            const versionBtn = event.target.closest('[data-egg-version]');
+            if (versionBtn) setVoidEggVersion(Number(versionBtn.dataset.eggVersion));
+        });
+    }
+    if (eggInfoToggle) {
+        eggInfoToggle.addEventListener('click', () => {
+            eggInfoOpen = !eggInfoOpen;
+            updateEggPanel();
+        });
+    }
+    if (eggCustomInput) {
+        eggCustomInput.addEventListener('input', () => { eggCustomDraft = eggCustomInput.value; });
+        eggCustomInput.addEventListener('keydown', (event) => {
+            if (event.key !== 'Enter') return;
+            event.preventDefault();
+            saveVoidEggCustom(eggCustomInput.value);
+        });
+    }
+    if (eggCustomSave) {
+        eggCustomSave.addEventListener('click', () => {
+            saveVoidEggCustom(eggCustomInput ? eggCustomInput.value : '');
         });
     }
 

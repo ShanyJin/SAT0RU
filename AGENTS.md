@@ -29,14 +29,18 @@
   契印只在**双手扣合**时成立；無量空処始终**单手**，单手比出的食指+中指仍是领域，不会发动契印
   （`claspSuspect` 显式排除领域手型，嫌疑窗不会把单手领域续成契印）；
   双手扣合期间 MediaPipe 掉成单手时，残留的食指手不会误判成赫（近手上下文 + 600ms 嫌疑窗）
-- **首次进入**：五页弹窗（欢迎 + 蒼/赫/茈/無量空処 教程，图在 `assets/tutorial/`）；欢迎页写明原项目、
-  改版作者、隐私（本地推理、不上传摄像头画面）与素材来源声明；关掉弹窗后**还要在左侧栏打开「启动按钮」**
-  才会请求摄像头（默认不建 MediaPipe、不开摄像头）
+- **首次进入**：五页弹窗（欢迎 + 蒼/赫/茈/無量空処 教程，图在 `assets/tutorial/`）；欢迎页写明原作作者、
+  原项目、改版作者、隐私（本地推理、不上传摄像头画面）与素材来源/联系邮箱声明；关掉弹窗后
+  **还要点顶部栏「启动」按钮**才会请求摄像头（默认不建 MediaPipe、不开摄像头）
+- **顶栏**：左上菜单按钮旁是**「启动」按钮**（唯一的摄像头门禁；按 `cameraStatus` 显示
+  启动/启动中/等待追踪/追踪中/追踪异常/启动失败，窄屏隐藏标题、只留图标+短标签）
 - **左侧栏**：顶部分「模式与音频 / 指南 / 关于」三个小菜单（点击切换，H 切指南）；「模式与音频」里是
-  设置开关（**启动按钮** / 调试 D / 指南 H / 语音 V / 长时间无量空处 L / **释放音效 SFX** / **彩蛋**）与
+  设置开关（调试 D / 指南 H / 语音 V / 长时间无量空处 L / **释放音效 SFX** / **自定义无量空处 ★**）与
   「音频」区块：**9 个本地音频**各一行，点击播放/停止，同一时间只播一条；失败 / 校训两条只手动点击、不接任何手势
-- **無量空処 · 亂入影院**（彩蛋，默认关闭）：设置里选版本 1/2；短版定格动画播到「穿梭」、白环出现前
-  切断并全屏自动播放对应 B 站视频，Esc/关闭退出；这是唯一可能发起的外部请求，长版动画不触发
+- **自定义无量空处**（彩蛋，默认关闭）：设置里选版本 1/2/3；打开后下方有「说明 ▾」小箭头、
+  版本 3 的 B 站链接输入框（粘贴 `bilibili.com/video/BV...`，可带 `?p=`，存 localStorage）；
+  短版定格动画播到「穿梭」、白环出现前切断并全屏用 B 站官方 iframe 播放视频，Esc/关闭退出；
+  这是唯一可能发起的外部请求，长版动画不触发，版本 3 没有链接时也不切断
 
 单人拍摄/娱乐用，**不公开、不发布**。上游 reinesana/SAT0RU 无 LICENSE，本仓库只做本地提交。
 其余上游技法（伏魔御廚子/嵌合暗翳庭/…）与「?mode=all」已按主人要求全部删除，只保留上面这些。
@@ -53,14 +57,14 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   - 只监听 `127.0.0.1:8787`；主人通过 SSH 隧道访问
 - 浏览器只在 `localhost`/`https` 下给摄像头；无摄像头时 MediaPipe 会弹错（正常）
 - 手机访问也必须 HTTPS，且 `serve.py` 只绑 127.0.0.1：推荐 `tailscale serve --bg 8787`，手机开
-  `https://lain.tailc73ce5.ts.net`（tailnet 内；首次要下载 ~23MB 本地模型，等启动开关变成「追踪中」）
+  `https://lain.tailc73ce5.ts.net`（tailnet 内；首次要下载 ~23MB 本地模型，等顶部「启动」按钮变成「追踪中」）
 - 全部依赖在 `vendor/`，**零外网请求**；MIME 必须有 `.wasm→application/wasm`、`.data/.tflite→application/octet-stream`（`tools/serve.py` 已处理）
 
 ## 铁律
 
 1. **只本地提交，绝不 push**（origin 是上游仓库，推送即污染别人的项目）。
 2. **一切改动集中在 `index.html`**（单文件应用）；工具在 `tools/`；别拆散。
-3. **改识别/阈值后必须跑全量无摄像头回归（当前 202 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
+3. **改识别/阈值后必须跑全量无摄像头回归（当前 220 项）**（`docs/TESTING.md` 有完整命令），跑完再交付。
 4. **视觉验收用 Xvfb + 有头 Firefox**（无头 Firefox 建不出 WebGL）；临时验证文件不留在仓库。
 5. **镜头前工具**：改动要保证粒子运动可读、帧率优先（软件渲染下会掉到 1–3fps，只能定性判断）。
 6. 密钥/口令一律不入库。
@@ -120,17 +124,19 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
   时间轴 `holdMs/fadeInMs/formDelayMs/formMs/ringAtMs/ringFadeMs/blackHoldMs/blackFadeMs/ringOutDelayMs/ringOutMs`
   （`blackFadeAtMs/ringOutAtMs/endMs` 为 getter 派生的绝对时刻）
 - 环境尘埃（苍吸/赫斥）→ `DUST_COUNT` 种子 + `animate()` 的 dust 块
-- 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-section`
-- 顶栏 / 左侧栏 UI → `#menu-btn`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
-  （`#rail-panel-main/guide/about`）、`setRailTab()`、`toggleGuideTab()`、`railTab`、
-  `updateKeybindMenu()`（设置开关 启动/D/H/V/L/SFX/彩蛋）、`setRailOpen()`
+- 技法名/指南/关于 → `updateState()` 的 `nameEl`、`GUIDE_GOJO`、`#about-body`（原作作者/素材鸣谢/B 站视频链接/mailto 邮箱）
+- 顶栏 / 左侧栏 UI → `#menu-btn`、`#start-btn`、`#start-btn-label`、`updateStartButton()`、`#left-rail`、`#technique-name`、`#purple-hint`、`.rail-tab`/`.rail-panel`
+  （`#rail-panel-main/guide/about`）、`#egg-panel`、`#egg-info-toggle`、`#egg-custom-url`、`setRailTab()`、`toggleGuideTab()`、`railTab`、
+  `updateKeybindMenu()`（设置开关 D/H/V/L/SFX/自定义无量空处）、`updateEggPanel()`、`setRailOpen()`
 - 启动门禁/首次教程 → `cameraEnabled`、`cameraStarted`、`startCameraPipeline`、`stopCameraPipeline`、
-  `INTRO_PAGES`、`showIntroPage`、`finishIntro`、`initIntro`、`introDone`、`#intro-modal`、`#settings-list`
-- 無量空処彩蛋 → `voidEggEnabled`、`voidEggVersion`、`VOID_EGG_VIDEOS`、`buildVoidEggUrl`、`openVoidEgg`、
-  `closeVoidEgg`、`#void-egg`、`#void-egg-frame`、`maybeTriggerVoidCinematic` 里的 `ringAtMs` 切点
+  `updateStartButton`、`#start-btn`、`INTRO_PAGES`、`showIntroPage`、`finishIntro`、`initIntro`、`introDone`、`#intro-modal`、`#settings-list`
+- 自定义无量空处 → `voidEggEnabled`、`voidEggVersion`、`VOID_EGG_VIDEOS`、`voidEggCustom`、`eggCustomDraft`、
+  `parseBilibiliShareUrl`、`hasVoidEggVideo`、`saveVoidEggCustom`、`buildVoidEggUrl`、`openVoidEgg`、
+  `closeVoidEgg`、`updateEggPanel`、`#egg-panel`、`#egg-info`、`#egg-custom`、`#void-egg`、`#void-egg-frame`、
+  `sat0ru.voidEggCustom`（localStorage）、`maybeTriggerVoidCinematic` 里的 `ringAtMs` 切点
 - 参数怎么调、为什么是现在这个值 → `docs/ARCHITECTURE.md` §参数速查
 
 ## 交付习惯
 
-- 改完：重建回归 → 202/202 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
+- 改完：重建回归 → 220/220 PASS →（涉及视觉就）截图验 → 提交 → 汇报做了什么/没动什么/风险点。
 - 提交信息中文、`feat:/fix:` 前缀，末尾带 `Co-Authored-By` 行。

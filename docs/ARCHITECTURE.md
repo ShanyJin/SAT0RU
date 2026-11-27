@@ -412,7 +412,8 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 ## 11. 界面层
 
 - Win11 石墨 Acrylic（规范见 navi `skills/web-design.md`）：毛玻璃顶栏/侧栏、暖金 `#D8A657` 强调、噪点纹理。
-- 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏；正中央
+- 顶栏三段式（`grid-template-columns: 1fr auto 1fr`）：左上 `#menu-btn` 开合左侧栏 + `#start-btn`
+  摄像头启动按钮（见下方「启动门禁」）；正中央
   `#technique-name` 用 22px 纯白字显示当前技法**原版名**（`updateState` → `setTechniqueName()`）：
   術式順転「蒼」/ 術式反転「赫」/ 虚式「茈」/ 領域展開「無量空処」。`neutral` 时清空文字并加
   `.empty`（opacity 0），不再显示「通常状態」；蓄势中可带「· 構築中 / 射出 / 構え」后缀。
@@ -422,29 +423,36 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 - 左侧栏 `#left-rail` 是一整块亚克力面板（`collapsed` 类做 translateX/opacity 过渡），顶部是三枚
   **小菜单标签** `.rail-tab`（`data-tab = main | guide | about`），下面三个 `.rail-panel` 互斥显示
   （`[hidden]` + `display:none!important`）：
-  - `#rail-panel-main`（模式与音频）：`#settings-list` 的 Win11 开关行（**启动按钮** / D 调试 / H 手势指南 /
-    V 语音 / L 长时间无量空处 / **SFX 释放音效** / **彩蛋**，点击即切换；彩蛋打开后展开版本 1/2） +
-    **音频 · Audio**（`#audio-list`，见 §11.1）；
+  - `#rail-panel-main`（模式与音频）：`#settings-list` 的 Win11 开关行（D 调试 / H 手势指南 /
+    V 语音 / L 长时间无量空处 / **SFX 释放音效** / **★ 自定义无量空处**，点击即切换）；
+    打开「自定义无量空处」后下方 `#egg-panel` 展开版本 1/2/3、「说明」箭头与版本 3 的 B 站链接输入框；
+    再往下是 **音频 · Audio**（`#audio-list`，见 §11.1）；
   - `#rail-panel-guide`（指南）：`#gesture-guide` 渲染 `GUIDE_GOJO`；
-  - `#rail-panel-about`（关于）：`#about-body`（改版作者/网站/仓库、原项目、开源依赖、本地化说明）。
+  - `#rail-panel-about`（关于）：`#about-body`（原作作者 + 改版作者/网站/仓库、原项目、素材鸣谢与侵权联系邮箱、
+    两条彩蛋视频的 B 站链接、开源依赖、本地化说明）。
   `setRailTab(name)` 校验名字后设 `railTab`、切 `.active`/`aria-selected`、隐藏其它面板；栏收起时点击标签
   会先展开。H 键走 `toggleGuideTab()`（指南 ⇄ 主菜单）。音乐、按键表、纯净模式、技法轮换、
   独立开场页入口、黒閃均已按主人要求删除。
-- **启动门禁**：`cameraEnabled` 默认 `false`，`startCameraPipeline()` 只在开关打开时调用；关掉走
-  `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。「启动按钮」行按 `cameraStatus` 显示
-  「点击开始 / 启动中… / 等待追踪… / 追踪中 / 追踪无输出 / 追踪失败 / 启动失败」。
+- **启动门禁**：`cameraEnabled` 默认 `false`，`startCameraPipeline()` 只在顶部栏 `#start-btn` 按下时调用；
+  关掉走 `stopCameraPipeline()`（停 MediaPipe/摄像头、清追踪）。`updateStartButton()` 按 `cameraStatus`
+  更新标签与 `data-state`：「启动 / 启动中 / 等待追踪 / 追踪中 / 追踪异常 / 启动失败」，颜色从暖金到
+  绿（追踪中）再到红（异常）；按钮是 `#ui` 里少数 `pointer-events:auto` 的元素。窄屏只留图标+短标签，
+  `#ui h1` 隐藏。
 - **移动端追踪加固**：`<video playsinline muted autoplay>`（iOS Safari 不静音内联就不自动播放，
   视频停住 → MediaPipe 收不到帧）；`onFrame` 等 `videoWidth/Height` 就绪再发帧，逐帧 `try/catch`
   且**永不 reject**（MediaPipe `Camera` 的 rAF 循环一旦 reject 一次就永久停）；启动后显式 `play()`，
   `visibilitychange` 回前台恢复播放。`trackFrames/trackLastResultMs/trackLastError` 供启动行与
   D 面板显示；看门狗 `TRACK_STALL_MS 20s` 无结果就报「追踪无输出」。
 - **首次进入教程**：`INTRO_PAGES = welcome, blue, red, purple, void`；`showIntroPage()` 切页、
-  `finishIntro()` 关闭并令 `introDone=true`（渲染循环在 `introDone` 前直接 return）。欢迎页含原项目、
-  改版作者、隐私（本地推理、不上传）与素材来源声明；四页教程图在 `assets/tutorial/`（本地）。
-- **亂入影院彩蛋**：`voidEggEnabled`（默认关）+ `voidEggVersion`；短版 `VOID_CINEMA` 播到 `ringAtMs`
-  （白环出现前）时 `openVoidEgg()`，全屏 `#void-egg` iframe 自动播放所选 B 站视频（版本 1/2 URL 由
-  `buildVoidEggUrl()` 拼 bvid/cid）。Esc/关闭按钮退出并清空 iframe；长版动画不受影响。
-  这是页面唯一可能的外部请求，未开启时零外网。
+  `finishIntro()` 关闭并令 `introDone=true`（渲染循环在 `introDone` 前直接 return）。欢迎页含原作作者、
+  原项目、改版作者、隐私（本地推理、不上传）与素材来源/联系邮箱声明；四页教程图在 `assets/tutorial/`（本地）。
+- **自定义无量空处**：`voidEggEnabled`（默认关）+ `voidEggVersion`（1/2/3）；短版 `VOID_CINEMA` 播到
+  `ringAtMs`（白环出现前）且 `hasVoidEggVideo()` 为真时 `openVoidEgg()`，全屏 `#void-egg` iframe
+  自动播放所选 B 站视频。版本 1/2 的 URL 由 `buildVoidEggUrl()` 拼 bvid/cid；版本 3 用
+  `parseBilibiliShareUrl()` 解析用户粘贴的 `bilibili.com/video/BV...`（可选 `?p=` 集数，也接受 av 号），
+  `saveVoidEggCustom()` 存入 `localStorage['sat0ru.voidEggCustom']`，仍用 B 站官方 iframe 播放器。
+  `b23.tv` 短链需要联网解析，直接拒绝并提示先展开链接；版本 3 没有链接时不切断动画。
+  Esc/关闭按钮退出并清空 iframe；长版动画不受影响。这是页面唯一可能的外部请求，未开启时零外网。
 - `D` 面板显示 raw/smoothed 分数、`fps`、`camera`（状态 + frames + last + err）、`charge`、`blueStages`、
   `bluePulse`、`gestureLock`、`cooldown`、`claspSig`（`wrist/tip`）。
 - 语音（V）：Web Speech API，`"run away"` → 镜头拉远（`zoomUntilMs`，camera.z 55→120）。
@@ -565,9 +573,9 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
   剩下的近似是「其他成对手型恰好落在间距窗内」，可调 `CLASP_CAST.wristGapMax/tipGapMax/middleGapMin`。
 - **甩出释放有误判余量**：`flingMinSpeed 1.4` / `flingMinDisplacement 0.08` 是 2D 手速代理，
   逆光、快速转身或追踪抖动时可能提前放掉；收紧就调高速度/位移，放宽就调低（横向慢移仍只跟手）。
-- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **202 项断言**
+- `logic-test.html` 是生成物，不入库；改了 `index.html` 之后必须重新生成。回归共 **220 项断言**
   （含苍/赫/苍赫無量空処语音/茈/双手契印/漩涡/無量空処开场动画/长时间无量空处/三菜单/音频库 9 条/
-  释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫）。
+  释放音效/弯指不武装/握拳与甩出释放/掉手不误触赫/顶部启动按钮/自定义无量空处版本与链接解析/关于鸣谢）。
 
 ## 14. 关键函数索引（`index.html`）
 
@@ -597,9 +605,10 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 | `claspOrbLayout` / `claspCollisionPulse` / `claspBloomStrength` | 两球位置/半径/透明度（纯函数，回归直接断言）、碰撞脉冲、分阶段 bloom |
 | `claspVortexLayout` / `fillClaspCorePositions` / `fillClaspRingPositions` / `fillClaspShockPositions` | 紫色星系漩涡的纯布局契约与每帧填充 |
 | `claspHandsNear` / `voidSignShape` | 近手 + 拇指内扣的 clasp 上下文判定（掉手嫌疑窗）；领域手型守卫，防止单手领域发动契印 |
-| `startCameraPipeline` / `stopCameraPipeline` / `setCameraEnabled` | 启动门禁：只有开关打开才建 MediaPipe/摄像头 |
+| `startCameraPipeline` / `stopCameraPipeline` / `setCameraEnabled` / `updateStartButton` | 启动门禁：只有顶部栏按钮按下才建 MediaPipe/摄像头；标签/颜色反映追踪状态 |
 | `showIntroPage` / `finishIntro` / `initIntro` | 首次进入的五页教程弹窗与 `introDone` 闸门 |
-| `buildVoidEggUrl` / `openVoidEgg` / `closeVoidEgg` / `setVoidEggEnabled` | 亂入影院彩蛋：到点切 B 站 iframe、开关与清理 |
+| `buildVoidEggUrl` / `openVoidEgg` / `closeVoidEgg` / `setVoidEggEnabled` / `setVoidEggVersion` | 自定义无量空处：到点切 B 站 iframe、版本与清理 |
+| `parseBilibiliShareUrl` / `hasVoidEggVideo` / `saveVoidEggCustom` / `updateEggPanel` | 版本 3：解析粘贴链接（BV/av/集数）、判断是否有片可播、localStorage 持久化与面板渲染 |
 | `fillClaspOrbPositions` | 每帧重算左右两颗粒子球（2400 ×2） |
 | `animate` | 每帧主循环：fps、主粒子场、构筑球、**尘埃**、爆炸、震动、合成器 |
 | `getRed` 等 `get*` | 各技法的 20k 目标形状函数（现在只有 red/void/purple/blue 四个） |
