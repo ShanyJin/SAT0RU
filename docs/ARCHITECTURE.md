@@ -347,7 +347,7 @@ bloom：blue/red 1.4、purple 基础 1.05 + 碰撞脉冲最高 +1.85、burst 4.0
 - 复用原项目的 `getVoid(i)`：15% 点在半径 26 的白环上，其余 85% 在半径 30~120 的蓝色球壳里。
 - `updateState('void')`：顶部状态名 `領域展開「無量空処」`、`glowColor '#00ffff'`、`baseBloomStrength 2.0`、
   `shakeIntensity 0.4`；主粒子场以慢速 `rotation.y += 0.005` 旋转。
-- 没有额外的界面/按钮；旧的独立开场页（`DomainExpansion-infintevoid/`）已不接入 UI——
+- 没有额外的界面/按钮；旧的独立开场页（`docs/archive/domain-expansion-pr7/`）已不接入 UI——
   同一个动画现在被移植进了主场景，由「保持领域 3 秒」触发（见 §7.4）。
 
 ### 7.4 定格 3 秒 · 無量空処开场动画（cinematic）

@@ -84,7 +84,7 @@ python3 tools/serve.py . 8787        # 或 systemctl --user start sat0ru
 | `tools/make-logic-test.py` + `tools/logic-test-driver.js` | 无摄像头回归生成器/驱动（生成物 `logic-test.html` 不入库） |
 | `audio/` | 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈短语音 `purple-short.mp3`、双手契印 `purple-clasp.mp3`（契印发动 0.5 秒后自动播）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只在音频库手动点击）；零外网请求 |
 | `assets/tutorial/` | 首次进入教程的 4 张本地图：`blue/red/purple/void.jpg` |
-| `DomainExpansion-infintevoid/` | 独立「無量空処」开场页（旧 PR #7） |
+| `docs/archive/domain-expansion-pr7/` | 独立「無量空処」开场页（旧 PR #7，不接入 UI，留档） |
 | `docs/ARCHITECTURE.md` | 技术细节：管线、状态机、参数表 |
 | `docs/TESTING.md` | 回归 + 截图验收菜谱 |
 | `docs/CHANGELOG.md` | 改造史（含每轮为什么改） |

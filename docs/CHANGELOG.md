@@ -480,7 +480,7 @@
 - 上游所有 PR 改同一份单文件，merge 必冲突 → 按内容手工合并：
   - 底座 PR #6（分数制 + EMA 识别），吸收 PR #10 的指距/捏合抑制；
   - 技法 PR #2/#3/#9/#13 → 15 技法 + 语音（`"don't move"` → 誅伏賜死）；
-  - PR #7 独立「無量空処」开场页 → `DomainExpansion-infintevoid/`；
+  - PR #7 独立「無量空処」开场页 → `docs/archive/domain-expansion-pr7/`（原 `DomainExpansion-infintevoid/`）；
   - #1/#4/#5 是 README 修正类，未采用。
 - 手势冲突裁决：单拳→黒閃、双拳→魔虚羅、双 ILY→時胞月宮殿 等。
 

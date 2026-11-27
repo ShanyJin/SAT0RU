@@ -142,11 +142,11 @@ python3 tools/make-logic-test.py index.html logic-test.html tools/logic-test-dri
 - `AGENTS.md` — 工作区入口：铁律、目录、去哪改（新会话先读这个）
 - `docs/` — `ARCHITECTURE.md` 技术全貌 / `TESTING.md` 验收菜谱 / `CHANGELOG.md` 改造史
 - `tools/` — `serve.py`（静态服务器）、`make-logic-test.py` + `logic-test-driver.js`（无摄像头回归）
-- `DomainExpansion-infintevoid/` — PR #7 独立开场页（已不接入 UI，动画已移植进主场景，留档）
+- `docs/archive/domain-expansion-pr7/` — PR #7 独立开场页（已不接入 UI，动画已移植进主场景，留档）
 - `assets/tutorial/` — 启动弹窗四式教程图 `blue.jpg` / `red.jpg` / `purple.jpg` / `void.jpg`（本地、已压缩到长边 1100px）
 - `vendor/` — MediaPipe / three.js / 字体
 - `audio/` — 本地语音 9 条：苍 `blue.mp3`、赫 `he-1/2.mp3`、无量空处单人 `void.mp3`、长版 `void-long.mp3`、茈短语音 `purple-short.mp3`、双手契印 `purple-clasp.mp3`（发动后 0.5 秒自动播放）、失败 `fail.mp3`、校训 `creed.mp3`（后两条只手动点击）；本地播放；彩蛋未开启时零外网请求
-- `ost.mp3` — 原仓库音乐（音乐开关已按主人要求移除，文件留档）
+- `ost.mp3` — 原仓库音乐，已删除（音乐开关早已移除；需要时可在 git 历史找回）
 
 ## 已知限制
 
